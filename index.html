@@ -284,9 +284,9 @@
     <div id="hud">
         <div class="company-badge">
             <span class="badge-tag badge-ena" id="company-badge-tag">ENA COACH</span>
-            <span class="company-name" id="vehicle-display-name">Luxury Express Bus</span>
+            <span class="company-name" id="vehicle-display-name">Scania Master Apollo (8 Wheels)</span>
         </div>
-        <div class="route-sub" id="route-display-sub">Nairobi (River Road) ➔ Nakuru ➔ Kisii ➔ Kisumu</div>
+        <div class="route-sub" id="route-display-sub">Nairobi (River Road) ➔ Nakuru ➔ Kericho ➔ Kisii ➔ Kisumu</div>
         <div class="gauge-row">
             <span class="speed-val" id="speedometer">0</span>
             <span class="speed-unit">KM/H</span>
@@ -321,35 +321,35 @@
     <div id="garage-modal">
         <div class="garage-card">
             <div class="garage-header">
-                <h2>🇰🇪 Select Fleet Vehicle</h2>
-                <p>Choose your assignment under the ENA Group ecosystem</p>
+                <h2>🇰🇪 Select Real Kenyan Fleet Vehicle</h2>
+                <p>Authentic Scania Master Apollo 8-Wheeler & Isuzu FRR 6-Wheeler</p>
             </div>
             <div class="vehicles-grid">
                 <!-- Bus Option -->
                 <div class="vehicle-option selected" id="opt-bus" onclick="pickOption('bus')">
                     <div class="vehicle-icon">🚌</div>
-                    <div class="vehicle-title">ENA Coach</div>
-                    <div class="vehicle-sub">Luxury Long-Distance Passenger Coach</div>
-                    <div class="stat-line"><span>Top Speed (Highway)</span><span>95 km/h</span></div>
-                    <div class="stat-bar"><div class="stat-fill" style="width: 85%;"></div></div>
-                    <div class="stat-line"><span>Passenger Comfort Tolerance</span><span>Medium</span></div>
-                    <div class="stat-bar"><div class="stat-fill" style="width: 70%; background: #38bdf8;"></div></div>
+                    <div class="vehicle-title">Scania Master Apollo</div>
+                    <div class="vehicle-sub">8-Wheeler Multi-Axle Luxury VIP Coach</div>
+                    <div class="stat-line"><span>Axles & Wheels</span><span>4 Axles • 8 Wheels (Twin Steer)</span></div>
+                    <div class="stat-bar"><div class="stat-fill" style="width: 100%; background: #3b82f6;"></div></div>
+                    <div class="stat-line"><span>Body Builder & Chassis</span><span>Master Fabricators • Scania K-Series</span></div>
+                    <div class="stat-bar"><div class="stat-fill" style="width: 90%; background: #fbbf24;"></div></div>
                     <p style="font-size: 0.75rem; color: #94a3b8; margin-top: 10px;">
-                        Carry 49 VIP passengers smoothly from Nairobi to western Kenya. Avoid high-speed bumps!
+                        Kenya's legendary 8-wheel highway cruiser with twin front steering axles, Scania chrome grille, aerodynamic brow, and panoramic VIP windows.
                     </p>
                 </div>
 
                 <!-- Truck Option -->
                 <div class="vehicle-option" id="opt-truck" onclick="pickOption('truck')">
                     <div class="vehicle-icon">🚚</div>
-                    <div class="vehicle-title">EPH Logistics</div>
-                    <div class="vehicle-sub">ENA Parcel Handlers Courier Box Truck</div>
-                    <div class="stat-line"><span>Hauling Torque</span><span>Heavy Cargo</span></div>
-                    <div class="stat-bar"><div class="stat-fill" style="width: 90%; background: #f59e0b;"></div></div>
-                    <div class="stat-line"><span>Parcel Integrity Safety</span><span>Fragile Goods</span></div>
-                    <div class="stat-bar"><div class="stat-fill" style="width: 60%; background: #10b981;"></div></div>
+                    <div class="vehicle-title">Isuzu FRR Logistics</div>
+                    <div class="vehicle-sub">6-Wheeler Medium Rigid Box Truck</div>
+                    <div class="stat-line"><span>Axles & Wheels</span><span>2 Axles • 6 Wheels (Dual Rear)</span></div>
+                    <div class="stat-bar"><div class="stat-fill" style="width: 100%; background: #f59e0b;"></div></div>
+                    <div class="stat-line"><span>Kenyan Customization</span><span>Heavy Kikapu Bull-Bar • EPH Box</span></div>
+                    <div class="stat-bar"><div class="stat-fill" style="width: 85%; background: #10b981;"></div></div>
                     <p style="font-size: 0.75rem; color: #94a3b8; margin-top: 10px;">
-                        Express parcel delivery. Deliver crates of electronics and waybills intact without damaging cargo.
+                        The king of Kenyan freight transit. Features authentic Isuzu Forward cab, 6 wheels with dual-tire rear drive axle, snorkel air intake, and steel Kikapu.
                     </p>
                 </div>
             </div>
@@ -555,62 +555,194 @@
         }
 
         // --- Procedural Canvas Decal Textures ---
-        function createEnaBusTexture() {
+        function createScaniaMasterApolloTexture() {
             const c = document.createElement('canvas');
-            c.width = 512;
-            c.height = 128;
+            c.width = 1024;
+            c.height = 256;
             const ctx = c.getContext('2d');
-            ctx.fillStyle = '#ffffff';
-            ctx.fillRect(0, 0, 512, 128);
 
-            // ENA Coach bold swooshes
-            ctx.fillStyle = '#1d4ed8'; // Royal blue
+            // Glossy White Base
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, 1024, 256);
+
+            // ENA Coach Signature Royal Blue Dynamic Wave
+            ctx.fillStyle = '#1d4ed8';
             ctx.beginPath();
-            ctx.moveTo(0, 70);
-            ctx.lineTo(512, 40);
-            ctx.lineTo(512, 128);
-            ctx.lineTo(0, 128);
+            ctx.moveTo(0, 120);
+            ctx.bezierCurveTo(300, 130, 600, 60, 1024, 50);
+            ctx.lineTo(1024, 256);
+            ctx.lineTo(0, 256);
             ctx.fill();
 
-            ctx.fillStyle = '#f59e0b'; // Gold accent
-            ctx.fillRect(0, 60, 512, 10);
-
+            // Dark Blue Lower Accent Swoosh
             ctx.fillStyle = '#1e3a8a';
-            ctx.font = 'bold 36px sans-serif';
-            ctx.fillText('ENA COACH', 24, 50);
+            ctx.beginPath();
+            ctx.moveTo(0, 170);
+            ctx.bezierCurveTo(350, 180, 700, 110, 1024, 100);
+            ctx.lineTo(1024, 256);
+            ctx.lineTo(0, 256);
+            ctx.fill();
 
+            // Metallic Gold Pinstripes
+            ctx.strokeStyle = '#f59e0b';
+            ctx.lineWidth = 8;
+            ctx.beginPath();
+            ctx.moveTo(0, 115);
+            ctx.bezierCurveTo(300, 125, 600, 55, 1024, 45);
+            ctx.stroke();
+
+            ctx.strokeStyle = '#fbbf24';
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.moveTo(0, 165);
+            ctx.bezierCurveTo(350, 175, 700, 105, 1024, 95);
+            ctx.stroke();
+
+            // ENA COACH Branding
+            ctx.fillStyle = '#1e3a8a';
+            ctx.font = '900 68px "Arial Black", sans-serif';
+            ctx.fillText('ENA COACH', 50, 95);
+
+            // Master Apollo VIP Badge
+            ctx.fillStyle = '#f59e0b';
+            ctx.font = 'bold 24px sans-serif';
+            ctx.fillText('★ SCANIA MASTER APOLLO • 8-WHEELER VIP ★', 52, 130);
+
+            // Lower Skirt Typography
             ctx.fillStyle = '#ffffff';
-            ctx.font = 'bold 20px sans-serif';
-            ctx.fillText('VIP LUXURY EXPRESS', 160, 105);
+            ctx.font = 'bold 26px sans-serif';
+            ctx.fillText('FIRST CLASS HIGHWAY CRUISER', 380, 210);
+
+            ctx.fillStyle = '#93c5fd';
+            ctx.font = 'bold 18px sans-serif';
+            ctx.fillText('NAIROBI • NAKURU • KERICHO • KISII • KISUMU', 380, 238);
+
+            // Luggage bay door seams & handles
+            ctx.strokeStyle = '#cbd5e1';
+            ctx.lineWidth = 3;
+            for (let i = 0; i < 4; i++) {
+                const bx = 180 + i * 200;
+                ctx.strokeRect(bx, 170, 180, 80);
+                ctx.fillStyle = '#64748b';
+                ctx.fillRect(bx + 75, 180, 30, 8); // Chrome latch handle
+            }
 
             return new THREE.CanvasTexture(c);
         }
 
-        function createEphTruckTexture() {
+        function createIsuzuFrrTexture() {
             const c = document.createElement('canvas');
-            c.width = 512;
-            c.height = 256;
+            c.width = 1024;
+            c.height = 512;
             const ctx = c.getContext('2d');
-            ctx.fillStyle = '#0f172a'; // Deep Navy
-            ctx.fillRect(0, 0, 512, 256);
 
-            ctx.fillStyle = '#f59e0b'; // Yellow accent bar
-            ctx.fillRect(0, 20, 512, 16);
-            ctx.fillRect(0, 220, 512, 16);
+            // Deep Navy Container Box
+            ctx.fillStyle = '#0f172a';
+            ctx.fillRect(0, 0, 1024, 512);
 
+            // Corrugated vertical container panel ribs
+            for (let x = 0; x < 1024; x += 32) {
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.22)';
+                ctx.fillRect(x, 0, 16, 512);
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.05)';
+                ctx.fillRect(x + 16, 0, 16, 512);
+            }
+
+            // Industrial Yellow Bands
             ctx.fillStyle = '#f59e0b';
-            ctx.font = '900 72px sans-serif';
-            ctx.fillText('EPH', 32, 115);
+            ctx.fillRect(0, 30, 1024, 30);
+            ctx.fillRect(0, 450, 1024, 30);
 
+            // EPH Big Yellow Logo
+            ctx.fillStyle = '#fbbf24';
+            ctx.font = '900 130px "Arial Black", sans-serif';
+            ctx.fillText('EPH', 50, 200);
+
+            // ENA PARCEL HANDLERS White Text
             ctx.fillStyle = '#ffffff';
+            ctx.font = 'bold 44px sans-serif';
+            ctx.fillText('ENA PARCEL HANDLERS', 55, 260);
+
+            // Tagline & Specs
+            ctx.fillStyle = '#f59e0b';
             ctx.font = 'bold 26px sans-serif';
-            ctx.fillText('ENA PARCEL HANDLERS', 32, 155);
+            ctx.fillText('ISUZU FRR 90 • EXPRESS COURIER & LOGISTICS', 55, 305);
 
             ctx.fillStyle = '#94a3b8';
-            ctx.font = '18px sans-serif';
-            ctx.fillText('EXPRESS COURIER & CARGO SERVICE', 32, 188);
+            ctx.font = '20px sans-serif';
+            ctx.fillText('CARGO WAYBILL • NAIROBI CENTRAL HUB ➔ WESTERN REGIONAL DEPOT', 55, 345);
+
+            // Contact & Safety Info
+            ctx.fillStyle = '#38bdf8';
+            ctx.font = 'bold 22px sans-serif';
+            ctx.fillText('HOTLINE: 0709 833 000 | 6-WHEELER HEAVY FREIGHT', 55, 410);
+
+            // Reflective Checker safety tape on bottom
+            const tapeColors = ['#f59e0b', '#dc2626'];
+            for (let x = 0; x < 1024; x += 40) {
+                ctx.fillStyle = tapeColors[(x / 40) % 2];
+                ctx.fillRect(x, 480, 40, 32);
+            }
 
             return new THREE.CanvasTexture(c);
+        }
+
+        // Dedicated 3D Wheel Builder
+        function createWheelUnit(radius, width, rimType) {
+            const rotator = new THREE.Group();
+            rotator.rotation.z = Math.PI / 2;
+
+            // Rubber Tire
+            const tireGeo = new THREE.CylinderGeometry(radius, radius, width, 24);
+            const tireMat = new THREE.MeshStandardMaterial({
+                color: 0x18181b,
+                roughness: 0.92,
+                metalness: 0.1
+            });
+            const tireMesh = new THREE.Mesh(tireGeo, tireMat);
+            tireMesh.castShadow = true;
+            rotator.add(tireMesh);
+
+            // Deep Rim
+            const rimRadius = radius * 0.62;
+            const rimWidth = width + 0.02;
+            const rimGeo = new THREE.CylinderGeometry(rimRadius, rimRadius, rimWidth, 20);
+
+            let rimMat, hubMat;
+            if (rimType === 'alcoa') {
+                // Scania Master Apollo: Polished chrome/alloy Alcoa bus rim
+                rimMat = new THREE.MeshStandardMaterial({ color: 0xcccccc, metalness: 0.88, roughness: 0.18 });
+                hubMat = new THREE.MeshStandardMaterial({ color: 0x1d4ed8, metalness: 0.7, roughness: 0.3 }); // Scania blue hub
+            } else {
+                // Isuzu FRR: Heavy-duty 6-lug steel truck rim
+                rimMat = new THREE.MeshStandardMaterial({ color: 0x334155, metalness: 0.6, roughness: 0.45 });
+                hubMat = new THREE.MeshStandardMaterial({ color: 0x09090b, metalness: 0.8, roughness: 0.3 }); // Black heavy axle hub
+            }
+
+            const rimMesh = new THREE.Mesh(rimGeo, rimMat);
+            rotator.add(rimMesh);
+
+            // Axle Hub Cap
+            const hubGeo = new THREE.CylinderGeometry(rimRadius * 0.42, rimRadius * 0.42, rimWidth + 0.05, 14);
+            const hubMesh = new THREE.Mesh(hubGeo, hubMat);
+            rotator.add(hubMesh);
+
+            // Chrome Lug Nuts Ring
+            const nutGeo = new THREE.BoxGeometry(0.04, 0.04, 0.04);
+            const nutMat = new THREE.MeshStandardMaterial({ color: 0xffffff, metalness: 0.9, roughness: 0.1 });
+            const nutCount = rimType === 'alcoa' ? 10 : 6;
+            for (let i = 0; i < nutCount; i++) {
+                const angle = (i / nutCount) * Math.PI * 2;
+                const nut = new THREE.Mesh(nutGeo, nutMat);
+                nut.position.set(
+                    Math.cos(angle) * (rimRadius * 0.68),
+                    (rimWidth / 2) + 0.02,
+                    Math.sin(angle) * (rimRadius * 0.68)
+                );
+                rotator.add(nut);
+            }
+
+            return { rotator, tireMesh };
         }
 
         // --- Vehicle Builders ---
@@ -624,171 +756,526 @@
 
         let activeWheels = [];
 
-        function buildEnaCoachBus() {
+        // ==========================================
+        // 🚌 SCANIA MASTER APOLLO (8 WHEELS / 4 AXLES)
+        // ==========================================
+        function buildScaniaMasterApollo() {
             const bus = new THREE.Group();
             activeWheels = [];
 
-            // Bus Main Body
-            const bodyMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.25 });
-            const bodyGeo = new THREE.BoxGeometry(2.7, 3.2, 12.8);
+            // 1. Main Aerodynamic Coach Body
+            const bodyMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.25 });
+            const bodyGeo = new THREE.BoxGeometry(2.7, 3.25, 14.2);
             const body = new THREE.Mesh(bodyGeo, bodyMat);
-            body.position.set(0, 2.2, 0);
+            body.position.set(0, 2.3, 0);
             body.castShadow = true;
             bus.add(body);
 
-            // ENA Coach Decal Banners on both sides
-            const decalTexture = createEnaBusTexture();
+            // 2. ENA Coach High-Res Decal Banners on both sides
+            const decalTexture = createScaniaMasterApolloTexture();
             const decalMat = new THREE.MeshBasicMaterial({ map: decalTexture });
-            const decalGeo = new THREE.PlaneGeometry(9.6, 2.2);
+            const decalGeo = new THREE.PlaneGeometry(12.6, 2.4);
 
             const leftDecal = new THREE.Mesh(decalGeo, decalMat);
-            leftDecal.position.set(-1.36, 1.8, -0.4);
+            leftDecal.position.set(-1.36, 1.9, -0.4);
             leftDecal.rotation.y = -Math.PI / 2;
             bus.add(leftDecal);
 
             const rightDecal = new THREE.Mesh(decalGeo, decalMat);
-            rightDecal.position.set(1.36, 1.8, -0.4);
+            rightDecal.position.set(1.36, 1.9, -0.4);
             rightDecal.rotation.y = Math.PI / 2;
             bus.add(rightDecal);
 
-            // Panoramic Windshield
-            const glassMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.1 });
-            const windshield = new THREE.Mesh(new THREE.BoxGeometry(2.55, 1.8, 0.2), glassMat);
-            windshield.position.set(0, 2.6, 6.41);
-            windshield.rotation.x = -0.15;
-            bus.add(windshield);
+            // 3. Master Apollo Signature Panoramic Split Windshield
+            const glassMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.08, metalness: 0.2 });
+            const lowerWindshield = new THREE.Mesh(new THREE.BoxGeometry(2.58, 1.25, 0.2), glassMat);
+            lowerWindshield.position.set(0, 2.15, 7.12);
+            lowerWindshield.rotation.x = -0.15;
+            bus.add(lowerWindshield);
 
-            // Destination Marquee LED Screen above windshield
-            const marqueeMat = new THREE.MeshBasicMaterial({ color: 0xf59e0b });
-            const marquee = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.35, 0.15), marqueeMat);
-            marquee.position.set(0, 3.65, 6.32);
-            bus.add(marquee);
+            const upperWindshield = new THREE.Mesh(new THREE.BoxGeometry(2.58, 1.15, 0.2), glassMat);
+            upperWindshield.position.set(0, 3.15, 6.96);
+            upperWindshield.rotation.x = -0.18;
+            bus.add(upperWindshield);
 
-            // Tinted Passenger Windows Strip
-            const windowStrip = new THREE.Mesh(new THREE.BoxGeometry(2.75, 1.1, 10.5), glassMat);
-            windowStrip.position.set(0, 2.65, -0.6);
-            bus.add(windowStrip);
-
-            // Roof AC Unit
-            const acUnit = new THREE.Mesh(
-                new THREE.BoxGeometry(1.8, 0.45, 4.2),
-                new THREE.MeshStandardMaterial({ color: 0xe2e8f0, roughness: 0.5 })
+            // Windshield Divider Bar & Wiper Arms
+            const dividerBar = new THREE.Mesh(
+                new THREE.BoxGeometry(2.62, 0.12, 0.22),
+                new THREE.MeshStandardMaterial({ color: 0x111111 })
             );
-            acUnit.position.set(0, 3.9, -0.5);
-            bus.add(acUnit);
+            dividerBar.position.set(0, 2.65, 7.05);
+            dividerBar.rotation.x = -0.16;
+            bus.add(dividerBar);
 
-            // Headlights & Tail lights
-            const hlMat = new THREE.MeshBasicMaterial({ color: 0xfef08a });
-            [-1.0, 1.0].forEach(x => {
-                const hl = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.25, 0.1), hlMat);
-                hl.position.set(x, 1.1, 6.42);
-                bus.add(hl);
+            // 4. Aerodynamic Sunvisor Brow with 5 Amber Clearance LEDs
+            const visorMat = new THREE.MeshStandardMaterial({ color: 0x1e3a8a, roughness: 0.3 });
+            const visor = new THREE.Mesh(new THREE.BoxGeometry(2.62, 0.28, 0.45), visorMat);
+            visor.position.set(0, 3.82, 6.95);
+            visor.rotation.x = -0.12;
+            bus.add(visor);
+
+            const markerLedMat = new THREE.MeshBasicMaterial({ color: 0xf59e0b });
+            [-0.9, -0.45, 0, 0.45, 0.9].forEach(x => {
+                const led = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.06, 0.08), markerLedMat);
+                led.position.set(x, 3.84, 7.19);
+                bus.add(led);
             });
 
-            // Bus Wheels (Front axle + Dual Rear axles)
-            const wheelGeo = new THREE.CylinderGeometry(0.65, 0.65, 0.5, 20);
-            const wheelMat = new THREE.MeshStandardMaterial({ color: 0x18181b, roughness: 0.9 });
+            // 5. Destination Marquee LED Screen
+            const marqueeMat = new THREE.MeshBasicMaterial({ color: 0xfbbf24 });
+            const marquee = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.32, 0.15), marqueeMat);
+            marquee.position.set(0, 3.52, 6.98);
+            bus.add(marquee);
 
-            const wheelDefs = [
-                { x: -1.35, y: 0.65, z: 4.4, isFront: true },
-                { x:  1.35, y: 0.65, z: 4.4, isFront: true },
-                { x: -1.35, y: 0.65, z: -3.2, isFront: false },
-                { x:  1.35, y: 0.65, z: -3.2, isFront: false },
-                { x: -1.35, y: 0.65, z: -4.8, isFront: false },
-                { x:  1.35, y: 0.65, z: -4.8, isFront: false }
+            // 6. Front Grille & Scania Griffin Medallion
+            const grilleMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.5 });
+            const grille = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.75, 0.2), grilleMat);
+            grille.position.set(0, 1.25, 7.15);
+            bus.add(grille);
+
+            // Triple Chrome Grille Slats
+            const chromeSlatMat = new THREE.MeshStandardMaterial({ color: 0xe2e8f0, metalness: 0.9, roughness: 0.1 });
+            [-0.18, 0, 0.18].forEach(y => {
+                const slat = new THREE.Mesh(new THREE.BoxGeometry(1.65, 0.05, 0.22), chromeSlatMat);
+                slat.position.set(0, 1.25 + y, 7.17);
+                bus.add(slat);
+            });
+
+            // Scania Emblem Medallion
+            const scaniaBadge = new THREE.Mesh(
+                new THREE.CylinderGeometry(0.16, 0.16, 0.06, 16),
+                new THREE.MeshStandardMaterial({ color: 0x1d4ed8, metalness: 0.8, roughness: 0.2 })
+            );
+            scaniaBadge.rotation.x = Math.PI / 2;
+            scaniaBadge.position.set(0, 1.45, 7.28);
+            bus.add(scaniaBadge);
+
+            // 7. Master Apollo Swept Headlamp Clusters
+            const headlightMat = new THREE.MeshBasicMaterial({ color: 0xfef08a });
+            const indicatorMat = new THREE.MeshBasicMaterial({ color: 0xf97316 });
+            [-1.05, 1.05].forEach(x => {
+                // Dual projector lamps
+                const hl1 = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.22, 0.15), headlightMat);
+                hl1.position.set(x, 1.15, 7.18);
+                bus.add(hl1);
+
+                // Sweeping LED Indicator Strip
+                const ind = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.06, 0.16), indicatorMat);
+                ind.position.set(x, 0.98, 7.19);
+                bus.add(ind);
+
+                // Lower Fog Light
+                const fog = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.12, 0.12), headlightMat);
+                fog.position.set(x * 0.85, 0.75, 7.16);
+                bus.add(fog);
+            });
+
+            // 8. Aerodynamic "Elephant-Ear" Side Mirrors
+            const mirrorStemMat = new THREE.MeshStandardMaterial({ color: 0x09090b, roughness: 0.4 });
+            const mirrorGlassMat = new THREE.MeshStandardMaterial({ color: 0x94a3b8, metalness: 0.95, roughness: 0.05 });
+            [-1.5, 1.5].forEach(x => {
+                const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 1.1), mirrorStemMat);
+                stem.position.set(x, 2.8, 6.6);
+                stem.rotation.z = x > 0 ? -0.35 : 0.35;
+                stem.rotation.x = 0.2;
+                bus.add(stem);
+
+                const head = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.65, 0.22), mirrorStemMat);
+                head.position.set(x * 1.08, 2.75, 6.75);
+                bus.add(head);
+
+                const glass = new THREE.Mesh(new THREE.PlaneGeometry(0.14, 0.58), mirrorGlassMat);
+                glass.position.set(x * 1.08, 2.75, 6.63);
+                glass.rotation.y = Math.PI;
+                bus.add(glass);
+            });
+
+            // 9. Tinted Passenger Windows with Apollo Signature Slash
+            const windowStrip = new THREE.Mesh(new THREE.BoxGeometry(2.74, 1.2, 11.5), glassMat);
+            windowStrip.position.set(0, 2.8, -0.6);
+            bus.add(windowStrip);
+
+            // Apollo Slash Pillars
+            const slashMat = new THREE.MeshStandardMaterial({ color: 0xf59e0b, roughness: 0.3 });
+            [-1.38, 1.38].forEach(x => {
+                const slash = new THREE.Mesh(new THREE.BoxGeometry(0.05, 1.3, 0.4), slashMat);
+                slash.position.set(x, 2.8, 4.4);
+                slash.rotation.z = x > 0 ? 0.2 : -0.2;
+                bus.add(slash);
+            });
+
+            // 10. Roof AC Pod & Dual Emergency Hatches
+            const acUnit = new THREE.Mesh(
+                new THREE.BoxGeometry(1.9, 0.45, 4.4),
+                new THREE.MeshStandardMaterial({ color: 0xe2e8f0, roughness: 0.4 })
+            );
+            acUnit.position.set(0, 4.12, -0.5);
+            bus.add(acUnit);
+
+            [-3.8, 2.8].forEach(z => {
+                const hatch = new THREE.Mesh(
+                    new THREE.BoxGeometry(1.2, 0.08, 1.1),
+                    new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.3 })
+                );
+                hatch.position.set(0, 3.96, z);
+                bus.add(hatch);
+            });
+
+            // Twin Chrome Roof Air Horn Trumpets
+            [-0.35, -0.55].forEach(x => {
+                const horn = new THREE.Mesh(
+                    new THREE.CylinderGeometry(0.08, 0.03, 1.1),
+                    new THREE.MeshStandardMaterial({ color: 0xffffff, metalness: 0.95, roughness: 0.1 })
+                );
+                horn.rotation.x = Math.PI / 2;
+                horn.position.set(x, 4.02, 6.1);
+                bus.add(horn);
+            });
+
+            // 11. Rear Fascia: Roof Spoiler, Vertical LEDs, Engine Louvers & Dual Exhaust
+            const spoiler = new THREE.Mesh(
+                new THREE.BoxGeometry(2.7, 0.35, 0.8),
+                new THREE.MeshStandardMaterial({ color: 0x1d4ed8 })
+            );
+            spoiler.position.set(0, 3.95, -7.1);
+            bus.add(spoiler);
+
+            // Vertical LED Tail Lights (Red Brake + Amber Blinkers)
+            const tailRed = new THREE.MeshBasicMaterial({ color: 0xdc2626 });
+            [-1.15, 1.15].forEach(x => {
+                const tl = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.85, 0.1), tailRed);
+                tl.position.set(x, 1.5, -7.12);
+                bus.add(tl);
+            });
+
+            // Scania Engine Grille on Rear
+            const rearGrille = new THREE.Mesh(
+                new THREE.BoxGeometry(1.9, 0.9, 0.1),
+                new THREE.MeshStandardMaterial({ color: 0x09090b, roughness: 0.7 })
+            );
+            rearGrille.position.set(0, 1.2, -7.12);
+            bus.add(rearGrille);
+
+            // Dual Chrome Exhaust Pipes
+            [-0.7, 0.7].forEach(x => {
+                const ex = new THREE.Mesh(
+                    new THREE.CylinderGeometry(0.08, 0.08, 0.4),
+                    new THREE.MeshStandardMaterial({ color: 0xcccccc, metalness: 0.9, roughness: 0.2 })
+                );
+                ex.rotation.x = Math.PI / 2;
+                ex.position.set(x, 0.42, -7.2);
+                bus.add(ex);
+            });
+
+            // ==========================================
+            // 8 REAL WHEELS / 4 AXLES (TWIN STEER SETUP)
+            // ==========================================
+            // Axle 1: Front Steer 1 (z = 5.2)  -> Steer Ratio: 1.00
+            // Axle 2: Front Steer 2 (z = 3.6)  -> Steer Ratio: 0.72 (Ackermann geometry)
+            // Axle 3: Rear Drive Axle (z = -3.3) -> Steer Ratio: 0.00
+            // Axle 4: Rear Tag Axle (z = -4.8)   -> Steer Ratio: 0.00
+            const busWheelDefs = [
+                // Axle 1 (Front Steer 1)
+                { x: -1.36, y: 0.65, z: 5.2, steerRatio: 1.0 },
+                { x:  1.36, y: 0.65, z: 5.2, steerRatio: 1.0 },
+                // Axle 2 (Front Steer 2)
+                { x: -1.36, y: 0.65, z: 3.6, steerRatio: 0.72 },
+                { x:  1.36, y: 0.65, z: 3.6, steerRatio: 0.72 },
+                // Axle 3 (Rear Drive)
+                { x: -1.36, y: 0.65, z: -3.3, steerRatio: 0.0 },
+                { x:  1.36, y: 0.65, z: -3.3, steerRatio: 0.0 },
+                // Axle 4 (Rear Tag)
+                { x: -1.36, y: 0.65, z: -4.8, steerRatio: 0.0 },
+                { x:  1.36, y: 0.65, z: -4.8, steerRatio: 0.0 }
             ];
 
-            wheelDefs.forEach(def => {
+            busWheelDefs.forEach(def => {
                 const anchor = new THREE.Group();
                 anchor.position.set(def.x, def.y, def.z);
-                const mesh = new THREE.Mesh(wheelGeo, wheelMat);
-                mesh.rotation.z = Math.PI / 2;
-                mesh.castShadow = true;
-                anchor.add(mesh);
+
+                const { rotator, tireMesh } = createWheelUnit(0.65, 0.42, 'alcoa');
+                anchor.add(rotator);
                 bus.add(anchor);
-                activeWheels.push({ anchor, mesh, isFront: def.isFront });
+
+                activeWheels.push({
+                    anchor,
+                    meshes: [rotator],
+                    steerRatio: def.steerRatio,
+                    radius: 0.65
+                });
             });
 
             return bus;
         }
 
-        function buildEphParcelTruck() {
+        // ==========================================
+        // 🚚 ISUZU FRR LOGISTICS (6 WHEELS / DUAL REAR)
+        // ==========================================
+        function buildIsuzuFrrTruck() {
             const truck = new THREE.Group();
             activeWheels = [];
 
-            // Truck Cabin
-            const cabMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.3 }); // EPH Navy
-            const cab = new THREE.Mesh(new THREE.BoxGeometry(2.6, 2.5, 2.5), cabMat);
-            cab.position.set(0, 2.1, 2.6);
+            // 1. Heavy Black Steel Ladder Chassis Rails
+            const chassisMat = new THREE.MeshStandardMaterial({ color: 0x111827, metalness: 0.6, roughness: 0.5 });
+            const chassisRail1 = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.35, 9.2), chassisMat);
+            chassisRail1.position.set(-0.65, 0.95, 0);
+            truck.add(chassisRail1);
+
+            const chassisRail2 = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.35, 9.2), chassisMat);
+            chassisRail2.position.set(0.65, 0.95, 0);
+            truck.add(chassisRail2);
+
+            // 2. Authentic Isuzu FRR Forward Cab
+            const cabMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.28 }); // Deep Navy Cab
+            const cab = new THREE.Mesh(new THREE.BoxGeometry(2.45, 2.3, 2.3), cabMat);
+            cab.position.set(0, 2.15, 2.75);
             cab.castShadow = true;
             truck.add(cab);
 
-            // Windshield
-            const glassMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.1 });
-            const ws = new THREE.Mesh(new THREE.BoxGeometry(2.3, 1.1, 0.1), glassMat);
-            ws.position.set(0, 2.5, 3.86);
-            truck.add(ws);
+            // Isuzu Windshield (Forward-control angle)
+            const glassMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.1, metalness: 0.3 });
+            const windshield = new THREE.Mesh(new THREE.BoxGeometry(2.25, 1.15, 0.15), glassMat);
+            windshield.position.set(0, 2.6, 3.9);
+            windshield.rotation.x = -0.12;
+            truck.add(windshield);
 
-            // Bull Bar (Kikapu)
-            const bullBar = new THREE.Mesh(
-                new THREE.BoxGeometry(2.5, 1.1, 0.35),
-                new THREE.MeshStandardMaterial({ color: 0x111, metalness: 0.8, roughness: 0.3 })
+            // Isuzu Cutaway Side Windows
+            [-1.23, 1.23].forEach(x => {
+                const sideWin = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.9, 1.2), glassMat);
+                sideWin.position.set(x, 2.5, 2.9);
+                truck.add(sideWin);
+            });
+
+            // 3. Aerodynamic Cab Roof Wind Deflector (Guides air over high parcel box)
+            const deflectorGeo = new THREE.BoxGeometry(2.35, 0.65, 1.6);
+            const deflectorMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.3 });
+            const deflector = new THREE.Mesh(deflectorGeo, deflectorMat);
+            deflector.position.set(0, 3.48, 2.5);
+            deflector.rotation.x = 0.28;
+            truck.add(deflector);
+
+            // 4. Isuzu Hexagonal Front Grille & Chrome "ISUZU" Badge
+            const grilleMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.4 });
+            const grille = new THREE.Mesh(new THREE.BoxGeometry(1.85, 0.68, 0.15), grilleMat);
+            grille.position.set(0, 1.45, 3.92);
+            truck.add(grille);
+
+            // Chrome Bar
+            const chromeBar = new THREE.Mesh(
+                new THREE.BoxGeometry(1.7, 0.08, 0.18),
+                new THREE.MeshStandardMaterial({ color: 0xe2e8f0, metalness: 0.9, roughness: 0.1 })
             );
-            bullBar.position.set(0, 1.3, 3.95);
-            truck.add(bullBar);
+            chromeBar.position.set(0, 1.45, 3.94);
+            truck.add(chromeBar);
 
-            // EPH Parcel Cargo Box Body
-            const boxGeo = new THREE.BoxGeometry(2.8, 3.0, 7.2);
-            const boxMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.5 });
+            // "ISUZU" Chrome Lettering Header
+            const isuzuBadge = new THREE.Mesh(
+                new THREE.BoxGeometry(0.9, 0.18, 0.08),
+                new THREE.MeshStandardMaterial({ color: 0xffffff, metalness: 0.9, roughness: 0.1 })
+            );
+            isuzuBadge.position.set(0, 1.88, 3.92);
+            truck.add(isuzuBadge);
+
+            // 5. Vertical Stacked Crystal Headlights & Fog Lights
+            const headlightMat = new THREE.MeshBasicMaterial({ color: 0xfef08a });
+            const turnMat = new THREE.MeshBasicMaterial({ color: 0xf97316 });
+            [-0.95, 0.95].forEach(x => {
+                const hl = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.36, 0.15), headlightMat);
+                hl.position.set(x, 1.45, 3.93);
+                truck.add(hl);
+
+                const ind = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.14, 0.16), turnMat);
+                ind.position.set(x, 1.2, 3.94);
+                truck.add(ind);
+            });
+
+            // 6. Heavy-Duty Kenyan Front Bull-Bar (*Kikapu*)
+            const bullBarMat = new THREE.MeshStandardMaterial({ color: 0x09090b, metalness: 0.85, roughness: 0.25 });
+            const bullBarGroup = new THREE.Group();
+
+            // Main Lower Bumper Guard
+            const lowerBar = new THREE.Mesh(new THREE.BoxGeometry(2.55, 0.22, 0.35), bullBarMat);
+            lowerBar.position.set(0, 0.95, 4.12);
+            bullBarGroup.add(lowerBar);
+
+            // Center Protective Loop
+            const centerLoop = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.75, 0.18), bullBarMat);
+            centerLoop.position.set(0, 1.45, 4.16);
+            bullBarGroup.add(centerLoop);
+
+            // Kikapu Headlight Brush Guards
+            [-1.0, 1.0].forEach(x => {
+                const guard = new THREE.Mesh(new THREE.BoxGeometry(0.48, 0.55, 0.16), bullBarMat);
+                guard.position.set(x, 1.42, 4.14);
+                bullBarGroup.add(guard);
+            });
+
+            // Front Heavy Tow Hook
+            const towHook = new THREE.Mesh(
+                new THREE.CylinderGeometry(0.06, 0.06, 0.2),
+                new THREE.MeshStandardMaterial({ color: 0xf59e0b })
+            );
+            towHook.position.set(0.6, 0.75, 4.22);
+            bullBarGroup.add(towHook);
+
+            truck.add(bullBarGroup);
+
+            // 7. Vertical Air Intake Snorkel Pipe (Behind Cab)
+            const snorkelMat = new THREE.MeshStandardMaterial({ color: 0x18181b, roughness: 0.6 });
+            const snorkelPipe = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 2.5), snorkelMat);
+            snorkelPipe.position.set(-1.18, 2.65, 1.5);
+            truck.add(snorkelPipe);
+
+            const snorkelCap = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.2, 0.28), snorkelMat);
+            snorkelCap.position.set(-1.18, 3.9, 1.5);
+            truck.add(snorkelCap);
+
+            // 8. Dual Heavy Truck Mirrors
+            [-1.4, 1.4].forEach(x => {
+                const mirrorStem = new THREE.Mesh(
+                    new THREE.CylinderGeometry(0.035, 0.035, 0.9),
+                    new THREE.MeshStandardMaterial({ color: 0x09090b })
+                );
+                mirrorStem.position.set(x, 2.6, 3.4);
+                mirrorStem.rotation.z = x > 0 ? -0.25 : 0.25;
+                truck.add(mirrorStem);
+
+                const mirrorHead = new THREE.Mesh(
+                    new THREE.BoxGeometry(0.16, 0.65, 0.22),
+                    new THREE.MeshStandardMaterial({ color: 0x18181b })
+                );
+                mirrorHead.position.set(x * 1.06, 2.55, 3.52);
+                truck.add(mirrorHead);
+            });
+
+            // 9. EPH Logistics Parcel Container Cargo Box
+            const boxGeo = new THREE.BoxGeometry(2.6, 2.9, 6.8);
+            const boxMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.45 });
             const cargoBox = new THREE.Mesh(boxGeo, boxMat);
-            cargoBox.position.set(0, 2.45, -2.2);
+            cargoBox.position.set(0, 2.55, -2.1);
             cargoBox.castShadow = true;
             truck.add(cargoBox);
 
-            // EPH Decal on Cargo Box sides
-            const ephDecalTexture = createEphTruckTexture();
+            // High-Res EPH Parcel Decals on Box Sides
+            const ephDecalTexture = createIsuzuFrrTexture();
             const ephDecalMat = new THREE.MeshBasicMaterial({ map: ephDecalTexture });
-            const ephDecalGeo = new THREE.PlaneGeometry(6.2, 2.4);
+            const ephDecalGeo = new THREE.PlaneGeometry(6.6, 2.7);
 
             const leftDecal = new THREE.Mesh(ephDecalGeo, ephDecalMat);
-            leftDecal.position.set(-1.41, 2.5, -2.2);
+            leftDecal.position.set(-1.31, 2.55, -2.1);
             leftDecal.rotation.y = -Math.PI / 2;
             truck.add(leftDecal);
 
             const rightDecal = new THREE.Mesh(ephDecalGeo, ephDecalMat);
-            rightDecal.position.set(1.41, 2.5, -2.2);
+            rightDecal.position.set(1.31, 2.55, -2.1);
             rightDecal.rotation.y = Math.PI / 2;
             truck.add(rightDecal);
 
-            // Chassis
-            const chassis = new THREE.Mesh(
-                new THREE.BoxGeometry(2.1, 0.45, 9.5),
-                new THREE.MeshStandardMaterial({ color: 0x09090b })
-            );
-            chassis.position.set(0, 0.9, 0);
-            truck.add(chassis);
+            // Rear Double Cargo Swing-Doors with Cam Locking Rods
+            const doorRodMat = new THREE.MeshStandardMaterial({ color: 0xcccccc, metalness: 0.9, roughness: 0.1 });
+            [-0.35, 0.35].forEach(x => {
+                const rod = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 2.6), doorRodMat);
+                rod.position.set(x, 2.55, -5.52);
+                truck.add(rod);
 
-            // Truck Wheels
-            const wheelGeo = new THREE.CylinderGeometry(0.65, 0.65, 0.5, 20);
-            const wheelMat = new THREE.MeshStandardMaterial({ color: 0x18181b, roughness: 0.9 });
-            const wheelDefs = [
-                { x: -1.35, y: 0.65, z: 2.8, isFront: true },
-                { x:  1.35, y: 0.65, z: 2.8, isFront: true },
-                { x: -1.35, y: 0.65, z: -2.4, isFront: false },
-                { x:  1.35, y: 0.65, z: -2.4, isFront: false },
-                { x: -1.35, y: 0.65, z: -4.0, isFront: false },
-                { x:  1.35, y: 0.65, z: -4.0, isFront: false }
+                // Handle latch
+                const handle = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.05, 0.08), doorRodMat);
+                handle.position.set(x + (x > 0 ? -0.1 : 0.1), 2.2, -5.54);
+                truck.add(handle);
+            });
+
+            // Rear Underrun ICC Steel Crash Bumper
+            const iccBumper = new THREE.Mesh(
+                new THREE.BoxGeometry(2.45, 0.18, 0.18),
+                new THREE.MeshStandardMaterial({ color: 0xf59e0b, roughness: 0.5 })
+            );
+            iccBumper.position.set(0, 0.72, -5.48);
+            truck.add(iccBumper);
+
+            // 10. Undercarriage: Cylindrical Diesel Tank, Battery Box & Spare Tire
+            // Right Side: Cylindrical Diesel Fuel Tank with Mounting Straps
+            const tankGeo = new THREE.CylinderGeometry(0.42, 0.42, 1.8, 16);
+            const tankMat = new THREE.MeshStandardMaterial({ color: 0x94a3b8, metalness: 0.75, roughness: 0.3 });
+            const fuelTank = new THREE.Mesh(tankGeo, tankMat);
+            fuelTank.rotation.z = Math.PI / 2;
+            fuelTank.position.set(1.05, 0.9, 0.2);
+            truck.add(fuelTank);
+
+            // Left Side: Isuzu Battery Box & Compressed Air Tanks
+            const battBox = new THREE.Mesh(
+                new THREE.BoxGeometry(0.55, 0.45, 0.7),
+                new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.6 })
+            );
+            battBox.position.set(-1.05, 0.95, 0.4);
+            truck.add(battBox);
+
+            const airTank = new THREE.Mesh(
+                new THREE.CylinderGeometry(0.18, 0.18, 1.1, 14),
+                new THREE.MeshStandardMaterial({ color: 0x475569, metalness: 0.5 })
+            );
+            airTank.rotation.z = Math.PI / 2;
+            airTank.position.set(-1.05, 0.92, -0.6);
+            truck.add(airTank);
+
+            // Under Rear Chassis: Full-Size Spare Tire Carrier
+            const spareTire = new THREE.Mesh(
+                new THREE.CylinderGeometry(0.62, 0.62, 0.42, 18),
+                new THREE.MeshStandardMaterial({ color: 0x18181b, roughness: 0.9 })
+            );
+            spareTire.rotation.x = Math.PI / 2;
+            spareTire.position.set(0, 0.88, -4.2);
+            truck.add(spareTire);
+
+            // Mudflaps with Kenyan Slogans
+            const mudflapMat = new THREE.MeshStandardMaterial({ color: 0x09090b });
+            [-1.15, 1.15].forEach(x => {
+                const flap = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.65, 0.05), mudflapMat);
+                flap.position.set(x, 0.62, -3.3);
+                truck.add(flap);
+            });
+
+            // ==========================================
+            // 6 REAL WHEELS / 2 AXLES (DUAL REAR TIRES)
+            // ==========================================
+            // Front Axle: 2 Steer Wheels (Left & Right)
+            // Rear Axle: 4 Drive Wheels (Dual tires on each side!)
+            const truckWheelDefs = [
+                // Front Steer (2 Wheels)
+                { x: -1.25, y: 0.65, z: 2.85, steerRatio: 1.0, isDual: false },
+                { x:  1.25, y: 0.65, z: 2.85, steerRatio: 1.0, isDual: false },
+                // Rear Axle Left (2 Dual Wheels)
+                { x: -1.36, y: 0.65, z: -2.35, steerRatio: 0.0, isDual: true, dualPartnerX: -0.98 },
+                // Rear Axle Right (2 Dual Wheels)
+                { x:  1.36, y: 0.65, z: -2.35, steerRatio: 0.0, isDual: true, dualPartnerX:  0.98 }
             ];
 
-            wheelDefs.forEach(def => {
+            truckWheelDefs.forEach(def => {
                 const anchor = new THREE.Group();
                 anchor.position.set(def.x, def.y, def.z);
-                const mesh = new THREE.Mesh(wheelGeo, wheelMat);
-                mesh.rotation.z = Math.PI / 2;
-                mesh.castShadow = true;
-                anchor.add(mesh);
+
+                const wheelMeshes = [];
+
+                // Primary outer wheel
+                const { rotator: rot1 } = createWheelUnit(0.65, 0.38, 'isuzu');
+                anchor.add(rot1);
+                wheelMeshes.push(rot1);
+
+                // If dual rear wheel, add the inner wheel alongside it!
+                if (def.isDual) {
+                    const { rotator: rot2 } = createWheelUnit(0.65, 0.38, 'isuzu');
+                    rot2.position.y = (def.dualPartnerX - def.x); // Offset along wheel axis
+                    anchor.add(rot2);
+                    wheelMeshes.push(rot2);
+                }
+
                 truck.add(anchor);
-                activeWheels.push({ anchor, mesh, isFront: def.isFront });
+
+                activeWheels.push({
+                    anchor,
+                    meshes: wheelMeshes,
+                    steerRatio: def.steerRatio,
+                    radius: 0.65
+                });
             });
 
             return truck;
@@ -799,18 +1286,18 @@
             vehicleRoot.remove(vehicleMeshGroup);
 
             if (type === 'bus') {
-                vehicleMeshGroup = buildEnaCoachBus();
+                vehicleMeshGroup = buildScaniaMasterApollo();
                 document.getElementById('company-badge-tag').textContent = 'ENA COACH';
                 document.getElementById('company-badge-tag').className = 'badge-tag badge-ena';
-                document.getElementById('vehicle-display-name').textContent = 'VIP Luxury Coach';
-                document.getElementById('route-display-sub').textContent = 'Nairobi ➔ Nakuru ➔ Kericho ➔ Kisii ➔ Kisumu';
+                document.getElementById('vehicle-display-name').textContent = 'Scania Master Apollo (8 Wheels)';
+                document.getElementById('route-display-sub').textContent = 'Nairobi (River Road) ➔ Nakuru ➔ Kericho ➔ Kisii ➔ Kisumu';
                 document.getElementById('meter-label-title').textContent = 'Passenger Comfort Score';
             } else {
-                vehicleMeshGroup = buildEphParcelTruck();
+                vehicleMeshGroup = buildIsuzuFrrTruck();
                 document.getElementById('company-badge-tag').textContent = 'EPH LOGISTICS';
                 document.getElementById('company-badge-tag').className = 'badge-tag badge-eph';
-                document.getElementById('vehicle-display-name').textContent = 'ENA Parcel Handlers Truck';
-                document.getElementById('route-display-sub').textContent = 'River Road Parcel Hub ➔ Western Regional Depot';
+                document.getElementById('vehicle-display-name').textContent = 'Isuzu FRR Logistics (6 Wheels)';
+                document.getElementById('route-display-sub').textContent = 'River Road Central Parcel Hub ➔ Western Regional Depot';
                 document.getElementById('meter-label-title').textContent = 'Parcel Cargo Integrity';
             }
 
@@ -918,10 +1405,21 @@
             else if (keys.d) steerAngle = Math.max(steerAngle - 0.035, -maxSteer);
             else steerAngle *= 0.85;
 
-            // Animate wheels
+            // Animate wheels (Handles 8-wheel twin-steer & 6-wheel dual rear)
             activeWheels.forEach(w => {
-                if (w.isFront) w.anchor.rotation.y = steerAngle;
-                w.mesh.rotation.x += speed * 2;
+                if (w.steerRatio !== undefined) {
+                    w.anchor.rotation.y = steerAngle * w.steerRatio;
+                } else if (w.isFront) {
+                    w.anchor.rotation.y = steerAngle;
+                }
+
+                if (w.meshes) {
+                    w.meshes.forEach(m => {
+                        m.rotation.x += speed * (2.2 / (w.radius || 0.65));
+                    });
+                } else if (w.mesh) {
+                    w.mesh.rotation.x += speed * 2;
+                }
             });
 
             // Turn vehicle
@@ -983,18 +1481,19 @@
 
             // Camera Tracking
             if (cameraMode === 0) {
-                // Chase
-                const camDistance = currentVehicleType === 'bus' ? -15 : -12;
-                const camHeight = currentVehicleType === 'bus' ? 6.2 : 5.2;
+                // Chase Cam (calibrated for 14.2m Scania Master Apollo & 9.0m Isuzu FRR)
+                const camDistance = currentVehicleType === 'bus' ? -19.5 : -14.0;
+                const camHeight = currentVehicleType === 'bus' ? 6.8 : 5.4;
                 const offset = new THREE.Vector3(0, camHeight, camDistance);
                 offset.applyAxisAngle(new THREE.Vector3(0, 1, 0), vehicleRoot.rotation.y);
                 camera.position.lerp(vehicleRoot.position.clone().add(offset), 0.12);
-                camera.lookAt(vehicleRoot.position.x, vehicleRoot.position.y + 2.2, vehicleRoot.position.z + 5);
+                camera.lookAt(vehicleRoot.position.x, vehicleRoot.position.y + 2.2, vehicleRoot.position.z + 4);
             } else {
-                // Driver Cabin
-                const cabinZ = currentVehicleType === 'bus' ? 5.2 : 3.0;
-                const cabinHeight = currentVehicleType === 'bus' ? 2.8 : 2.5;
-                const offset = new THREE.Vector3(-0.6, cabinHeight, cabinZ);
+                // Authentic Kenyan Right-Hand Drive (RHD) Driver Cabin View
+                const cabinX = 0.65; // RHD Driver position
+                const cabinZ = currentVehicleType === 'bus' ? 6.1 : 3.3;
+                const cabinHeight = currentVehicleType === 'bus' ? 2.85 : 2.5;
+                const offset = new THREE.Vector3(cabinX, cabinHeight, cabinZ);
                 offset.applyAxisAngle(new THREE.Vector3(0, 1, 0), vehicleRoot.rotation.y);
                 camera.position.copy(vehicleRoot.position.clone().add(offset));
 
