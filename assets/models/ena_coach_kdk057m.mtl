@@ -1,0 +1,95 @@
+# ENA Coach KDK 057M MAN Master Apollo Material Library
+# Universal format accepted by Sketchfab, SketchUp, Blender, Maya
+
+newmtl BodyWhite
+Ka 0.2 0.2 0.2
+Kd 0.96 0.97 0.98
+Ks 0.6 0.6 0.6
+Ns 75.0
+illum 2
+
+newmtl SkirtRed
+Ka 0.2 0.05 0.05
+Kd 0.86 0.15 0.15
+Ks 0.4 0.4 0.4
+Ns 50.0
+illum 2
+
+newmtl AccentBlack
+Ka 0.05 0.05 0.05
+Kd 0.06 0.08 0.12
+Ks 0.3 0.3 0.3
+Ns 30.0
+illum 2
+
+newmtl ForeheadBlack
+Ka 0.02 0.02 0.02
+Kd 0.05 0.05 0.06
+Ks 0.8 0.8 0.8
+Ns 90.0
+illum 2
+
+newmtl WindshieldGlass
+Ka 0.05 0.08 0.1
+Kd 0.08 0.14 0.22
+Ks 0.95 0.95 0.95
+Ns 120.0
+d 0.65
+illum 4
+
+newmtl WindowTint
+Ka 0.02 0.03 0.04
+Kd 0.05 0.07 0.1
+Ks 0.8 0.8 0.8
+Ns 80.0
+d 0.85
+illum 4
+
+newmtl MirrorWhite
+Ka 0.2 0.2 0.2
+Kd 0.98 0.98 0.98
+Ks 0.7 0.7 0.7
+Ns 85.0
+illum 2
+
+newmtl MirrorGlass
+Ka 0.1 0.1 0.1
+Kd 0.8 0.85 0.9
+Ks 0.98 0.98 0.98
+Ns 150.0
+illum 3
+
+newmtl ChromeGrille
+Ka 0.3 0.3 0.3
+Kd 0.85 0.85 0.88
+Ks 0.95 0.95 0.95
+Ns 140.0
+illum 3
+
+newmtl AlcoaRims
+Ka 0.3 0.3 0.3
+Kd 0.88 0.88 0.92
+Ks 0.9 0.9 0.9
+Ns 120.0
+illum 3
+
+newmtl TireRubber
+Ka 0.05 0.05 0.05
+Kd 0.12 0.12 0.14
+Ks 0.08 0.08 0.08
+Ns 15.0
+illum 2
+
+newmtl OrangeLogo
+Ka 0.2 0.1 0.0
+Kd 0.98 0.45 0.05
+Ks 0.5 0.5 0.5
+Ns 60.0
+illum 2
+
+newmtl LicensePlate
+Ka 0.2 0.2 0.2
+Kd 0.95 0.95 0.92
+Ks 0.2 0.2 0.2
+Ns 20.0
+illum 2
