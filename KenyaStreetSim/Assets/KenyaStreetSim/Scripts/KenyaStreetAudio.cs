@@ -5,8 +5,8 @@ namespace KenyaStreetSim
     /// <summary>
     /// Procedural audio system using synthesized PCM AudioClips (with 5 ms fade envelopes)
     /// and a unified static gain layer (MusicVolume, SfxVolume, pause ducking).
-    /// Covers street ambient bed, diesel engine loop, boarding blip, stage milestone sting,
-    /// Kenyan bus/truck horns, impact thud, and UI click.
+    /// Covers street ambient bed, turbo-diesel Scania/Isuzu engine loop, pneumatic air-brake hiss,
+    /// turn-indicator relay tick-tock, boarding blip, milestone sting, Kenyan horns, impact thud, and UI click.
     /// </summary>
     public class KenyaStreetAudio : MonoBehaviour
     {
@@ -32,10 +32,13 @@ namespace KenyaStreetSim
         private AudioClip enaHornClip;
         private AudioClip isuzuHornClip;
         private AudioClip bumpClip;
+        private AudioClip airBrakeClip;
+        private AudioClip indicatorTickClip;
 
         private float currentEngineVolumeFactor = 0.22f;
         private float currentEnginePitch = 0.85f;
         private bool isHornPlaying;
+        private float lastAirBrakeTime = -5f;
 
         public AudioSource AmbientSource => ambientSource;
         public AudioSource EngineSource => engineSource;
@@ -126,20 +129,36 @@ namespace KenyaStreetSim
             }
         }
 
-        public void UpdateEngine(float speedKmh, float throttleAbs, bool isRunning)
+        public void UpdateEngine(float speedKmh, float throttleAbs, bool isRunning, float rpmNormalized = 0f)
         {
             if (engineSource == null) return;
-            float speedNorm = Mathf.Clamp01(speedKmh / 90f);
+            float driveLoad = Mathf.Max(Mathf.Clamp01(speedKmh / 85f) * 0.6f, rpmNormalized * 0.85f);
             float targetPitch = isRunning
-                ? Mathf.Lerp(0.72f, 1.75f, speedNorm * 0.78f + throttleAbs * 0.22f)
-                : 0.68f;
+                ? Mathf.Lerp(0.70f, 1.82f, driveLoad * 0.78f + throttleAbs * 0.22f)
+                : 0.66f;
             float targetFactor = isRunning
-                ? Mathf.Lerp(0.16f, 0.42f, speedNorm * 0.65f + throttleAbs * 0.35f)
+                ? Mathf.Lerp(0.18f, 0.46f, driveLoad * 0.60f + throttleAbs * 0.40f)
                 : 0.08f;
 
-            currentEnginePitch = Mathf.Lerp(currentEnginePitch, targetPitch, Time.unscaledDeltaTime * 6f);
-            currentEngineVolumeFactor = Mathf.Lerp(currentEngineVolumeFactor, targetFactor, Time.unscaledDeltaTime * 6f);
+            currentEnginePitch = Mathf.Lerp(currentEnginePitch, targetPitch, Time.unscaledDeltaTime * 7f);
+            currentEngineVolumeFactor = Mathf.Lerp(currentEngineVolumeFactor, targetFactor, Time.unscaledDeltaTime * 7f);
             ApplyVolumes();
+        }
+
+        public void PlayAirBrakeHiss()
+        {
+            if (sfxSource == null || airBrakeClip == null) return;
+            if (Time.time - lastAirBrakeTime < 2.2f) return;
+            lastAirBrakeTime = Time.time;
+            sfxSource.pitch = Random.Range(0.94f, 1.06f);
+            sfxSource.PlayOneShot(airBrakeClip, 0.58f);
+        }
+
+        public void PlayIndicatorTick(bool highTone)
+        {
+            if (uiSource == null || indicatorTickClip == null) return;
+            uiSource.pitch = highTone ? 1.18f : 0.86f;
+            uiSource.PlayOneShot(indicatorTickClip, 0.40f);
         }
 
         public void PlayPickupBlip()
@@ -187,13 +206,15 @@ namespace KenyaStreetSim
         {
             const int sr = 22050;
             ambientClip = SynthesizeAmbientBed(sr, 6.0f);
-            engineClip = SynthesizeDieselEngine(sr, 2.0f);
+            engineClip = SynthesizeTurboDieselEngine(sr, 2.0f);
             pickupBlipClip = SynthesizePickupBlip(sr, 0.11f);
             milestoneStingClip = SynthesizeMilestoneSting(sr);
             uiClickClip = SynthesizeUiClick(sr, 0.025f);
             enaHornClip = SynthesizeCoachHorn(sr, 0.55f);
             isuzuHornClip = SynthesizeTruckHorn(sr, 0.50f);
             bumpClip = SynthesizeBump(sr, 0.18f);
+            airBrakeClip = SynthesizeAirBrake(sr, 0.42f);
+            indicatorTickClip = SynthesizeIndicatorTick(sr, 0.018f);
         }
 
         private static void ApplyFade(float[] samples, int sampleRate, float fadeSeconds = 0.005f)
@@ -225,17 +246,16 @@ namespace KenyaStreetSim
                 float t = (float)i / sr;
                 float white = (float)(rng.NextDouble() * 2.0 - 1.0);
                 brown = Mathf.Clamp((brown + 0.025f * white) * 0.992f, -1f, 1f);
-                // Subtle warm town breeze swell + distant city hum
                 float swell = 0.72f + 0.28f * Mathf.Sin(2f * Mathf.PI * t / duration);
-                float warmPad = 0.12f * Mathf.Sin(2f * Mathf.PI * 110f * t)
-                              + 0.07f * Mathf.Sin(2f * Mathf.PI * 165f * t);
-                data[i] = Mathf.Clamp((brown * 0.65f + warmPad) * swell * 0.55f, -0.9f, 0.9f);
+                float warmPad = 0.10f * Mathf.Sin(2f * Mathf.PI * 110f * t)
+                              + 0.06f * Mathf.Sin(2f * Mathf.PI * 165f * t);
+                data[i] = Mathf.Clamp((brown * 0.68f + warmPad) * swell * 0.55f, -0.9f, 0.9f);
             }
             ApplyFade(data, sr, 0.08f);
             return CreateClip("KenyaStreetAmbient", data, sr);
         }
 
-        private static AudioClip SynthesizeDieselEngine(int sr, float duration)
+        private static AudioClip SynthesizeTurboDieselEngine(int sr, float duration)
         {
             int n = Mathf.RoundToInt(sr * duration);
             var data = new float[n];
@@ -244,18 +264,55 @@ namespace KenyaStreetSim
             for (int i = 0; i < n; i++)
             {
                 float t = (float)i / sr;
-                float baseFreq = 46f;
-                float hum = 0.50f * Mathf.Sin(2f * Mathf.PI * baseFreq * t)
-                          + 0.28f * Mathf.Sin(2f * Mathf.PI * baseFreq * 2f * t)
-                          + 0.14f * Mathf.Sin(2f * Mathf.PI * baseFreq * 3f * t)
-                          + 0.08f * Mathf.Sin(2f * Mathf.PI * baseFreq * 1.5f * t);
+                float baseFreq = 38f; // Deep Scania/Isuzu 6-cylinder diesel firing rumble
+                float rumble = 0.52f * Mathf.Sin(2f * Mathf.PI * baseFreq * t)
+                             + 0.30f * Mathf.Sin(2f * Mathf.PI * baseFreq * 2f * t)
+                             + 0.16f * Mathf.Sin(2f * Mathf.PI * baseFreq * 3f * t)
+                             + 0.10f * Mathf.Sin(2f * Mathf.PI * baseFreq * 4.5f * t);
+                // Subtle turbocharger whistle overtone
+                float turbo = 0.045f * Mathf.Sin(2f * Mathf.PI * 1180f * t);
                 float white = (float)(rng.NextDouble() * 2.0 - 1.0);
-                lp = lp * 0.88f + white * 0.12f;
-                float chug = 0.85f + 0.15f * Mathf.Sin(2f * Mathf.PI * 12f * t);
-                data[i] = Mathf.Clamp((hum * 0.65f + lp * 0.35f) * chug * 0.45f, -0.9f, 0.9f);
+                lp = lp * 0.86f + white * 0.14f;
+                float pistonPulse = 0.82f + 0.18f * Mathf.Sin(2f * Mathf.PI * 14f * t);
+                data[i] = Mathf.Clamp((rumble * 0.66f + lp * 0.30f + turbo) * pistonPulse * 0.48f, -0.92f, 0.92f);
             }
             ApplyFade(data, sr, 0.015f);
-            return CreateClip("DieselEngineLoop", data, sr);
+            return CreateClip("TurboDieselEngineLoop", data, sr);
+        }
+
+        private static AudioClip SynthesizeAirBrake(int sr, float duration)
+        {
+            int n = Mathf.RoundToInt(sr * duration);
+            var data = new float[n];
+            var rng = new System.Random(25401);
+            float prev = 0f;
+            for (int i = 0; i < n; i++)
+            {
+                float u = (float)i / n;
+                float white = (float)(rng.NextDouble() * 2.0 - 1.0);
+                // High-pass filtered pneumatic hiss
+                float hp = white - prev * 0.72f;
+                prev = white;
+                float env = Mathf.Sin(Mathf.Min(1f, u * 14f) * Mathf.PI * 0.5f) * Mathf.Pow(1f - u, 1.5f);
+                data[i] = Mathf.Clamp(hp * env * 0.68f, -0.95f, 0.95f);
+            }
+            ApplyFade(data, sr, 0.006f);
+            return CreateClip("PneumaticAirBrake", data, sr);
+        }
+
+        private static AudioClip SynthesizeIndicatorTick(int sr, float duration)
+        {
+            int n = Mathf.RoundToInt(sr * duration);
+            var data = new float[n];
+            for (int i = 0; i < n; i++)
+            {
+                float u = (float)i / n;
+                float t = (float)i / sr;
+                float env = Mathf.Pow(1f - u, 2.8f);
+                data[i] = Mathf.Sin(2f * Mathf.PI * 1450f * t) * env * 0.65f;
+            }
+            ApplyFade(data, sr, 0.002f);
+            return CreateClip("IndicatorRelayTick", data, sr);
         }
 
         private static AudioClip SynthesizePickupBlip(int sr, float duration)
@@ -329,7 +386,6 @@ namespace KenyaStreetSim
             {
                 float t = (float)i / sr;
                 float u = (float)i / n;
-                // Melodic Kenyan dual-tone highway coach air horn (F4 + A4)
                 float f1 = 349.23f;
                 float f2 = 440.00f;
                 float s1 = Mathf.Sin(2f * Mathf.PI * f1 * t) + 0.35f * Mathf.Sin(4f * Mathf.PI * f1 * t);
@@ -349,7 +405,6 @@ namespace KenyaStreetSim
             {
                 float t = (float)i / sr;
                 float u = (float)i / n;
-                // Deep low truck air horn (D3 + A3)
                 float f1 = 146.83f;
                 float f2 = 220.00f;
                 float s = Mathf.Sign(Mathf.Sin(2f * Mathf.PI * f1 * t)) * 0.32f

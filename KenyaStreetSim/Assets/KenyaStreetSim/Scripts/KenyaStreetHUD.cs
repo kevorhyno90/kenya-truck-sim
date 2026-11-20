@@ -42,6 +42,10 @@ namespace KenyaStreetSim
         private TextMeshProUGUI vehicleBadgeText;
         private TextMeshProUGUI speedValueText;
         private TextMeshProUGUI gearValueText;
+        private Image rpmFillBar;
+        private TextMeshProUGUI leftSignalIcon;
+        private TextMeshProUGUI rightSignalIcon;
+        private TextMeshProUGUI lightsTodStatusText;
         private GameObject boardingPanel;
         private Image boardingFillBar;
         private TextMeshProUGUI boardingLabelText;
@@ -176,6 +180,24 @@ namespace KenyaStreetSim
                     speedValueText.text = $"{Mathf.RoundToInt(veh.SpeedKmh)}";
                 if (gearValueText != null)
                     gearValueText.text = veh.GearLabel;
+                if (rpmFillBar != null)
+                    rpmFillBar.fillAmount = veh.RpmNormalized;
+                if (leftSignalIcon != null)
+                    leftSignalIcon.color = (veh.BlinkPhaseOn && (veh.LeftSignalOn || veh.HazardsOn))
+                        ? Palette.UiAccentGreen
+                        : Palette.WithAlpha(Palette.UiTextMuted, 0.28f);
+                if (rightSignalIcon != null)
+                    rightSignalIcon.color = (veh.BlinkPhaseOn && (veh.RightSignalOn || veh.HazardsOn))
+                        ? Palette.UiAccentGreen
+                        : Palette.WithAlpha(Palette.UiTextMuted, 0.28f);
+                if (lightsTodStatusText != null)
+                {
+                    string tod = KenyaTimeOfDay.Instance != null
+                        ? KenyaTimeOfDay.Instance.CurrentPreset.ToString().ToUpperInvariant()
+                        : "DAY";
+                    string beam = veh.HeadlightsOn ? "BEAMS ON" : "BEAMS OFF";
+                    lightsTodStatusText.text = $"{beam} [L]   •   {tod} [T]";
+                }
                 if (vehicleBadgeText != null)
                     vehicleBadgeText.text = $"{veh.displayName}  •  [V] Switch";
             }
@@ -500,8 +522,8 @@ namespace KenyaStreetSim
             titleScreen = CreateFullPanel("TitleScreen", root, Palette.WithAlpha(Palette.UiFadeCurtain, 0.24f));
             var tr = titleScreen.GetComponent<RectTransform>();
 
-            // Crisp dark charcoal title card framed in amber at upper-center so the sunlit Kenyan avenue & ENA Coach shine below
-            var titleCard = CreateBorderedAnchoredPanel("TitleCard", tr, new Vector2(0.5f, 0.76f), new Vector2(960f, 188f), Palette.WithAlpha(Palette.Hex("#161D28"), 0.94f), Palette.UiAccentAmber, 3f);
+            // Crisp 100% opaque dark charcoal title card framed in amber (ZERO border bleed!)
+            var titleCard = CreateBorderedAnchoredPanel("TitleCard", tr, new Vector2(0.5f, 0.76f), new Vector2(960f, 188f), Palette.Hex("#161D28"), Palette.UiAccentAmber, 3f);
 
             var titleTmp = CreateText("GameTitle", titleCard, "KENYA STREET SIM", 74f, FontStyles.Bold, Palette.UiAccentAmber, TextAlignmentOptions.Center);
             StretchRect(titleTmp.rectTransform, 20f, 54f, -20f, -14f);
@@ -546,7 +568,7 @@ namespace KenyaStreetSim
             StretchRect(gameplayHud.GetComponent<RectTransform>(), 0f, 0f, 0f, 0f);
             var gr = gameplayHud.GetComponent<RectTransform>();
 
-            Color panelFill = Palette.WithAlpha(Palette.Hex("#171E29"), 0.94f);
+            Color panelFill = Palette.Hex("#171E29");
 
             // Top-Left: Route Stage & Safety Card
             var topLeft = CreateBorderedCornerPanel("RouteSafetyCard", gr, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(28f, -24f), new Vector2(468f, 158f), panelFill, Palette.UiPanelBorder, 2f);
@@ -578,22 +600,33 @@ namespace KenyaStreetSim
             vehicleBadgeText = CreateText("VehicleBadge", topRight, "ENA Coach KDK 057M  •  [V] Switch", 17f, FontStyles.Normal, Palette.UiTextMuted, TextAlignmentOptions.Right);
             SetBox(vehicleBadgeText.rectTransform, -18f, -96f, 340f, 24f, new Vector2(1f, 1f));
 
-            // Bottom-Right: Speedometer & Gear
-            var botRight = CreateBorderedCornerPanel("SpeedoCard", gr, new Vector2(1f, 0f), new Vector2(1f, 0f), new Vector2(-28f, 26f), new Vector2(272f, 122f), panelFill, Palette.UiAccentRed, 2.5f);
+            // Bottom-Right: ETS2-Style Speedometer, RPM Bar, Indicators & Gear
+            var botRight = CreateBorderedCornerPanel("SpeedoCard", gr, new Vector2(1f, 0f), new Vector2(1f, 0f), new Vector2(-28f, 26f), new Vector2(310f, 152f), panelFill, Palette.UiAccentRed, 2.5f);
 
-            speedValueText = CreateText("SpeedVal", botRight, "0", 62f, FontStyles.Bold, Palette.UiTextPrimary, TextAlignmentOptions.Right);
-            SetBox(speedValueText.rectTransform, -98f, 34f, 154f, 70f, new Vector2(1f, 0f));
+            leftSignalIcon = CreateText("LeftSigIcon", botRight, "◄", 24f, FontStyles.Bold, Palette.WithAlpha(Palette.UiTextMuted, 0.28f), TextAlignmentOptions.Left);
+            SetBox(leftSignalIcon.rectTransform, 16f, -10f, 36f, 28f, new Vector2(0f, 1f));
 
-            var kmhLbl = CreateText("KmhLbl", botRight, "KM/H", 17f, FontStyles.Bold, Palette.UiTextMuted, TextAlignmentOptions.Right);
-            SetBox(kmhLbl.rectTransform, -98f, 12f, 154f, 22f, new Vector2(1f, 0f));
+            lightsTodStatusText = CreateText("LightsTodStatus", botRight, "BEAMS OFF [L]  •  DAY [T]", 14.5f, FontStyles.Normal, Palette.UiTextMuted, TextAlignmentOptions.Center);
+            SetBox(lightsTodStatusText.rectTransform, 0f, -13f, 224f, 24f, new Vector2(0.5f, 1f));
 
-            var gearPill = CreateCornerPanel("GearPill", botRight, new Vector2(1f, 0.5f), new Vector2(1f, 0.5f), new Vector2(-18f, 0f), new Vector2(64f, 76f), Palette.UiAccentRed);
+            rightSignalIcon = CreateText("RightSigIcon", botRight, "►", 24f, FontStyles.Bold, Palette.WithAlpha(Palette.UiTextMuted, 0.28f), TextAlignmentOptions.Right);
+            SetBox(rightSignalIcon.rectTransform, -16f, -10f, 36f, 28f, new Vector2(1f, 1f));
+
+            speedValueText = CreateText("SpeedVal", botRight, "0", 60f, FontStyles.Bold, Palette.UiTextPrimary, TextAlignmentOptions.Right);
+            SetBox(speedValueText.rectTransform, -98f, 44f, 185f, 68f, new Vector2(1f, 0f));
+
+            var kmhLbl = CreateText("KmhLbl", botRight, "KM/H", 16f, FontStyles.Bold, Palette.UiTextMuted, TextAlignmentOptions.Right);
+            SetBox(kmhLbl.rectTransform, -98f, 26f, 185f, 20f, new Vector2(1f, 0f));
+
+            rpmFillBar = CreateProgressBar("RpmBar", botRight, 16f, -130f, 276f, 9f, Palette.UiAccentAmber);
+
+            var gearPill = CreateCornerPanel("GearPill", botRight, new Vector2(1f, 0.5f), new Vector2(1f, 0.5f), new Vector2(-18f, -2f), new Vector2(64f, 76f), Palette.UiAccentRed);
             gearValueText = CreateText("GearVal", gearPill, "N", 38f, FontStyles.Bold, Palette.UiTextPrimary, TextAlignmentOptions.Center);
             StretchRect(gearValueText.rectTransform, 0f, 0f, 0f, 0f);
 
             // Bottom-Left: Single-Line Compact Controls Pill
-            var botLeft = CreateBorderedCornerPanel("ControlsPill", gr, new Vector2(0f, 0f), new Vector2(0f, 0f), new Vector2(28f, 26f), new Vector2(760f, 44f), panelFill, Palette.UiPanelBorder, 1.5f);
-            var ctrlTxt = CreateText("ControlsTxt", botLeft, "WASD Drive  •  SPACE Brake  •  V Switch Bus/Truck  •  C Cam  •  H Horn  •  ESC Pause", 17f, FontStyles.Normal, Palette.UiTextMuted, TextAlignmentOptions.Center);
+            var botLeft = CreateBorderedCornerPanel("ControlsPill", gr, new Vector2(0f, 0f), new Vector2(0f, 0f), new Vector2(28f, 26f), new Vector2(965f, 44f), panelFill, Palette.UiPanelBorder, 1.5f);
+            var ctrlTxt = CreateText("ControlsTxt", botLeft, "WASD Drive  •  Q/E/Z Signals  •  L Beams  •  T Day/Sunset/Night  •  V Bus/Truck  •  C Cam  •  H Horn  •  ESC", 16f, FontStyles.Normal, Palette.UiTextMuted, TextAlignmentOptions.Center);
             ctrlTxt.textWrappingMode = TextWrappingModes.NoWrap;
             StretchRect(ctrlTxt.rectTransform, 14f, 4f, -14f, -4f);
 

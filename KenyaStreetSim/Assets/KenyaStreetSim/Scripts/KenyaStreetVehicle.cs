@@ -6,10 +6,10 @@ using UnityEngine.InputSystem;
 namespace KenyaStreetSim
 {
     /// <summary>
-    /// Tuned Unity 6 WheelCollider controller for Kenyan commercial vehicles:
+    /// ETS2 / RK 254 KE style tuned Unity 6 WheelCollider controller for Kenyan commercial vehicles:
     /// ENA Coach KDK 057M (8-wheel twin-steer coach) and EPH Isuzu FRR 90 (6-wheel dual-rear lorry).
-    /// Features smooth street steering, automatic 6-speed gearbox, anti-roll bars, RHD rotating steering wheel,
-    /// New Input System support, and zero speed-bump hacks.
+    /// Includes Left/Right/Hazard blinking turn indicators (Q/E/Z), working SpotLight Headlights (L),
+    /// RPM simulation, pneumatic air-brake hiss, anti-roll bars, and rotating RHD steering wheel.
     /// </summary>
     [RequireComponent(typeof(Rigidbody))]
     public class KenyaStreetVehicle : MonoBehaviour
@@ -36,28 +36,43 @@ namespace KenyaStreetSim
         public float handbrakeTorque = 7500f;
         public float maxSteerAngle = 32f;
         public float highSpeedSteerAngle = 12f;
-        public float maxSpeedKmh = 78f;
-        public float antiRollStiffness = 8500f;
-        public Vector3 centerOfMassOffset = new Vector3(0f, -0.55f, 0.1f);
+        public float maxSpeedKmh = 82f;
+        public float antiRollStiffness = 9500f;
+        public Vector3 centerOfMassOffset = new Vector3(0f, -0.58f, 0.15f);
 
         [Header("References")]
         public WheelEntry[] wheels;
         public Transform cockpitCameraAnchor;
+        public Transform bumperCameraAnchor;
         public Transform axleCameraAnchor;
         public Transform steeringWheelVisual;
         public Renderer[] brakeLightRenderers;
+        public Renderer[] headlightRenderers;
+        public Light[] headlightSpots;
+        public Renderer[] leftIndicatorRenderers;
+        public Renderer[] rightIndicatorRenderers;
 
         public Rigidbody Rb { get; private set; }
         public float SpeedKmh { get; private set; }
         public float ForwardSpeedMs { get; private set; }
+        public float EngineRpm { get; private set; } = 680f;
+        public float RpmNormalized => Mathf.InverseLerp(650f, 2400f, EngineRpm);
         public string GearLabel { get; private set; } = "N";
         public float ThrottleInput { get; private set; }
         public float SteerInput { get; private set; }
         public bool IsBraking { get; private set; }
 
+        public bool HeadlightsOn { get; private set; }
+        public bool LeftSignalOn { get; private set; }
+        public bool RightSignalOn { get; private set; }
+        public bool HazardsOn { get; private set; }
+        public bool BlinkPhaseOn { get; private set; }
+
         private float currentSteerAngle;
         private float lastCollisionTime = -10f;
-        private MaterialPropertyBlock brakeMpb;
+        private float blinkTimer;
+        private float prevSpeedKmh;
+        private MaterialPropertyBlock lightMpb;
         private static readonly int EmissionColorId = Shader.PropertyToID("_EmissionColor");
 
         private void Awake()
@@ -66,7 +81,8 @@ namespace KenyaStreetSim
             Rb.centerOfMass = centerOfMassOffset;
             Rb.interpolation = RigidbodyInterpolation.Interpolate;
             Rb.collisionDetectionMode = CollisionDetectionMode.Continuous;
-            brakeMpb = new MaterialPropertyBlock();
+            lightMpb = new MaterialPropertyBlock();
+            SetHeadlights(false);
         }
 
         public void ResetToPose(Vector3 position, Quaternion rotation)
@@ -82,6 +98,57 @@ namespace KenyaStreetSim
             currentSteerAngle = 0f;
             ThrottleInput = 0f;
             SteerInput = 0f;
+            prevSpeedKmh = 0f;
+        }
+
+        public void SetHeadlights(bool on)
+        {
+            HeadlightsOn = on;
+            if (headlightSpots != null)
+            {
+                for (int i = 0; i < headlightSpots.Length; i++)
+                {
+                    if (headlightSpots[i] != null) headlightSpots[i].enabled = on;
+                }
+            }
+            Color emissive = on ? Palette.HeadlightWarm * 3.8f : Palette.HeadlightWarm * 0.45f;
+            ApplyEmission(headlightRenderers, emissive);
+        }
+
+        public void ToggleHeadlights()
+        {
+            SetHeadlights(!HeadlightsOn);
+            KenyaStreetAudio.Instance?.PlayUiClick();
+        }
+
+        public void ToggleLeftSignal()
+        {
+            HazardsOn = false;
+            LeftSignalOn = !LeftSignalOn;
+            if (LeftSignalOn) RightSignalOn = false;
+            blinkTimer = 0f;
+            BlinkPhaseOn = LeftSignalOn;
+            UpdateIndicatorsVisual();
+        }
+
+        public void ToggleRightSignal()
+        {
+            HazardsOn = false;
+            RightSignalOn = !RightSignalOn;
+            if (RightSignalOn) LeftSignalOn = false;
+            blinkTimer = 0f;
+            BlinkPhaseOn = RightSignalOn;
+            UpdateIndicatorsVisual();
+        }
+
+        public void ToggleHazards()
+        {
+            HazardsOn = !HazardsOn;
+            LeftSignalOn = HazardsOn;
+            RightSignalOn = HazardsOn;
+            blinkTimer = 0f;
+            BlinkPhaseOn = HazardsOn;
+            UpdateIndicatorsVisual();
         }
 
         private void Update()
@@ -93,18 +160,24 @@ namespace KenyaStreetSim
                 ThrottleInput = 0f;
                 SteerInput = 0f;
                 IsBraking = true;
+                EngineRpm = Mathf.Lerp(EngineRpm, 680f, Time.unscaledDeltaTime * 5f);
                 UpdateSteeringWheelVisual();
                 return;
             }
 
-            ReadInputs(out float accel, out float steer, out bool handbrake, out bool hornPressed, out bool resetPressed);
+            ReadInputs(
+                out float accel, out float steer, out bool handbrake,
+                out bool hornPressed, out bool resetPressed,
+                out bool leftSig, out bool rightSig, out bool hazardSig, out bool lightToggle);
+
             ThrottleInput = accel;
             SteerInput = steer;
 
-            if (hornPressed && KenyaStreetAudio.Instance != null)
-            {
-                KenyaStreetAudio.Instance.PlayHorn(isCoach);
-            }
+            if (hornPressed) KenyaStreetAudio.Instance?.PlayHorn(isCoach);
+            if (leftSig) ToggleLeftSignal();
+            if (rightSig) ToggleRightSignal();
+            if (hazardSig) ToggleHazards();
+            if (lightToggle) ToggleHeadlights();
 
             if (resetPressed)
             {
@@ -113,13 +186,63 @@ namespace KenyaStreetSim
             }
 
             IsBraking = handbrake || (accel < -0.1f && ForwardSpeedMs > 0.8f) || (accel > 0.1f && ForwardSpeedMs < -0.8f);
+
+            // Pneumatic air-brake hiss when bringing heavy Kenyan coach/truck to a stop from speed
+            if (IsBraking && prevSpeedKmh > 14f && SpeedKmh <= 6f)
+            {
+                KenyaStreetAudio.Instance?.PlayAirBrakeHiss();
+            }
+            prevSpeedKmh = Mathf.Lerp(prevSpeedKmh, SpeedKmh, Time.deltaTime * 1.4f);
+
+            UpdateBlinkers();
             UpdateSteeringWheelVisual();
             UpdateBrakeLights();
+            UpdateRpmAndAudio();
+        }
 
-            if (KenyaStreetAudio.Instance != null)
+        private void UpdateBlinkers()
+        {
+            bool anySignal = LeftSignalOn || RightSignalOn || HazardsOn;
+            if (!anySignal)
             {
-                KenyaStreetAudio.Instance.UpdateEngine(SpeedKmh, Mathf.Abs(ThrottleInput), true);
+                if (BlinkPhaseOn)
+                {
+                    BlinkPhaseOn = false;
+                    UpdateIndicatorsVisual();
+                }
+                return;
             }
+
+            blinkTimer += Time.deltaTime;
+            if (blinkTimer >= 0.42f)
+            {
+                blinkTimer = 0f;
+                BlinkPhaseOn = !BlinkPhaseOn;
+                UpdateIndicatorsVisual();
+                KenyaStreetAudio.Instance?.PlayIndicatorTick(BlinkPhaseOn);
+            }
+        }
+
+        private void UpdateIndicatorsVisual()
+        {
+            Color onCol = Palette.UiAccentAmber * 3.8f;
+            ApplyEmission(leftIndicatorRenderers, (BlinkPhaseOn && (LeftSignalOn || HazardsOn)) ? onCol : Color.black);
+            ApplyEmission(rightIndicatorRenderers, (BlinkPhaseOn && (RightSignalOn || HazardsOn)) ? onCol : Color.black);
+        }
+
+        private void UpdateRpmAndAudio()
+        {
+            float gearBand = SpeedKmh < 16f ? SpeedKmh / 16f
+                           : SpeedKmh < 30f ? (SpeedKmh - 10f) / 20f
+                           : SpeedKmh < 44f ? (SpeedKmh - 22f) / 22f
+                           : SpeedKmh < 58f ? (SpeedKmh - 36f) / 22f
+                           : SpeedKmh < 70f ? (SpeedKmh - 48f) / 22f
+                           : (SpeedKmh - 56f) / 26f;
+
+            float targetRpm = Mathf.Lerp(700f, 2250f, Mathf.Clamp01(gearBand * 0.72f + Mathf.Abs(ThrottleInput) * 0.38f));
+            EngineRpm = Mathf.Lerp(EngineRpm, targetRpm, Time.deltaTime * 6f);
+
+            KenyaStreetAudio.Instance?.UpdateEngine(SpeedKmh, Mathf.Abs(ThrottleInput), true, RpmNormalized);
         }
 
         private void FixedUpdate()
@@ -166,7 +289,7 @@ namespace KenyaStreetSim
                 }
                 else if (SpeedKmh < maxSpeedKmh)
                 {
-                    appliedMotor = ThrottleInput * motorTorque * perDriveShare * 2.2f;
+                    appliedMotor = ThrottleInput * motorTorque * perDriveShare * 2.25f;
                 }
             }
             else if (ThrottleInput < -0.05f)
@@ -182,7 +305,6 @@ namespace KenyaStreetSim
             }
             else
             {
-                // Gentle engine braking / coast stop when idle at very low speed
                 appliedBrake = SpeedKmh < 2.5f ? brakeTorque * 0.45f : 120f;
             }
 
@@ -208,7 +330,6 @@ namespace KenyaStreetSim
 
         private void ApplyAntiRoll()
         {
-            // Pair consecutive left/right wheels to stabilize tall bus body
             for (int i = 0; i + 1 < wheels.Length; i += 2)
             {
                 var wL = wheels[i]?.collider;
@@ -248,21 +369,28 @@ namespace KenyaStreetSim
         private void UpdateSteeringWheelVisual()
         {
             if (steeringWheelVisual == null) return;
-            float wheelTurn = -currentSteerAngle * 5.5f;
-            steeringWheelVisual.localRotation = Quaternion.Euler(22f, 0f, wheelTurn);
+            float wheelTurn = -currentSteerAngle * 5.8f;
+            steeringWheelVisual.localRotation = Quaternion.Euler(24f, 0f, wheelTurn);
         }
 
         private void UpdateBrakeLights()
         {
-            if (brakeLightRenderers == null) return;
-            Color emissive = IsBraking ? Palette.TaillightRed * 3.0f : Palette.TaillightRed * 0.45f;
-            for (int i = 0; i < brakeLightRenderers.Length; i++)
+            Color emissive = IsBraking
+                ? Palette.TaillightRed * 3.4f
+                : (HeadlightsOn ? Palette.TaillightRed * 1.15f : Palette.TaillightRed * 0.35f);
+            ApplyEmission(brakeLightRenderers, emissive);
+        }
+
+        private void ApplyEmission(Renderer[] renderers, Color emissive)
+        {
+            if (renderers == null || lightMpb == null) return;
+            for (int i = 0; i < renderers.Length; i++)
             {
-                var r = brakeLightRenderers[i];
+                var r = renderers[i];
                 if (r == null) continue;
-                r.GetPropertyBlock(brakeMpb);
-                brakeMpb.SetColor(EmissionColorId, emissive);
-                r.SetPropertyBlock(brakeMpb);
+                r.GetPropertyBlock(lightMpb);
+                lightMpb.SetColor(EmissionColorId, emissive);
+                r.SetPropertyBlock(lightMpb);
             }
         }
 
@@ -297,13 +425,20 @@ namespace KenyaStreetSim
 #endif
         }
 
-        private static void ReadInputs(out float accel, out float steer, out bool handbrake, out bool horn, out bool reset)
+        private static void ReadInputs(
+            out float accel, out float steer, out bool handbrake,
+            out bool horn, out bool reset,
+            out bool leftSig, out bool rightSig, out bool hazardSig, out bool lightToggle)
         {
             accel = 0f;
             steer = 0f;
             handbrake = false;
             horn = false;
             reset = false;
+            leftSig = false;
+            rightSig = false;
+            hazardSig = false;
+            lightToggle = false;
 
 #if ENABLE_INPUT_SYSTEM
             var kb = Keyboard.current;
@@ -316,6 +451,10 @@ namespace KenyaStreetSim
                 handbrake = kb.spaceKey.isPressed;
                 horn = kb.hKey.wasPressedThisFrame;
                 reset = kb.rKey.wasPressedThisFrame;
+                leftSig = kb.qKey.wasPressedThisFrame;
+                rightSig = kb.eKey.wasPressedThisFrame;
+                hazardSig = kb.zKey.wasPressedThisFrame;
+                lightToggle = kb.lKey.wasPressedThisFrame;
             }
 #else
             accel = Input.GetAxis("Vertical");
@@ -323,6 +462,10 @@ namespace KenyaStreetSim
             handbrake = Input.GetKey(KeyCode.Space);
             horn = Input.GetKeyDown(KeyCode.H);
             reset = Input.GetKeyDown(KeyCode.R);
+            leftSig = Input.GetKeyDown(KeyCode.Q);
+            rightSig = Input.GetKeyDown(KeyCode.E);
+            hazardSig = Input.GetKeyDown(KeyCode.Z);
+            lightToggle = Input.GetKeyDown(KeyCode.L);
 #endif
         }
     }

@@ -6,31 +6,34 @@ using UnityEngine.InputSystem;
 namespace KenyaStreetSim
 {
     /// <summary>
-    /// Smooth 3-mode camera rig (Chase Orbit, Kenyan RHD Cockpit, Axle/Street View)
-    /// plus a slow 5 deg/s Title backdrop orbit and unscaled impact shake.
+    /// ETS2 / RK 254 KE 4-mode camera rig:
+    /// 1) Chase Orbit (cinematic follow + RMB orbit/zoom)
+    /// 2) Realistic RHD Driver Cockpit (inside cab looking past steering wheel, A-pillars & mirrors)
+    /// 3) Bumper / Dashcam (classic RK 254 KE highway YouTube driving perspective)
+    /// 4) Axle / Wheel Street Cam
     /// </summary>
     public class KenyaStreetCamera : MonoBehaviour
     {
-        public enum CameraMode { ChaseOrbit, CockpitRHD, AxleStreet }
+        public enum CameraMode { ChaseOrbit, CockpitRHD, DashcamBumper, AxleStreet }
 
         [Header("Chase Rig")]
-        public float chaseDistance = 12.8f;
-        public float chaseHeight = 4.6f;
-        public float chaseLookHeight = 2.0f;
-        public float positionSmooth = 7.5f;
-        public float rotationSmooth = 8.5f;
+        public float chaseDistance = 12.2f;
+        public float chaseHeight = 3.85f;
+        public float chaseLookHeight = 2.05f;
+        public float positionSmooth = 8.0f;
+        public float rotationSmooth = 9.0f;
 
         [Header("Title Backdrop Orbit")]
         public float titleOrbitRadius = 14.5f;
-        public float titleOrbitHeight = 4.2f;
-        public float titleOrbitSpeedDeg = 4.5f;
+        public float titleOrbitHeight = 3.9f;
+        public float titleOrbitSpeedDeg = 4.2f;
 
         public CameraMode CurrentMode { get; private set; } = CameraMode.ChaseOrbit;
 
         private Camera cam;
         private KenyaStreetVehicle targetVehicle;
         private float orbitYawOffset;
-        private float orbitPitchOffset = 8f;
+        private float orbitPitchOffset = 5f;
         private float titleAnglePhase;
         private float shakeMagnitude;
         private float shakeTimer;
@@ -47,11 +50,19 @@ namespace KenyaStreetSim
 
         public void CycleMode()
         {
-            CurrentMode = (CameraMode)(((int)CurrentMode + 1) % 3);
+            CurrentMode = (CameraMode)(((int)CurrentMode + 1) % 4);
             orbitYawOffset = 0f;
-            if (KenyaStreetAudio.Instance != null)
+            KenyaStreetAudio.Instance?.PlayUiClick();
+            if (StreetGameLoop.Instance != null && StreetGameLoop.Instance.hud != null)
             {
-                KenyaStreetAudio.Instance.PlayUiClick();
+                string label = CurrentMode switch
+                {
+                    CameraMode.ChaseOrbit => "Chase Orbit Camera",
+                    CameraMode.CockpitRHD => "RHD Driver Cockpit (ETS2 View)",
+                    CameraMode.DashcamBumper => "Highway Dashcam View",
+                    _ => "Wheel & Street View"
+                };
+                StreetGameLoop.Instance.hud.ShowToast($"Camera: {label}");
             }
         }
 
@@ -98,8 +109,11 @@ namespace KenyaStreetSim
                 case CameraMode.CockpitRHD:
                     UpdateAnchorCamera(targetVehicle.cockpitCameraAnchor, 68f);
                     break;
+                case CameraMode.DashcamBumper:
+                    UpdateAnchorCamera(targetVehicle.bumperCameraAnchor, 64f);
+                    break;
                 case CameraMode.AxleStreet:
-                    UpdateAnchorCamera(targetVehicle.axleCameraAnchor, 58f);
+                    UpdateAnchorCamera(targetVehicle.axleCameraAnchor, 56f);
                     break;
             }
 
@@ -108,16 +122,15 @@ namespace KenyaStreetSim
 
         private void UpdateTitleOrbit()
         {
-            // Gently sweep behind-quarter of the parked ENA Coach looking NORTH (+Z) down the sunlit bustling avenue
+            // Cinematic hero sweep looking NORTH (+Z) down the sunlit Kenyan town boulevard & Rift Valley hills
             titleAnglePhase += (titleOrbitSpeedDeg * Mathf.Deg2Rad) * Time.unscaledDeltaTime;
-            float yawDeg = 158f + Mathf.Sin(titleAnglePhase) * 22f; // 136..180 deg = behind-right/behind-left looking +Z
+            float yawDeg = 152f + Mathf.Sin(titleAnglePhase) * 20f;
             float rad = yawDeg * Mathf.Deg2Rad;
-            Vector3 pivot = targetVehicle.transform.position + Vector3.up * 2.1f + targetVehicle.transform.forward * 2.5f;
+            Vector3 pivot = targetVehicle.transform.position + Vector3.up * 2.1f + targetVehicle.transform.forward * 2.4f;
             Vector3 offset = new Vector3(Mathf.Sin(rad) * titleOrbitRadius, titleOrbitHeight, Mathf.Cos(rad) * titleOrbitRadius);
             transform.position = pivot + offset;
-            // Aim slightly ahead & right so bus sits cleanly in the lower-left third while the avenue stretches ahead
-            transform.LookAt(targetVehicle.transform.position + new Vector3(1.8f, 2.5f, 24f));
-            if (cam != null) cam.fieldOfView = 54f;
+            transform.LookAt(targetVehicle.transform.position + new Vector3(1.8f, 2.6f, 28f));
+            if (cam != null) cam.fieldOfView = 52f;
         }
 
         private void HandleCameraHotkeysAndOrbit()
@@ -145,7 +158,7 @@ namespace KenyaStreetSim
                 float scroll = mouse.scroll.ReadValue().y;
                 if (Mathf.Abs(scroll) > 0.01f)
                 {
-                    chaseDistance = Mathf.Clamp(chaseDistance - scroll * 0.015f, 8.5f, 20f);
+                    chaseDistance = Mathf.Clamp(chaseDistance - scroll * 0.015f, 8.2f, 20f);
                 }
             }
 #else
@@ -168,13 +181,13 @@ namespace KenyaStreetSim
 
             transform.position = Vector3.Lerp(transform.position, desiredPos, 1f - Mathf.Exp(-positionSmooth * Time.deltaTime));
 
-            Vector3 lookTarget = t.position + Vector3.up * chaseLookHeight + t.forward * 4.0f;
+            Vector3 lookTarget = t.position + Vector3.up * chaseLookHeight + t.forward * 5.0f;
             Quaternion desiredLook = Quaternion.LookRotation(lookTarget - transform.position, Vector3.up);
             transform.rotation = Quaternion.Slerp(transform.rotation, desiredLook, 1f - Mathf.Exp(-rotationSmooth * Time.deltaTime));
 
             if (cam != null)
             {
-                float targetFov = Mathf.Lerp(56f, 65f, Mathf.Clamp01(targetVehicle.SpeedKmh / 75f));
+                float targetFov = Mathf.Lerp(54f, 64f, Mathf.Clamp01(targetVehicle.SpeedKmh / 78f));
                 cam.fieldOfView = Mathf.Lerp(cam.fieldOfView, targetFov, Time.deltaTime * 5f);
             }
         }
