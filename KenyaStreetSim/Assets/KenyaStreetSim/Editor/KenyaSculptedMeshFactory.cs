@@ -21,6 +21,8 @@ namespace KenyaStreetSim.Editor
         public static Mesh SedanBodyMesh { get; private set; }
         public static Mesh TreeTrunkMesh { get; private set; }
         public static Mesh TreeFoliageMesh { get; private set; }
+        public static Mesh PalmTrunkMesh { get; private set; }
+        public static Mesh PalmCrownMesh { get; private set; }
         public static Mesh RiftValleyTerrainMesh { get; private set; }
 
         public static void BuildAllMeshes()
@@ -92,7 +94,9 @@ namespace KenyaStreetSim.Editor
 
             TreeTrunkMesh = SaveMesh("M_AcaciaTreeTrunk", BuildBranchingTrunkMesh());
             TreeFoliageMesh = SaveMesh("M_AcaciaTreeFoliage", BuildLeafyFoliageCardsMesh());
-            RiftValleyTerrainMesh = SaveMesh("M_KenyanRiftValleyTerrain", BuildRiftValleyTerrain());
+            PalmTrunkMesh = SaveMesh("M_KenyaPalmTrunk", BuildPalmTrunkMesh());
+            PalmCrownMesh = SaveMesh("M_KenyaPalmCrown", BuildPalmCrownMesh());
+            RiftValleyTerrainMesh = SaveMesh("M_KenyanRiftValleyTerrain", BuildFullKenyaTerrain());
 
             AssetDatabase.SaveAssets();
         }
@@ -308,13 +312,79 @@ namespace KenyaStreetSim.Editor
             return mesh;
         }
 
-        private static Mesh BuildRiftValleyTerrain()
+        private static Mesh BuildPalmTrunkMesh()
         {
-            const int resX = 96;
-            const int resZ = 128;
-            const float width = 840f;   // X: -420..+420
-            const float length = 1040f; // Z: -220..+820
-            const float startZ = -220f;
+            var verts = new List<Vector3>();
+            var uvs = new List<Vector2>();
+            var tris = new List<int>();
+            // Gently curving coastal Mombasa / Lake Victoria palm trunk (8.2m tall)
+            Vector3[] spine =
+            {
+                new Vector3(0.00f, 0.0f, 0.00f),
+                new Vector3(0.18f, 2.2f, 0.08f),
+                new Vector3(0.42f, 4.6f, 0.14f),
+                new Vector3(0.55f, 6.8f, 0.16f),
+                new Vector3(0.45f, 8.2f, 0.14f)
+            };
+            float[] radii = { 0.28f, 0.23f, 0.19f, 0.16f, 0.13f };
+            for (int i = 0; i < spine.Length - 1; i++)
+            {
+                AddTaperedTube(verts, uvs, tris, spine[i], spine[i + 1], radii[i], radii[i + 1], 7);
+            }
+            var mesh = new Mesh();
+            mesh.SetVertices(verts);
+            mesh.SetUVs(0, uvs);
+            mesh.SetTriangles(tris, 0);
+            mesh.RecalculateNormals();
+            mesh.RecalculateTangents();
+            mesh.RecalculateBounds();
+            return mesh;
+        }
+
+        private static Mesh BuildPalmCrownMesh()
+        {
+            var verts = new List<Vector3>();
+            var uvs = new List<Vector2>();
+            var tris = new List<int>();
+            Vector3 top = new Vector3(0.45f, 8.15f, 0.14f);
+            // 10 gracefully arching tropical palm fronds
+            for (int i = 0; i < 10; i++)
+            {
+                float yaw = i * 36f + (i % 2) * 12f;
+                float pitch = (i % 2 == 0) ? 28f : 52f;
+                Quaternion rot = Quaternion.Euler(pitch, yaw, 0f);
+                Vector3 frondMid = top + rot * new Vector3(0f, 0.45f, 1.85f);
+                AddQuad(verts, uvs, tris, frondMid, rot * Quaternion.Euler(85f, 0f, 0f), 1.35f, 3.6f);
+            }
+            var mesh = new Mesh();
+            mesh.SetVertices(verts);
+            mesh.SetUVs(0, uvs);
+            mesh.SetTriangles(tris, 0);
+            mesh.RecalculateNormals();
+            mesh.RecalculateTangents();
+            mesh.RecalculateBounds();
+            return mesh;
+        }
+
+        private static Mesh BuildFullKenyaTerrain()
+        {
+            const int resX = 140;
+            const int resZ = 96;
+            const float minX = -1520f;
+            const float maxX = 1080f;
+            const float minZ = -520f;
+            const float maxZ = 980f;
+
+            // Pre-sample all highway segments into coarse 2D polyline segments for blazing fast distance checks
+            var roadSegs = new List<(Vector2 a, Vector2 b)>();
+            for (int h = 0; h < KenyaNetworkData.Highways.Length; h++)
+            {
+                var pts = KenyaNetworkData.SampleHighway(KenyaNetworkData.Highways[h], 24f);
+                for (int i = 0; i < pts.Count - 1; i++)
+                {
+                    roadSegs.Add((new Vector2(pts[i].x, pts[i].z), new Vector2(pts[i + 1].x, pts[i + 1].z)));
+                }
+            }
 
             var verts = new Vector3[(resX + 1) * (resZ + 1)];
             var uvs = new Vector2[verts.Length];
@@ -323,34 +393,59 @@ namespace KenyaStreetSim.Editor
             for (int iz = 0; iz <= resZ; iz++)
             {
                 float vz = (float)iz / resZ;
-                float wz = startZ + vz * length;
+                float wz = Mathf.Lerp(minZ, maxZ, vz);
 
                 for (int ix = 0; ix <= resX; ix++)
                 {
                     float ux = (float)ix / resX;
-                    float wx = (ux - 0.5f) * width;
+                    float wx = Mathf.Lerp(minX, maxX, ux);
+                    Vector2 p = new Vector2(wx, wz);
 
-                    // Smooth continuous fade using proper InverseLerp + SmoothStep(0,1,t) — zero floating hills!
-                    float absX = Mathf.Abs(wx);
-                    float distFromCross = Mathf.Min(Mathf.Abs(wz - 95f), Mathf.Min(Mathf.Abs(wz - 245f), Mathf.Abs(wz - 395f)));
-                    float crossFade = SmoothRange(28f, 64f, distFromCross);
-                    float sideFade = SmoothRange(68f, 195f, absX);
-                    float beyondCrossX = SmoothRange(96f, 155f, absX);
-                    float flatMask = sideFade * Mathf.Lerp(crossFade, 1f, beyondCrossX);
+                    // Compute shortest distance to ANY Kenyan highway, roundabout, or town center!
+                    float minDist = float.MaxValue;
+                    for (int s = 0; s < roadSegs.Count; s++)
+                    {
+                        var (a, b) = roadSegs[s];
+                        Vector2 ab = b - a;
+                        float lenSq = ab.sqrMagnitude;
+                        float t = lenSq > 0.001f ? Mathf.Clamp01(Vector2.Dot(p - a, ab) / lenSq) : 0f;
+                        float d = Vector2.Distance(p, a + ab * t);
+                        if (d < minDist) minDist = d;
+                    }
+                    for (int h = 0; h < KenyaNetworkData.Hubs.Length; h++)
+                    {
+                        float dTown = Vector2.Distance(p, KenyaNetworkData.Hubs[h].xz) - 34f;
+                        if (dTown < minDist) minDist = Mathf.Max(0f, dTown);
+                    }
+                    for (int r = 0; r < KenyaNetworkData.Roundabouts.Length; r++)
+                    {
+                        float dRbt = Vector2.Distance(p, KenyaNetworkData.Roundabouts[r].center) - 32f;
+                        if (dRbt < minDist) minDist = Mathf.Max(0f, dRbt);
+                    }
 
-                    float endHills = Mathf.Max(
-                        SmoothRange(-115f, -215f, wz),
-                        SmoothRange(585f, 780f, wz));
-                    float mask = Mathf.Clamp01(Mathf.Max(flatMask, endHills));
+                    // Keep flat below Lake Victoria (x < -1190, z > 420) and Indian Ocean (x > 730, z < -180)
+                    bool inLakeVictoria = (wx < -1180f && wz > 390f);
+                    bool inIndianOcean = (wx > 740f && wz < -170f);
 
-                    float n1 = Mathf.PerlinNoise(wx * 0.0042f + 13.7f, wz * 0.0042f + 29.1f);
-                    float n2 = Mathf.PerlinNoise(wx * 0.011f + 71.3f, wz * 0.011f + 41.9f);
-                    float ridge = Mathf.Pow(n1, 1.35f) * 42f + n2 * 10f;
-                    float y = -0.32f + ridge * mask;
+                    float y;
+                    if (inLakeVictoria || inIndianOcean)
+                    {
+                        y = -3.8f;
+                    }
+                    else
+                    {
+                        float hillMask = SmoothRange(42f, 155f, minDist);
+                        // Taller escarpment hills around Rift Valley / Kericho / Ngong Hills
+                        float highlandBoost = (wx < -180f && wz > 120f) ? 1.45f : 1.0f;
+                        float n1 = Mathf.PerlinNoise(wx * 0.0028f + 13.7f, wz * 0.0028f + 29.1f);
+                        float n2 = Mathf.PerlinNoise(wx * 0.0085f + 71.3f, wz * 0.0085f + 41.9f);
+                        float ridge = (Mathf.Pow(n1, 1.35f) * 52f + n2 * 14f) * highlandBoost;
+                        y = -0.35f + ridge * hillMask;
+                    }
 
                     int idx = iz * (resX + 1) + ix;
                     verts[idx] = new Vector3(wx, y, wz);
-                    uvs[idx] = new Vector2(wx * 0.06f, wz * 0.06f);
+                    uvs[idx] = new Vector2(wx * 0.045f, wz * 0.045f);
                 }
             }
 

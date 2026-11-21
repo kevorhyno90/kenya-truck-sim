@@ -88,17 +88,61 @@ namespace KenyaStreetSim
         public void ResetToPose(Vector3 position, Quaternion rotation)
         {
             if (Rb == null) Rb = GetComponent<Rigidbody>();
+            var prevInterp = Rb.interpolation;
+            Rb.interpolation = RigidbodyInterpolation.None;
+
+            if (!Rb.isKinematic)
+            {
+#if UNITY_6000_0_OR_NEWER
+                Rb.linearVelocity = Vector3.zero;
+#else
+                Rb.velocity = Vector3.zero;
+#endif
+                Rb.angularVelocity = Vector3.zero;
+            }
+
+            // Flush PhysX body + interpolation state so long-distance Kenya fast-travel never snaps back
+            Rb.isKinematic = true;
+            transform.SetPositionAndRotation(position, rotation);
+            Rb.position = position;
+            Rb.rotation = rotation;
+            Physics.SyncTransforms();
+            Rb.isKinematic = false;
+
 #if UNITY_6000_0_OR_NEWER
             Rb.linearVelocity = Vector3.zero;
 #else
             Rb.velocity = Vector3.zero;
 #endif
             Rb.angularVelocity = Vector3.zero;
-            transform.SetPositionAndRotation(position, rotation);
+            Rb.Sleep();
+            Rb.WakeUp();
+            Rb.interpolation = prevInterp;
+
+            if (wheels != null)
+            {
+                for (int i = 0; i < wheels.Length; i++)
+                {
+                    if (wheels[i] != null && wheels[i].collider != null)
+                    {
+                        wheels[i].collider.steerAngle = 0f;
+                        wheels[i].collider.motorTorque = 0f;
+                        wheels[i].collider.brakeTorque = handbrakeTorque;
+                        if (wheels[i].visualMesh != null)
+                        {
+                            wheels[i].collider.GetWorldPose(out Vector3 wp, out Quaternion wr);
+                            wheels[i].visualMesh.SetPositionAndRotation(wp, wr);
+                        }
+                    }
+                }
+            }
+
             currentSteerAngle = 0f;
             ThrottleInput = 0f;
             SteerInput = 0f;
             prevSpeedKmh = 0f;
+            SpeedKmh = 0f;
+            ForwardSpeedMs = 0f;
         }
 
         public void SetHeadlights(bool on)
@@ -181,8 +225,17 @@ namespace KenyaStreetSim
 
             if (resetPressed)
             {
-                Vector3 uprightPos = new Vector3(Mathf.Clamp(transform.position.x, -5.2f, 5.2f), 0.35f, transform.position.z);
-                ResetToPose(uprightPos, Quaternion.Euler(0f, transform.eulerAngles.y, 0f));
+                if (KenyaNetworkData.FindNearestRoadPoint(transform.position, out Vector3 roadPt, out Vector3 roadFwd, out _))
+                {
+                    Vector3 left = Vector3.Cross(roadFwd, Vector3.up).normalized;
+                    Vector3 spawnPos = roadPt + left * 3.4f + Vector3.up * 0.35f;
+                    ResetToPose(spawnPos, Quaternion.LookRotation(roadFwd, Vector3.up));
+                }
+                else
+                {
+                    Vector3 uprightPos = new Vector3(transform.position.x, 0.35f, transform.position.z);
+                    ResetToPose(uprightPos, Quaternion.Euler(0f, transform.eulerAngles.y, 0f));
+                }
             }
 
             IsBraking = handbrake || (accel < -0.1f && ForwardSpeedMs > 0.8f) || (accel > 0.1f && ForwardSpeedMs < -0.8f);
@@ -404,7 +457,8 @@ namespace KenyaStreetSim
             float impact = collision.relativeVelocity.magnitude;
             if (impact < 2.2f) return;
 
-            bool hitTraffic = collision.collider.GetComponentInParent<KenyaTrafficVehicle>() != null;
+            bool hitTraffic = collision.collider.GetComponentInParent<KenyaTrafficVehicle>() != null
+                           || collision.collider.GetComponentInParent<KenyaSplineTraffic>() != null;
             bool hitPedestrian = collision.collider.GetComponentInParent<KenyaPedestrianAI>() != null;
 
             if (hitTraffic || hitPedestrian || impact > 6.5f)

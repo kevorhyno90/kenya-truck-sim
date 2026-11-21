@@ -72,6 +72,39 @@ namespace KenyaStreetSim
             orbitYawOffset = 0f;
         }
 
+        public void SnapToTarget()
+        {
+            if (targetVehicle == null && StreetGameLoop.Instance != null)
+            {
+                targetVehicle = StreetGameLoop.Instance.ActiveVehicle;
+            }
+            if (targetVehicle == null) return;
+
+            orbitYawOffset = 0f;
+            switch (CurrentMode)
+            {
+                case CameraMode.ChaseOrbit:
+                    Transform t = targetVehicle.transform;
+                    Quaternion orbitRot = Quaternion.Euler(orbitPitchOffset, t.eulerAngles.y, 0f);
+                    Vector3 desiredPos = t.position + Vector3.up * chaseHeight - (orbitRot * Vector3.forward) * chaseDistance;
+                    desiredPos.y = Mathf.Max(1.4f, desiredPos.y);
+                    transform.position = desiredPos;
+                    Vector3 lookTarget = t.position + Vector3.up * chaseLookHeight + t.forward * 5.0f;
+                    transform.rotation = Quaternion.LookRotation(lookTarget - transform.position, Vector3.up);
+                    if (cam != null) cam.fieldOfView = 55f;
+                    break;
+                case CameraMode.CockpitRHD:
+                    UpdateAnchorCamera(targetVehicle.cockpitCameraAnchor, 68f);
+                    break;
+                case CameraMode.DashcamBumper:
+                    UpdateAnchorCamera(targetVehicle.bumperCameraAnchor, 64f);
+                    break;
+                case CameraMode.AxleStreet:
+                    UpdateAnchorCamera(targetVehicle.axleCameraAnchor, 56f);
+                    break;
+            }
+        }
+
         public void TriggerImpactShake(float intensity)
         {
             shakeMagnitude = Mathf.Max(shakeMagnitude, Mathf.Clamp(intensity * 0.45f, 0.12f, 0.55f));

@@ -220,9 +220,10 @@ namespace KenyaStreetSim
             if (activeStage != null && veh != null)
             {
                 float dist = Vector3.Distance(veh.transform.position, activeStage.transform.position);
+                string distStr = dist >= 950f ? $"{dist / 1000f:0.2} km" : $"{Mathf.RoundToInt(dist)}m";
                 if (nextStageDistText != null)
                 {
-                    nextStageDistText.text = $"NEXT: {activeStage.stageName.ToUpperInvariant()}  ({Mathf.RoundToInt(dist)}m)";
+                    nextStageDistText.text = $"NEXT: {activeStage.stageName.ToUpperInvariant()}  ({distStr})";
                 }
 
                 bool showBoarding = activeStage.PlayerInside || activeStage.BoardingProgress > 0.01f;
@@ -571,20 +572,22 @@ namespace KenyaStreetSim
             Color panelFill = Palette.Hex("#171E29");
 
             // Top-Left: Route Stage & Safety Card
-            var topLeft = CreateBorderedCornerPanel("RouteSafetyCard", gr, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(28f, -24f), new Vector2(468f, 158f), panelFill, Palette.UiPanelBorder, 2f);
+            var topLeft = CreateBorderedCornerPanel("RouteSafetyCard", gr, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(28f, -24f), new Vector2(520f, 158f), panelFill, Palette.UiPanelBorder, 2f);
 
-            stageLabelText = CreateText("StageLabel", topLeft, "STAGES  0 / 4", 23f, FontStyles.Bold, Palette.UiAccentAmber, TextAlignmentOptions.Left);
-            SetBox(stageLabelText.rectTransform, 18f, -14f, 240f, 30f, new Vector2(0f, 1f));
+            stageLabelText = CreateText("StageLabel", topLeft, "STAGES  0 / 10", 23f, FontStyles.Bold, Palette.UiAccentAmber, TextAlignmentOptions.Left);
+            SetBox(stageLabelText.rectTransform, 18f, -14f, 260f, 30f, new Vector2(0f, 1f));
 
-            nextStageDistText = CreateText("NextStageText", topLeft, "NEXT: CBD STAGE (120m)", 19f, FontStyles.Normal, Palette.UiTextPrimary, TextAlignmentOptions.Left);
-            SetBox(nextStageDistText.rectTransform, 18f, -45f, 432f, 26f, new Vector2(0f, 1f));
+            nextStageDistText = CreateText("NextStageText", topLeft, "NEXT: NAIROBI CBD ENA TERMINAL (77m)", 18f, FontStyles.Normal, Palette.UiTextPrimary, TextAlignmentOptions.Left);
+            nextStageDistText.textWrappingMode = TextWrappingModes.NoWrap;
+            nextStageDistText.overflowMode = TextOverflowModes.Truncate;
+            SetBox(nextStageDistText.rectTransform, 18f, -45f, 484f, 26f, new Vector2(0f, 1f));
 
-            routeFillBar = CreateProgressBar("RouteProgressBar", topLeft, 18f, -78f, 428f, 14f, Palette.UiAccentAmber);
+            routeFillBar = CreateProgressBar("RouteProgressBar", topLeft, 18f, -78f, 480f, 14f, Palette.UiAccentAmber);
 
             safetyText = CreateText("SafetyText", topLeft, "SAFETY  100%", 19f, FontStyles.Bold, Palette.UiAccentGreen, TextAlignmentOptions.Left);
-            SetBox(safetyText.rectTransform, 18f, -102f, 240f, 24f, new Vector2(0f, 1f));
+            SetBox(safetyText.rectTransform, 18f, -102f, 260f, 24f, new Vector2(0f, 1f));
 
-            safetyFillBar = CreateProgressBar("SafetyBar", topLeft, 18f, -130f, 428f, 12f, Palette.UiAccentGreen);
+            safetyFillBar = CreateProgressBar("SafetyBar", topLeft, 18f, -130f, 480f, 12f, Palette.UiAccentGreen);
             safetyFillBar.fillAmount = 1f;
 
             // Top-Right: KES Earnings & Fleet Card
@@ -625,8 +628,8 @@ namespace KenyaStreetSim
             StretchRect(gearValueText.rectTransform, 0f, 0f, 0f, 0f);
 
             // Bottom-Left: Single-Line Compact Controls Pill
-            var botLeft = CreateBorderedCornerPanel("ControlsPill", gr, new Vector2(0f, 0f), new Vector2(0f, 0f), new Vector2(28f, 26f), new Vector2(965f, 44f), panelFill, Palette.UiPanelBorder, 1.5f);
-            var ctrlTxt = CreateText("ControlsTxt", botLeft, "WASD Drive  •  Q/E/Z Signals  •  L Beams  •  T Day/Sunset/Night  •  V Bus/Truck  •  C Cam  •  H Horn  •  ESC", 16f, FontStyles.Normal, Palette.UiTextMuted, TextAlignmentOptions.Center);
+            var botLeft = CreateBorderedCornerPanel("ControlsPill", gr, new Vector2(0f, 0f), new Vector2(0f, 0f), new Vector2(28f, 26f), new Vector2(1040f, 44f), panelFill, Palette.UiPanelBorder, 1.5f);
+            var ctrlTxt = CreateText("ControlsTxt", botLeft, "WASD Drive  •  M Kenya Map  •  Q/E/Z Signals  •  L Beams  •  T Time  •  V Bus/Truck  •  C Cam  •  H Horn  •  ESC", 15.5f, FontStyles.Normal, Palette.UiTextMuted, TextAlignmentOptions.Center);
             ctrlTxt.textWrappingMode = TextWrappingModes.NoWrap;
             StretchRect(ctrlTxt.rectTransform, 14f, 4f, -14f, -4f);
 

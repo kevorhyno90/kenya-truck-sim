@@ -23,6 +23,7 @@ namespace KenyaStreetSim
         public BusStageZone[] stages;
         public KenyaStreetCamera streetCamera;
         public KenyaStreetHUD hud;
+        public KenyaRouteMapUI routeMap;
         public Vector3 startPosition = new Vector3(-3.5f, 0.28f, -18f);
 
         public RunState State { get; private set; } = RunState.Ready;
@@ -74,6 +75,10 @@ namespace KenyaStreetSim
             {
                 hud = FindAnyObjectByType<KenyaStreetHUD>();
             }
+            if (routeMap == null)
+            {
+                routeMap = FindAnyObjectByType<KenyaRouteMapUI>();
+            }
 
             // Initialize fleet: ENA Coach active at start position, Isuzu FRR standby
             ActivateVehicle(0, resetPose: true);
@@ -110,6 +115,8 @@ namespace KenyaStreetSim
 
         private void HandleRunningHotkeys()
         {
+            if (routeMap != null && routeMap.IsFullMapOpen) return;
+
             if (WasEscapePressed())
             {
                 PauseRun();
@@ -120,6 +127,55 @@ namespace KenyaStreetSim
             {
                 SwitchVehicle();
             }
+        }
+
+        public void SetActiveStageByIndex(int hubIndex)
+        {
+            if (stages == null || stages.Length == 0) return;
+            int idx = Mathf.Clamp(hubIndex, 0, stages.Length - 1);
+            CurrentStageIndex = idx;
+            for (int i = 0; i < stages.Length; i++)
+            {
+                if (stages[i] == null) continue;
+                stages[i].SetStageState(active: i == idx && !stages[i].IsCompleted, completed: stages[i].IsCompleted);
+            }
+            if (stages[idx] != null && stages[idx].IsCompleted)
+            {
+                stages[idx].ResetStage(active: true);
+            }
+            hud?.ShowToast($"GPS Route Set: {stages[idx].stageName}");
+        }
+
+        public void TeleportToTownHub(int hubIndex)
+        {
+            if (hubIndex < 0 || hubIndex >= KenyaNetworkData.Hubs.Length || ActiveVehicle == null) return;
+            var hub = KenyaNetworkData.Hubs[hubIndex];
+            Quaternion approxRot = Quaternion.Euler(0f, hub.roadYawDeg, 0f);
+            Vector3 approxFwd = approxRot * Vector3.forward;
+
+            // Snap cleanly onto the actual curved tarmac highway 30m ahead of the selected town's ENA Coach Terminal
+            Vector3 probePos = new Vector3(hub.xz.x, 0f, hub.xz.y) - approxFwd * 30f;
+            Vector3 roadPt = probePos;
+            Vector3 roadFwd = approxFwd;
+            if (KenyaNetworkData.FindNearestRoadPoint(probePos, out Vector3 snappedPt, out Vector3 snappedFwd, out float d) && d < 28f)
+            {
+                roadPt = snappedPt;
+                roadFwd = Vector3.Dot(snappedFwd, approxFwd) >= 0f ? snappedFwd : -snappedFwd;
+            }
+
+            Vector3 left = Vector3.Cross(roadFwd, Vector3.up).normalized;
+            Vector3 spawn = roadPt + left * 3.4f + Vector3.up * 0.32f;
+            Quaternion rot = Quaternion.LookRotation(roadFwd, Vector3.up);
+
+            ActiveVehicle.ResetToPose(spawn, rot);
+
+            if (streetCamera != null)
+            {
+                streetCamera.SnapToTarget();
+            }
+
+            SetActiveStageByIndex(hubIndex);
+            hud?.ShowToast($"Arrived at {hub.name} ({hub.corridorTag})");
         }
 
         public void StartRun()
@@ -259,9 +315,24 @@ namespace KenyaStreetSim
 
             OnStageBoarded?.Invoke(stage);
 
-            CurrentStageIndex++;
-            if (stages != null && CurrentStageIndex < stages.Length)
+            // Advance to next uncompleted ENA Coach town stage across Kenya!
+            int nextIdx = -1;
+            if (stages != null)
             {
+                for (int step = 1; step <= stages.Length; step++)
+                {
+                    int cand = (CurrentStageIndex + step) % stages.Length;
+                    if (stages[cand] != null && !stages[cand].IsCompleted)
+                    {
+                        nextIdx = cand;
+                        break;
+                    }
+                }
+            }
+
+            if (nextIdx >= 0)
+            {
+                CurrentStageIndex = nextIdx;
                 stages[CurrentStageIndex].SetStageState(active: true, completed: false);
             }
             else
