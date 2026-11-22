@@ -368,12 +368,12 @@ namespace KenyaStreetSim.Editor
 
         private static Mesh BuildFullKenyaTerrain()
         {
-            const int resX = 140;
-            const int resZ = 96;
-            const float minX = -1520f;
-            const float maxX = 1080f;
+            const int resX = 148;
+            const int resZ = 104;
+            const float minX = -1560f;
+            const float maxX = 1220f;
             const float minZ = -520f;
-            const float maxZ = 980f;
+            const float maxZ = 1080f;
 
             // Pre-sample all highway segments into coarse 2D polyline segments for blazing fast distance checks
             var roadSegs = new List<(Vector2 a, Vector2 b)>();
@@ -414,18 +414,18 @@ namespace KenyaStreetSim.Editor
                     }
                     for (int h = 0; h < KenyaNetworkData.Hubs.Length; h++)
                     {
-                        float dTown = Vector2.Distance(p, KenyaNetworkData.Hubs[h].xz) - 34f;
+                        float dTown = Vector2.Distance(p, KenyaNetworkData.Hubs[h].xz) - 48f;
                         if (dTown < minDist) minDist = Mathf.Max(0f, dTown);
                     }
                     for (int r = 0; r < KenyaNetworkData.Roundabouts.Length; r++)
                     {
-                        float dRbt = Vector2.Distance(p, KenyaNetworkData.Roundabouts[r].center) - 32f;
+                        float dRbt = Vector2.Distance(p, KenyaNetworkData.Roundabouts[r].center) - 36f;
                         if (dRbt < minDist) minDist = Mathf.Max(0f, dRbt);
                     }
 
-                    // Keep flat below Lake Victoria (x < -1190, z > 420) and Indian Ocean (x > 730, z < -180)
-                    bool inLakeVictoria = (wx < -1180f && wz > 390f);
-                    bool inIndianOcean = (wx > 740f && wz < -170f);
+                    // Keep dry around Homa Bay & Mombasa-Malindi coastal highway; dip smoothly under Lake Victoria & Indian Ocean!
+                    bool inLakeVictoria = (wx < -1235f && wz > 360f);
+                    bool inIndianOcean = ((wx > 780f && wz < -275f) || (wx > 995f && wz < 220f) || (wx > 925f && wz < -185f));
 
                     float y;
                     if (inLakeVictoria || inIndianOcean)

@@ -15,6 +15,7 @@ namespace KenyaStreetSim
     public class StreetGameLoop : MonoBehaviour
     {
         public enum RunState { Ready, Running, Paused, Won, Lost }
+        public enum GameMode { EnaCoachCareer, KenyaPolicePatrol, IsuzuCargoHaul, FreeRoamKenya }
 
         public static StreetGameLoop Instance { get; private set; }
 
@@ -27,9 +28,34 @@ namespace KenyaStreetSim
         public Vector3 startPosition = new Vector3(-3.5f, 0.28f, -18f);
 
         public RunState State { get; private set; } = RunState.Ready;
+        public GameMode ActiveMode { get; private set; } = GameMode.EnaCoachCareer;
         public int ActiveVehicleIndex { get; private set; }
         public KenyaStreetVehicle ActiveVehicle =>
             (fleet != null && fleet.Length > 0) ? fleet[Mathf.Clamp(ActiveVehicleIndex, 0, fleet.Length - 1)] : null;
+
+        public string ModeDisplayName => ActiveMode switch
+        {
+            GameMode.EnaCoachCareer => "ENA COACH CAREER",
+            GameMode.KenyaPolicePatrol => "KENYA POLICE PATROL",
+            GameMode.IsuzuCargoHaul => "ISUZU CARGO HAUL",
+            _ => "FREE ROAM KENYA"
+        };
+
+        public string ModeObjectiveNoun => ActiveMode switch
+        {
+            GameMode.EnaCoachCareer => "STAGES",
+            GameMode.KenyaPolicePatrol => "PATROLS",
+            GameMode.IsuzuCargoHaul => "DELIVERIES",
+            _ => "VISITED"
+        };
+
+        public string ModeCounterNoun => ActiveMode switch
+        {
+            GameMode.EnaCoachCareer => "BOARDED",
+            GameMode.KenyaPolicePatrol => "SECURED",
+            GameMode.IsuzuCargoHaul => "TONNES",
+            _ => "TOWNS"
+        };
 
         public int CurrentStageIndex { get; private set; }
         public int CompletedStageCount { get; private set; }
@@ -178,6 +204,26 @@ namespace KenyaStreetSim
             hud?.ShowToast($"Arrived at {hub.name} ({hub.corridorTag})");
         }
 
+        public void SelectGameMode(GameMode mode, bool autoSelectRecommendedVehicle = true)
+        {
+            ActiveMode = mode;
+            if (autoSelectRecommendedVehicle && fleet != null && fleet.Length > 0)
+            {
+                int recIdx = mode switch
+                {
+                    GameMode.EnaCoachCareer => 0,       // Scania Touring 2026 (ENA Coach)
+                    GameMode.KenyaPolicePatrol => 1,    // Kenya Police Land Cruiser 79 (KCP 380D)
+                    GameMode.IsuzuCargoHaul => 2,       // Kenyan Isuzu FRR
+                    _ => ActiveVehicleIndex
+                };
+                if (recIdx < fleet.Length)
+                {
+                    ActivateVehicle(recIdx, resetPose: State == RunState.Ready);
+                }
+            }
+            KenyaStreetAudio.Instance?.PlayUiClick();
+        }
+
         public void StartRun()
         {
             if (State != RunState.Ready) return;
@@ -194,7 +240,13 @@ namespace KenyaStreetSim
             if (ActiveVehicle != null)
             {
                 ActiveVehicle.ResetToPose(startPosition, Quaternion.identity);
+                var policeSys = ActiveVehicle.GetComponent<KenyaPoliceEmergencySystem>();
+                if (policeSys != null)
+                {
+                    policeSys.SetSirenActive(ActiveMode == GameMode.KenyaPolicePatrol, silent: true);
+                }
             }
+            streetCamera?.SnapToTarget();
 
             Time.timeScale = 1f;
             if (KenyaStreetAudio.Instance != null)
@@ -204,6 +256,7 @@ namespace KenyaStreetSim
             }
 
             SetState(RunState.Running);
+            hud?.ShowToast($"{ModeDisplayName}  •  {ActiveVehicle?.displayName}");
         }
 
         public void PauseRun()
@@ -344,6 +397,14 @@ namespace KenyaStreetSim
         public void RegisterSafetyPenalty(int amount, string reason, float shakeStrength = 0.6f)
         {
             if (State != RunState.Running) return;
+
+            if (ActiveMode == GameMode.FreeRoamKenya)
+            {
+                // Free Roam mode keeps impact feedback without ending your cruise!
+                KenyaStreetAudio.Instance?.PlayBump(shakeStrength * 0.7f);
+                streetCamera?.TriggerImpactShake(shakeStrength * 0.55f);
+                return;
+            }
 
             SafetyRating = Mathf.Max(0, SafetyRating - amount);
 

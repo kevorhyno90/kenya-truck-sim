@@ -17,9 +17,9 @@ namespace KenyaStreetSim
         public enum CameraMode { ChaseOrbit, CockpitRHD, DashcamBumper, AxleStreet }
 
         [Header("Chase Rig")]
-        public float chaseDistance = 12.2f;
-        public float chaseHeight = 3.85f;
-        public float chaseLookHeight = 2.05f;
+        public float chaseDistance = 14.6f;
+        public float chaseHeight = 4.25f;
+        public float chaseLookHeight = 2.15f;
         public float positionSmooth = 8.0f;
         public float rotationSmooth = 9.0f;
 
@@ -94,7 +94,7 @@ namespace KenyaStreetSim
                     if (cam != null) cam.fieldOfView = 55f;
                     break;
                 case CameraMode.CockpitRHD:
-                    UpdateAnchorCamera(targetVehicle.cockpitCameraAnchor, 68f);
+                    UpdateAnchorCamera(targetVehicle.cockpitCameraAnchor, 78f);
                     break;
                 case CameraMode.DashcamBumper:
                     UpdateAnchorCamera(targetVehicle.bumperCameraAnchor, 64f);
@@ -140,7 +140,7 @@ namespace KenyaStreetSim
                     UpdateChaseCamera();
                     break;
                 case CameraMode.CockpitRHD:
-                    UpdateAnchorCamera(targetVehicle.cockpitCameraAnchor, 68f);
+                    UpdateAnchorCamera(targetVehicle.cockpitCameraAnchor, 78f);
                     break;
                 case CameraMode.DashcamBumper:
                     UpdateAnchorCamera(targetVehicle.bumperCameraAnchor, 64f);

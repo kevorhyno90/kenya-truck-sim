@@ -46,6 +46,7 @@ namespace KenyaStreetSim
         public Transform bumperCameraAnchor;
         public Transform axleCameraAnchor;
         public Transform steeringWheelVisual;
+        public Vector3 steeringWheelSpinAxis = Vector3.forward;
         public Renderer[] brakeLightRenderers;
         public Renderer[] headlightRenderers;
         public Light[] headlightSpots;
@@ -72,6 +73,8 @@ namespace KenyaStreetSim
         private float lastCollisionTime = -10f;
         private float blinkTimer;
         private float prevSpeedKmh;
+        private Quaternion steeringWheelRestRot = Quaternion.identity;
+        private bool hasSteerRest;
         private MaterialPropertyBlock lightMpb;
         private static readonly int EmissionColorId = Shader.PropertyToID("_EmissionColor");
 
@@ -422,8 +425,14 @@ namespace KenyaStreetSim
         private void UpdateSteeringWheelVisual()
         {
             if (steeringWheelVisual == null) return;
+            if (!hasSteerRest)
+            {
+                steeringWheelRestRot = steeringWheelVisual.localRotation;
+                hasSteerRest = true;
+            }
             float wheelTurn = -currentSteerAngle * 5.8f;
-            steeringWheelVisual.localRotation = Quaternion.Euler(24f, 0f, wheelTurn);
+            Vector3 axis = steeringWheelSpinAxis.sqrMagnitude > 0.01f ? steeringWheelSpinAxis.normalized : Vector3.forward;
+            steeringWheelVisual.localRotation = steeringWheelRestRot * Quaternion.AngleAxis(wheelTurn, axis);
         }
 
         private void UpdateBrakeLights()

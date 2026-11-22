@@ -21,11 +21,13 @@ namespace KenyaStreetSim
 
         private AudioSource ambientSource;
         private AudioSource engineSource;
+        private AudioSource sirenSource;
         private AudioSource sfxSource;
         private AudioSource uiSource;
 
         private AudioClip ambientClip;
         private AudioClip engineClip;
+        private AudioClip policeSirenClip;
         private AudioClip pickupBlipClip;
         private AudioClip milestoneStingClip;
         private AudioClip uiClickClip;
@@ -74,6 +76,10 @@ namespace KenyaStreetSim
             engineSource.pitch = 0.85f;
             engineSource.Play();
 
+            sirenSource = CreateSource("PoliceSirenLoop", loop: true, spatial: false);
+            sirenSource.clip = policeSirenClip;
+            sirenSource.volume = 0f;
+
             sfxSource = CreateSource("SfxOneShot", loop: false, spatial: false);
             uiSource = CreateSource("UiOneShot", loop: false, spatial: false);
         }
@@ -119,6 +125,10 @@ namespace KenyaStreetSim
                 engineSource.volume = currentEngineVolumeFactor * sfxVolume * duck;
                 engineSource.pitch = currentEnginePitch;
             }
+            if (sirenSource != null)
+            {
+                sirenSource.volume = sirenSource.isPlaying ? 0.36f * sfxVolume * duck : 0f;
+            }
             if (sfxSource != null)
             {
                 sfxSource.volume = sfxVolume * duck;
@@ -142,6 +152,20 @@ namespace KenyaStreetSim
 
             currentEnginePitch = Mathf.Lerp(currentEnginePitch, targetPitch, Time.unscaledDeltaTime * 7f);
             currentEngineVolumeFactor = Mathf.Lerp(currentEngineVolumeFactor, targetFactor, Time.unscaledDeltaTime * 7f);
+            ApplyVolumes();
+        }
+
+        public void SetPoliceSiren(bool active)
+        {
+            if (sirenSource == null || policeSirenClip == null) return;
+            if (active && !sirenSource.isPlaying)
+            {
+                sirenSource.Play();
+            }
+            else if (!active && sirenSource.isPlaying)
+            {
+                sirenSource.Stop();
+            }
             ApplyVolumes();
         }
 
@@ -207,6 +231,7 @@ namespace KenyaStreetSim
             const int sr = 22050;
             ambientClip = SynthesizeAmbientBed(sr, 6.0f);
             engineClip = SynthesizeTurboDieselEngine(sr, 2.0f);
+            policeSirenClip = SynthesizePoliceSiren(sr, 2.4f);
             pickupBlipClip = SynthesizePickupBlip(sr, 0.11f);
             milestoneStingClip = SynthesizeMilestoneSting(sr);
             uiClickClip = SynthesizeUiClick(sr, 0.025f);
@@ -278,6 +303,25 @@ namespace KenyaStreetSim
             }
             ApplyFade(data, sr, 0.015f);
             return CreateClip("TurboDieselEngineLoop", data, sr);
+        }
+
+        private static AudioClip SynthesizePoliceSiren(int sr, float duration)
+        {
+            int n = Mathf.RoundToInt(sr * duration);
+            var data = new float[n];
+            float phase = 0f;
+            for (int i = 0; i < n; i++)
+            {
+                float t = (float)i / sr;
+                // Kenyan Police Patrol wail + rapid yelp sweep (640 Hz <-> 1420 Hz)
+                float wail = 0.5f - 0.5f * Mathf.Cos(2f * Mathf.PI * t / (duration * 0.5f));
+                float freq = Mathf.Lerp(640f, 1420f, wail);
+                phase += 2f * Mathf.PI * freq / sr;
+                float tone = 0.72f * Mathf.Sin(phase) + 0.22f * Mathf.Sin(phase * 2f) + 0.08f * Mathf.Sin(phase * 3f);
+                data[i] = Mathf.Clamp(tone * 0.55f, -0.9f, 0.9f);
+            }
+            ApplyFade(data, sr, 0.015f);
+            return CreateClip("KenyaPoliceSiren", data, sr);
         }
 
         private static AudioClip SynthesizeAirBrake(int sr, float duration)

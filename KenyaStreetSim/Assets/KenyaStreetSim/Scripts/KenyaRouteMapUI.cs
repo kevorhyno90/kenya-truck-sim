@@ -307,48 +307,55 @@ namespace KenyaStreetSim
             fullMapPlot = plotFrame;
             fullPlotSize = new Vector2(1060f, 610f);
 
-            // Geographic stylized water silhouettes on the full map (Lake Victoria West, Indian Ocean SE)
-            DrawMapWaterBlob(fullMapPlot, new Vector2(-1270f, 580f), 195f, Palette.Hex("#153A5C"), fullPlotSize);
-            DrawMapWaterBlob(fullMapPlot, new Vector2(-1285f, 455f), 150f, Palette.Hex("#153A5C"), fullPlotSize);
-            DrawMapWaterBlob(fullMapPlot, new Vector2(-1185f, 560f), 110f, Palette.Hex("#153A5C"), fullPlotSize);
-            var lakeLbl = CreateText("LakeVictoriaLbl", fullMapPlot, "LAKE\nVICTORIA", 16f, FontStyles.Bold, Palette.Hex("#7EC3EE"), TextAlignmentOptions.Center);
-            lakeLbl.rectTransform.anchoredPosition = WorldToMapPos(new Vector2(-1258f, 520f), fullPlotSize);
-            lakeLbl.rectTransform.sizeDelta = new Vector2(120f, 48f);
+            // Geographic stylized water silhouettes on the full map (Lake Victoria West, Indian Ocean East/SE)
+            DrawMapWaterBlob(fullMapPlot, new Vector2(-1305f, 595f), 175f, Palette.Hex("#153A5C"), fullPlotSize);
+            DrawMapWaterBlob(fullMapPlot, new Vector2(-1320f, 445f), 155f, Palette.Hex("#153A5C"), fullPlotSize);
+            DrawMapWaterBlob(fullMapPlot, new Vector2(-1255f, 540f), 115f, Palette.Hex("#153A5C"), fullPlotSize);
+            var lakeLbl = CreateText("LakeVictoriaLbl", fullMapPlot, "LAKE\nVICTORIA", 14.5f, FontStyles.Bold, Palette.Hex("#7EC3EE"), TextAlignmentOptions.Center);
+            lakeLbl.rectTransform.anchoredPosition = WorldToMapPos(new Vector2(-1310f, 530f), fullPlotSize);
+            lakeLbl.rectTransform.sizeDelta = new Vector2(110f, 44f);
 
-            DrawMapWaterBlob(fullMapPlot, new Vector2(855f, -245f), 220f, Palette.Hex("#134D69"), fullPlotSize);
-            DrawMapWaterBlob(fullMapPlot, new Vector2(775f, -320f), 175f, Palette.Hex("#134D69"), fullPlotSize);
-            var oceanLbl = CreateText("IndianOceanLbl", fullMapPlot, "INDIAN\nOCEAN", 16f, FontStyles.Bold, Palette.Hex("#7BE0EC"), TextAlignmentOptions.Center);
-            oceanLbl.rectTransform.anchoredPosition = WorldToMapPos(new Vector2(842f, -258f), fullPlotSize);
-            oceanLbl.rectTransform.sizeDelta = new Vector2(120f, 48f);
+            DrawMapWaterBlob(fullMapPlot, new Vector2(960f, -245f), 210f, Palette.Hex("#134D69"), fullPlotSize);
+            DrawMapWaterBlob(fullMapPlot, new Vector2(1015f, -35f), 180f, Palette.Hex("#134D69"), fullPlotSize);
+            DrawMapWaterBlob(fullMapPlot, new Vector2(825f, -325f), 155f, Palette.Hex("#134D69"), fullPlotSize);
+            var oceanLbl = CreateText("IndianOceanLbl", fullMapPlot, "INDIAN\nOCEAN", 15f, FontStyles.Bold, Palette.Hex("#7BE0EC"), TextAlignmentOptions.Center);
+            oceanLbl.rectTransform.anchoredPosition = WorldToMapPos(new Vector2(955f, -230f), fullPlotSize);
+            oceanLbl.rectTransform.sizeDelta = new Vector2(115f, 46f);
 
-            // Draw all 6 connected Kenyan highways + roundabouts
-            DrawAllHighways(fullMapPlot, fullPlotSize, thickness: 7.5f);
+            // Draw all 8 connected Kenyan highways + 3 roundabouts
+            DrawAllHighways(fullMapPlot, fullPlotSize, thickness: 7.0f);
 
             foreach (var rb in KenyaNetworkData.Roundabouts)
             {
-                CreateCircleMarker($"FullRbt_{rb.name}", fullMapPlot, WorldToMapPos(rb.center, fullPlotSize), 20f, Palette.UiAccentAmber);
+                CreateCircleMarker($"FullRbt_{rb.name}", fullMapPlot, WorldToMapPos(rb.center, fullPlotSize), 19f, Palette.UiAccentAmber);
             }
 
             // Selected ring
-            var selRing = CreateCircleMarker("FullSelectedRing", fullMapPlot, Vector2.zero, 34f, Palette.WithAlpha(Palette.UiAccentAmber, 0.45f));
+            var selRing = CreateCircleMarker("FullSelectedRing", fullMapPlot, Vector2.zero, 32f, Palette.WithAlpha(Palette.UiAccentAmber, 0.45f));
             fullSelectedRing = selRing.rectTransform;
 
-            // Explicit non-overlapping label offsets for all 10 Kenyan ENA Coach hubs
+            // Explicit non-overlapping label offsets for all 16 Kenyan ENA Coach hubs
             Vector2[] labelOffsets =
             {
-                new Vector2( 86f,  -4f), // 0: Nairobi CBD (right of vertical ave)
-                new Vector2(  0f, -28f), // 1: Narok Town (below B3 dip)
-                new Vector2( 22f,  28f), // 2: Bomet Highlands (above B3)
-                new Vector2( 24f, -30f), // 3: Kisii Town (below Kisii junction)
-                new Vector2( 94f,   0f), // 4: Migori / Sirare (right of vertical A1)
-                new Vector2( 66f,  24f), // 5: Nakuru City (above-right of green arc)
-                new Vector2(  0f, -28f), // 6: Kericho Town (below green B1)
-                new Vector2( 26f,  28f), // 7: Kisumu Lakeside (above B1/lake corner)
-                new Vector2( 78f,  18f), // 8: Voi / Tsavo (above-right of A109)
-                new Vector2(-40f, -30f)  // 9: Mombasa Coast (below-left, clear of Indian Ocean)
+                new Vector2(  0f, -26f), //  0: Nairobi CBD (cleanly below pin)
+                new Vector2(  0f, -25f), //  1: Narok Town (below B3 dip)
+                new Vector2( 22f,  25f), //  2: Bomet Highlands (above B3)
+                new Vector2( 58f, -24f), //  3: Kisii Town (below-right of Kisii pin)
+                new Vector2( 84f,   0f), //  4: Migori / Sirare (right of vertical A1)
+                new Vector2( 74f,   0f), //  5: Naivasha Town (right of A104)
+                new Vector2( 74f,  -8f), //  6: Nakuru City (right of Nakuru pin)
+                new Vector2(  0f, -25f), //  7: Kericho Town (below B1)
+                new Vector2( 16f, -25f), //  8: Kisumu Lakeside (below B1/lake corner)
+                new Vector2(  0f,  25f), //  9: Eldoret City (above North Rift peak)
+                new Vector2(-46f,  25f), // 10: Kakamega Town (above-left of C39)
+                new Vector2( 74f,   0f), // 11: Homa Bay Town (right of C19, clear of Lake Victoria)
+                new Vector2( 72f,  16f), // 12: Mtito Andei (above-right of A109)
+                new Vector2( 68f,  18f), // 13: Voi / Tsavo (above-right of A109)
+                new Vector2(-52f, -26f), // 14: Mombasa Coast (below-left, clear of Indian Ocean)
+                new Vector2(-68f,  14f)  // 15: Malindi Coast (left of North Coast highway)
             };
 
-            // Interactive Clickable Town Hub Pins for all 10 ENA Coach Hubs!
+            // Interactive Clickable Town Hub Pins for all 16 ENA Coach Hubs!
             hubPinImages.Clear();
             for (int i = 0; i < KenyaNetworkData.Hubs.Length; i++)
             {
@@ -362,7 +369,7 @@ namespace KenyaStreetSim
                 rt.anchorMin = new Vector2(0.5f, 0.5f);
                 rt.anchorMax = new Vector2(0.5f, 0.5f);
                 rt.anchoredPosition = pos;
-                rt.sizeDelta = new Vector2(22f, 22f);
+                rt.sizeDelta = new Vector2(20f, 20f);
 
                 var img = btnGo.GetComponent<Image>();
                 img.sprite = circleSprite;
@@ -378,21 +385,21 @@ namespace KenyaStreetSim
                 });
 
                 // Subtle dark backing pill behind each town label so road lines never clutter text
-                Vector2 lOff = i < labelOffsets.Length ? labelOffsets[i] : new Vector2(0f, 26f);
-                float pillW = Mathf.Clamp(h.name.Length * 9.8f + 18f, 96f, 168f);
+                Vector2 lOff = i < labelOffsets.Length ? labelOffsets[i] : new Vector2(0f, 24f);
+                float pillW = Mathf.Clamp(h.name.Length * 8.6f + 16f, 88f, 152f);
                 var pillGo = new GameObject($"HubLblPill_{i}", typeof(RectTransform), typeof(Image));
                 pillGo.transform.SetParent(fullMapPlot, false);
                 var prt = pillGo.GetComponent<RectTransform>();
                 prt.anchorMin = new Vector2(0.5f, 0.5f);
                 prt.anchorMax = new Vector2(0.5f, 0.5f);
                 prt.anchoredPosition = pos + lOff;
-                prt.sizeDelta = new Vector2(pillW, 24f);
+                prt.sizeDelta = new Vector2(pillW, 22f);
                 var pBg = pillGo.GetComponent<Image>();
                 pBg.sprite = solidSprite;
                 pBg.color = Palette.Hex("#0D141DE8");
                 pBg.raycastTarget = false;
 
-                var lbl = CreateText($"HubLbl_{i}", prt, h.name, 15.5f, FontStyles.Bold, Palette.UiTextPrimary, TextAlignmentOptions.Center);
+                var lbl = CreateText($"HubLbl_{i}", prt, h.name, 14f, FontStyles.Bold, Palette.UiTextPrimary, TextAlignmentOptions.Center);
                 lbl.textWrappingMode = TextWrappingModes.NoWrap;
                 StretchRect(lbl.rectTransform, 4f, 0f, -4f, 0f);
             }
@@ -415,32 +422,33 @@ namespace KenyaStreetSim
             detailTitleText = CreateText("DetailTitle", side, "NAIROBI CBD", 30f, FontStyles.Bold, Palette.UiAccentAmber, TextAlignmentOptions.Left);
             SetBox(detailTitleText.rectTransform, 22f, -20f, 352f, 40f, new Vector2(0f, 1f));
 
-            detailInfoText = CreateText("DetailInfo", side, "", 17.5f, FontStyles.Normal, Palette.UiTextPrimary, TextAlignmentOptions.TopLeft);
-            SetBox(detailInfoText.rectTransform, 22f, -68f, 352f, 232f, new Vector2(0f, 1f));
+            detailInfoText = CreateText("DetailInfo", side, "", 17f, FontStyles.Normal, Palette.UiTextPrimary, TextAlignmentOptions.TopLeft);
+            SetBox(detailInfoText.rectTransform, 22f, -68f, 352f, 220f, new Vector2(0f, 1f));
 
-            CreateButton("SetGpsBtn", side, "SET AS GPS STAGE", new Vector2(0f, -34f), new Vector2(344f, 52f), Palette.UiAccentGreen, Palette.UiFadeCurtain, () =>
+            CreateButton("SetGpsBtn", side, "SET AS GPS STAGE", new Vector2(0f, -20f), new Vector2(344f, 50f), Palette.UiAccentGreen, Palette.UiFadeCurtain, () =>
             {
                 SetFullMapOpen(false);
                 StreetGameLoop.Instance?.SetActiveStageByIndex(selectedHubIndex);
             });
 
-            CreateButton("TeleportBtn", side, "DRIVE FROM THIS TOWN", new Vector2(0f, -100f), new Vector2(344f, 52f), Palette.UiAccentAmber, Palette.UiFadeCurtain, () =>
+            CreateButton("TeleportBtn", side, "DRIVE FROM THIS TOWN", new Vector2(0f, -84f), new Vector2(344f, 50f), Palette.UiAccentAmber, Palette.UiFadeCurtain, () =>
             {
                 SetFullMapOpen(false);
                 StreetGameLoop.Instance?.TeleportToTownHub(selectedHubIndex);
             });
 
-            // Corridor color legend at bottom of right panel
+            // Corridor color legend at bottom of right panel (all 6 corridors across 16 towns!)
             var legend = CreateText("CorridorLegend", side,
-                "KENYA HIGHWAY CORRIDORS\n" +
+                "16-TOWN KENYA HIGHWAY CORRIDORS\n" +
                 "• B3 (Red): Nairobi – Narok – Bomet – Kisii\n" +
                 "• A1 (Orange): Kisii – Migori – Sirare Border\n" +
-                "• A104/B1 (Green): Nairobi – Nakuru – Kericho – Kisumu\n" +
-                "• C19 (Blue): Kisumu – Oyugis – Kisii Loop\n" +
-                "• A109 (Teal): Nairobi – Voi – Mombasa Coast",
-                14.5f, FontStyles.Normal, Palette.UiTextPrimary, TextAlignmentOptions.BottomLeft);
-            legend.lineSpacing = 8f;
-            SetBox(legend.rectTransform, 22f, 18f, 354f, 152f, new Vector2(0f, 0f));
+                "• A104/B1 (Green): Nairobi – Naivasha – Nakuru – Kericho – Kisumu\n" +
+                "• C39 (Violet): Nakuru – Eldoret – Kakamega – Kisumu\n" +
+                "• C19 (Blue): Kisumu – Homa Bay – Kisii Loop\n" +
+                "• A109/B8 (Teal): Nairobi – Mtito Andei – Voi – Mombasa – Malindi",
+                13.5f, FontStyles.Normal, Palette.UiTextPrimary, TextAlignmentOptions.BottomLeft);
+            legend.lineSpacing = 6f;
+            SetBox(legend.rectTransform, 22f, 16f, 354f, 174f, new Vector2(0f, 0f));
 
             fullMapOverlay.SetActive(false);
         }

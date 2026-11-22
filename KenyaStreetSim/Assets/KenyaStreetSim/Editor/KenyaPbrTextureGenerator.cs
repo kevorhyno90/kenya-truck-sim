@@ -29,6 +29,9 @@ namespace KenyaStreetSim.Editor
             GenerateLeafClusterAlpha(512);
             GenerateTireTread(256);
             GenerateGlassFacade(256);
+            GeneratePoliceCanvas(256);
+            GenerateDiamondPlate(256);
+            GenerateKenyaPoliceCrest(256);
 
             AssetDatabase.Refresh();
             ConfigureImporters();
@@ -486,6 +489,125 @@ namespace KenyaStreetSim.Editor
                     }
                 }
             }
+        }
+
+        private static void GeneratePoliceCanvas(int size)
+        {
+            var albedo = new Texture2D(size, size, TextureFormat.RGBA32, false);
+            var height = new float[size * size];
+            Color oliveBase = new Color(0.45f, 0.42f, 0.31f, 1f);
+            Color oliveDark = new Color(0.32f, 0.30f, 0.22f, 1f);
+            Color oliveLight = new Color(0.55f, 0.51f, 0.39f, 1f);
+
+            for (int y = 0; y < size; y++)
+            {
+                float v = (float)y / size;
+                for (int x = 0; x < size; x++)
+                {
+                    float u = (float)x / size;
+                    // Woven military canvas cross-hatch + subtle fabric folds & stitched vertical seams
+                    float weave = 0.5f + 0.25f * Mathf.Sin(u * size * 0.9f) * Mathf.Sin(v * size * 0.9f);
+                    float fold = TileFbm(u * 4f, v * 3f, 4f, 3, 811);
+                    float seam = Mathf.Abs((u * 4f) % 1f - 0.5f) < 0.015f ? 0.18f : 0f;
+                    float h = Mathf.Clamp01(weave * 0.28f + fold * 0.62f - seam);
+                    height[y * size + x] = h;
+                    Color c = Color.Lerp(oliveDark, oliveLight, h);
+                    c = Color.Lerp(c, oliveBase, 0.35f);
+                    albedo.SetPixel(x, y, c);
+                }
+            }
+            albedo.Apply();
+            SavePng(albedo, $"{TexFolder}/PoliceLC_Canvas_Albedo.png");
+            SaveNormalFromHeight(height, size, 3.0f, $"{TexFolder}/PoliceLC_Canvas_Normal.png");
+            Object.DestroyImmediate(albedo);
+        }
+
+        private static void GenerateDiamondPlate(int size)
+        {
+            var albedo = new Texture2D(size, size, TextureFormat.RGBA32, false);
+            var height = new float[size * size];
+            for (int y = 0; y < size; y++)
+            {
+                float v = (float)y / size;
+                for (int x = 0; x < size; x++)
+                {
+                    float u = (float)x / size;
+                    float gx = (u * 14f) % 1f - 0.5f;
+                    float gy = (v * 14f) % 1f - 0.5f;
+                    bool alt = ((Mathf.FloorToInt(u * 14f) + Mathf.FloorToInt(v * 14f)) % 2) == 0;
+                    float rx = alt ? (gx + gy) * 0.707f : (gx - gy) * 0.707f;
+                    float ry = alt ? (-gx + gy) * 0.707f : (gx + gy) * 0.707f;
+                    float lug = (Mathf.Abs(rx) < 0.26f && Mathf.Abs(ry) < 0.09f) ? 1f : 0f;
+                    float h = 0.25f + lug * 0.65f + Hash2(x, y, 919) * 0.06f;
+                    height[y * size + x] = h;
+                    float lum = Mathf.Lerp(0.08f, 0.22f, h);
+                    albedo.SetPixel(x, y, new Color(lum, lum, lum * 1.04f, 1f));
+                }
+            }
+            albedo.Apply();
+            SavePng(albedo, $"{TexFolder}/DiamondPlate_Albedo.png");
+            SaveNormalFromHeight(height, size, 4.5f, $"{TexFolder}/DiamondPlate_Normal.png");
+            Object.DestroyImmediate(albedo);
+        }
+
+        private static void GenerateKenyaPoliceCrest(int size)
+        {
+            var tex = new Texture2D(size, size, TextureFormat.RGBA32, false);
+            Color transparent = new Color(0f, 0f, 0f, 0f);
+            Color gold = new Color(0.95f, 0.76f, 0.14f, 1f);
+            Color red = new Color(0.84f, 0.14f, 0.14f, 1f);
+            Color navy = new Color(0.07f, 0.14f, 0.34f, 1f);
+            Color green = new Color(0.08f, 0.50f, 0.22f, 1f);
+            Color white = new Color(0.96f, 0.96f, 0.96f, 1f);
+
+            for (int y = 0; y < size; y++)
+            {
+                float ny = ((float)y / size - 0.5f) * 2f;
+                for (int x = 0; x < size; x++)
+                {
+                    float nx = ((float)x / size - 0.5f) * 2f;
+                    float r = Mathf.Sqrt(nx * nx + ny * ny);
+                    float ang = Mathf.Atan2(ny, nx);
+                    Color c = transparent;
+
+                    // Outer golden laurel wreath ring
+                    if (r >= 0.68f && r <= 0.88f)
+                    {
+                        float leafWave = Mathf.Sin(ang * 14f);
+                        if (leafWave > -0.35f || r < 0.78f) c = gold;
+                    }
+                    // Inner royal red/navy shield circle
+                    else if (r < 0.68f)
+                    {
+                        c = r > 0.56f ? white : (r > 0.44f ? red : navy);
+                        // Kenyan shield center emblem + crossed spears silhouette
+                        if (Mathf.Abs(nx) < 0.22f && Mathf.Abs(ny) < 0.34f)
+                        {
+                            float shieldEq = (nx / 0.22f) * (nx / 0.22f) + (ny / 0.34f) * (ny / 0.34f);
+                            if (shieldEq <= 1f)
+                            {
+                                c = ny > 0.10f ? Color.black : (ny < -0.10f ? green : red);
+                                if (Mathf.Abs(ny - 0.10f) < 0.03f || Mathf.Abs(ny + 0.10f) < 0.03f) c = white;
+                                if (Mathf.Abs(nx) < 0.045f && Mathf.Abs(ny) < 0.12f) c = white;
+                            }
+                        }
+                        // Crossed golden spear shafts
+                        if (Mathf.Abs(Mathf.Abs(nx) - Mathf.Abs(ny)) < 0.032f && r < 0.52f && r > 0.22f)
+                        {
+                            c = gold;
+                        }
+                    }
+                    // Bottom golden scroll ribbon
+                    if (ny < -0.58f && ny > -0.84f && Mathf.Abs(nx) < 0.68f)
+                    {
+                        c = gold;
+                    }
+                    tex.SetPixel(x, y, c);
+                }
+            }
+            tex.Apply();
+            SavePng(tex, $"{TexFolder}/PoliceLC_Crest_Albedo.png");
+            Object.DestroyImmediate(tex);
         }
 
         private static float TileFbm(float x, float y, float period, int octaves, int seed)
