@@ -104,15 +104,20 @@ namespace KenyaStreetSim
             ApplyEmission(redBarRenderers, redGlow);
             ApplyEmission(blueBarRenderers, blueGlow);
 
+            bool inCockpit = StreetGameLoop.Instance != null &&
+                             StreetGameLoop.Instance.streetCamera != null &&
+                             StreetGameLoop.Instance.streetCamera.CurrentMode == KenyaStreetCamera.CameraMode.CockpitRHD;
+            float lightPower = inCockpit ? 2.2f : 16f;
+
             if (redStrobeLight != null)
             {
                 redStrobeLight.enabled = redOn;
-                redStrobeLight.intensity = redOn ? 18f : 0f;
+                redStrobeLight.intensity = redOn ? lightPower : 0f;
             }
             if (blueStrobeLight != null)
             {
                 blueStrobeLight.enabled = blueOn;
-                blueStrobeLight.intensity = blueOn ? 18f : 0f;
+                blueStrobeLight.intensity = blueOn ? lightPower : 0f;
             }
         }
 

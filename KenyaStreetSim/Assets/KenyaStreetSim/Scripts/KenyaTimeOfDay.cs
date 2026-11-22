@@ -100,45 +100,45 @@ namespace KenyaStreetSim
                     if (sunLight != null)
                     {
                         sunLight.color = Palette.SunKey;
-                        sunLight.intensity = 1.35f;
-                        sunLight.transform.rotation = Quaternion.Euler(40f, -34f, 0f);
+                        sunLight.intensity = 1.55f;
+                        sunLight.transform.rotation = Quaternion.Euler(42f, -34f, 0f);
                     }
                     RenderSettings.ambientSkyColor = Palette.AmbientSky;
                     RenderSettings.ambientEquatorColor = Palette.AmbientEquator;
                     RenderSettings.ambientGroundColor = Palette.AmbientGround;
-                    RenderSettings.fogColor = Palette.FogColor;
-                    RenderSettings.fogDensity = 0.0016f;
-                    SetSkyParams(Palette.SkyTint, Palette.SkyGround, 0.85f, 1.18f);
+                    RenderSettings.fogColor = new Color(0.68f, 0.80f, 0.92f, 1f);
+                    RenderSettings.fogDensity = 0.00028f;
+                    SetSkyParams(Palette.SkyTint, Palette.SkyGround, 0.72f, 1.24f);
                     break;
 
                 case TimePreset.Sunset:
                     if (sunLight != null)
                     {
                         sunLight.color = Palette.Hex("#FF9C54");
-                        sunLight.intensity = 1.15f;
-                        sunLight.transform.rotation = Quaternion.Euler(11f, -68f, 0f);
+                        sunLight.intensity = 1.22f;
+                        sunLight.transform.rotation = Quaternion.Euler(14f, -68f, 0f);
                     }
                     RenderSettings.ambientSkyColor = Palette.Hex("#5B5C82");
                     RenderSettings.ambientEquatorColor = Palette.Hex("#CC7D52");
                     RenderSettings.ambientGroundColor = Palette.Hex("#36261E");
                     RenderSettings.fogColor = Palette.Hex("#C28668");
-                    RenderSettings.fogDensity = 0.0022f;
-                    SetSkyParams(Palette.Hex("#B8674A"), Palette.Hex("#3B2B22"), 1.65f, 1.02f);
+                    RenderSettings.fogDensity = 0.00065f;
+                    SetSkyParams(Palette.Hex("#B8674A"), Palette.Hex("#3B2B22"), 1.45f, 1.06f);
                     break;
 
                 case TimePreset.Night:
                     if (sunLight != null)
                     {
                         sunLight.color = Palette.Hex("#6B8BC2");
-                        sunLight.intensity = 0.22f;
+                        sunLight.intensity = 0.28f;
                         sunLight.transform.rotation = Quaternion.Euler(52f, 24f, 0f);
                     }
                     RenderSettings.ambientSkyColor = Palette.Hex("#1A243B");
                     RenderSettings.ambientEquatorColor = Palette.Hex("#1E2838");
                     RenderSettings.ambientGroundColor = Palette.Hex("#10141C");
                     RenderSettings.fogColor = Palette.Hex("#141B29");
-                    RenderSettings.fogDensity = 0.0032f;
-                    SetSkyParams(Palette.Hex("#0B1120"), Palette.Hex("#0D121C"), 0.28f, 0.26f);
+                    RenderSettings.fogDensity = 0.00110f;
+                    SetSkyParams(Palette.Hex("#0B1120"), Palette.Hex("#0D121C"), 0.28f, 0.30f);
                     break;
             }
 

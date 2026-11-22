@@ -30,6 +30,7 @@ namespace KenyaStreetSim.Editor
         private const string IsuzuFrrAssetPath = "Assets/KenyaStreetSim/ImportedModels/Fleet/Isuzu_FRR_Kenyan.glb";
         private const string IsuzuTxAssetPath = "Assets/KenyaStreetSim/ImportedModels/Fleet/Isuzu_TX_Lorry.glb";
         private const string MarcopoloG7AssetPath = "Assets/KenyaStreetSim/ImportedModels/Fleet/Marcopolo_G7_Volvo.glb";
+        private const string RangeRoverAssetPath = "Assets/KenyaStreetSim/ImportedModels/Fleet/RangeRover_Sport_2018.fbx";
         private const string ImportedVehiclesFolder = "Assets/KenyaStreetSim/ImportedModels/Vehicles";
         private const string ImportedPeopleFolder = "Assets/KenyaStreetSim/ImportedModels/People";
 
@@ -140,7 +141,7 @@ namespace KenyaStreetSim.Editor
                 fleetRoot.transform, startPos, MarcopoloG7AssetPath,
                 "Marcopolo_G7_Volvo_KDR100E", "Marcopolo G7 Volvo (KDR 100E)", "KDR 100E",
                 isCoach: true, targetLength: 13.6f, massKg: 11400f, motorTorque: 4250f, maxSpeedKmh: 108f,
-                extraYawDeg: 0f, matSharedTire, matSharedRim, matSharedHead, matSharedTail, matSharedInd, matSharedPlate, matSharedInt, matSharedBlk, matSharedChr)
+                extraYawDeg: 180f, matSharedTire, matSharedRim, matSharedHead, matSharedTail, matSharedInd, matSharedPlate, matSharedInt, matSharedBlk, matSharedChr)
                 ?? BuildEnaCoach(fleetRoot.transform, startPos);
 
             policeLandCruiser.gameObject.SetActive(false);
@@ -171,6 +172,7 @@ namespace KenyaStreetSim.Editor
             AssetDatabase.SaveAssets();
             EditorSceneManager.SaveScene(scene, ScenePath);
             SetBuildSettingsScene(ScenePath);
+            KenyaHdGameViewConfigurator.ApplyFullHdCrispGameView(maximizeOnPlay: true, silent: true);
 
             int meshCount = Object.FindObjectsByType<MeshRenderer>().Length + Object.FindObjectsByType<SkinnedMeshRenderer>().Length;
             int defaultMatCount = CountDefaultMaterials();
@@ -379,10 +381,12 @@ namespace KenyaStreetSim.Editor
             var sun = sunGo.AddComponent<Light>();
             sun.type = LightType.Directional;
             sun.color = Palette.SunKey;
-            sun.intensity = 1.35f;
+            sun.intensity = 1.55f;
             sun.shadows = LightShadows.Soft;
-            sun.shadowStrength = 0.80f;
-            sunGo.transform.rotation = Quaternion.Euler(40f, -34f, 0f);
+            sun.shadowStrength = 0.85f;
+            sun.shadowBias = 0.04f;
+            sun.shadowNormalBias = 0.35f;
+            sunGo.transform.rotation = Quaternion.Euler(42f, -34f, 0f);
 
             skyMat = AssetDatabase.LoadAssetAtPath<Material>(SkyMatPath);
             if (skyMat == null)
@@ -393,9 +397,9 @@ namespace KenyaStreetSim.Editor
             }
             skyMat.SetColor("_SkyTint", Palette.SkyTint);
             skyMat.SetColor("_GroundColor", Palette.SkyGround);
-            skyMat.SetFloat("_AtmosphereThickness", 0.85f);
-            skyMat.SetFloat("_SunSize", 0.032f);
-            skyMat.SetFloat("_Exposure", 1.18f);
+            skyMat.SetFloat("_AtmosphereThickness", 0.72f);
+            skyMat.SetFloat("_SunSize", 0.028f);
+            skyMat.SetFloat("_Exposure", 1.24f);
             EditorUtility.SetDirty(skyMat);
 
             RenderSettings.skybox = skyMat;
@@ -404,10 +408,11 @@ namespace KenyaStreetSim.Editor
             RenderSettings.ambientSkyColor = Palette.AmbientSky;
             RenderSettings.ambientEquatorColor = Palette.AmbientEquator;
             RenderSettings.ambientGroundColor = Palette.AmbientGround;
+            // Crystal-clear high-altitude Kenyan sunlight visibility (minimal haze!)
             RenderSettings.fog = true;
             RenderSettings.fogMode = FogMode.ExponentialSquared;
-            RenderSettings.fogColor = Palette.FogColor;
-            RenderSettings.fogDensity = 0.0011f;
+            RenderSettings.fogColor = new Color(0.68f, 0.80f, 0.92f, 1f);
+            RenderSettings.fogDensity = 0.00028f;
 
             var profile = AssetDatabase.LoadAssetAtPath<VolumeProfile>(VolumeProfilePath);
             if (profile == null)
@@ -421,25 +426,26 @@ namespace KenyaStreetSim.Editor
 
             if (!profile.TryGet<Bloom>(out var bl)) bl = profile.Add<Bloom>();
             bl.threshold.overrideState = true;
-            bl.threshold.value = 1.05f;
+            bl.threshold.value = 1.25f;
             bl.intensity.overrideState = true;
-            bl.intensity.value = 0.32f;
+            bl.intensity.value = 0.14f;
             bl.scatter.overrideState = true;
-            bl.scatter.value = 0.66f;
+            bl.scatter.value = 0.55f;
 
+            // Zero dark muddy vignette for crisp bright edge-to-edge clarity
             if (!profile.TryGet<Vignette>(out var vig)) vig = profile.Add<Vignette>();
             vig.intensity.overrideState = true;
-            vig.intensity.value = 0.15f;
+            vig.intensity.value = 0.0f;
             vig.smoothness.overrideState = true;
-            vig.smoothness.value = 0.38f;
+            vig.smoothness.value = 0.25f;
 
             if (!profile.TryGet<ColorAdjustments>(out var ca)) ca = profile.Add<ColorAdjustments>();
             ca.saturation.overrideState = true;
-            ca.saturation.value = 10f;
+            ca.saturation.value = 12f;
             ca.contrast.overrideState = true;
-            ca.contrast.value = 8f;
+            ca.contrast.value = 14f;
             ca.postExposure.overrideState = true;
-            ca.postExposure.value = 0.06f;
+            ca.postExposure.value = 0.16f;
             EditorUtility.SetDirty(profile);
 
             var volGo = new GameObject("Global Volume");
@@ -459,13 +465,16 @@ namespace KenyaStreetSim.Editor
 
             var cam = camGo.AddComponent<Camera>();
             cam.allowHDR = true;
+            cam.allowMSAA = true;
             cam.fieldOfView = 54f;
             cam.nearClipPlane = 0.12f;
-            cam.farClipPlane = 1300f;
+            cam.farClipPlane = 1600f;
 
             var camData = camGo.AddComponent<UniversalAdditionalCameraData>();
             camData.renderPostProcessing = true;
-            camData.antialiasing = AntialiasingMode.FastApproximateAntialiasing;
+            // Crisp SMAA High instead of blurry FXAA so roads, text, vehicles & mirrors stay razor-sharp!
+            camData.antialiasing = AntialiasingMode.SubpixelMorphologicalAntiAliasing;
+            camData.antialiasingQuality = AntialiasingQuality.High;
 
             camGo.AddComponent<AudioListener>();
             camGo.AddComponent<KenyaStreetCamera>();
@@ -1081,24 +1090,45 @@ namespace KenyaStreetSim.Editor
             var matHeadlight = GetMat("HeadlightWarm", Palette.HeadlightWarm, 0.85f, 0f, Palette.HeadlightWarm * 2.6f);
             var matTail = GetMat("TaillightRed", Palette.TaillightRed, 0.65f, 0f, Palette.TaillightRed * 1.6f);
 
-            // Spawn REAL 3D LHT passing Kenyan vehicles (Vans/Matatus, Sedans, SUVs, Taxis, Delivery, Cargo Trucks, Police, Ambulance) across ALL 8 highways!
-            int[] perDirectionPerHighway = { 2, 5, 3, 3, 4, 5, 3, 6 }; // 62 real 3D passing vehicles across Kenya!
-            int seed = 1;
+            // Load the user's REAL HIGH-DETAIL 3D KENYAN VEHICLES for live passing traffic across all 8 highways!
+            var realTrafficCatalog = new List<(GameObject prefab, float targetLen, float extraYaw, bool remapFbxUrp)>();
+            var rrPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(RangeRoverAssetPath);
+            var frrPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(IsuzuFrrAssetPath);
+            var txPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(IsuzuTxAssetPath);
+            var g7Prefab = AssetDatabase.LoadAssetAtPath<GameObject>(MarcopoloG7AssetPath);
+
+            if (rrPrefab != null) realTrafficCatalog.Add((rrPrefab, 4.88f, 90f, true));
+            if (frrPrefab != null) realTrafficCatalog.Add((frrPrefab, 7.90f, 0f, false));
+            if (rrPrefab != null) realTrafficCatalog.Add((rrPrefab, 4.88f, 90f, true)); // Extra Nairobi SUVs!
+            if (txPrefab != null) realTrafficCatalog.Add((txPrefab, 7.50f, 0f, false));
+            if (g7Prefab != null) realTrafficCatalog.Add((g7Prefab, 13.4f, 180f, false));
+
+            // 44 Real High-Detail 3D Passing Kenyan Vehicles distributed smoothly across ALL 8 highways (incl. Nairobi CBD!)
+            int[] perDirectionPerHighway = { 2, 3, 2, 2, 3, 3, 2, 5 };
+            int seed = 0;
             int totalSpawned = 0;
 
             for (int h = 0; h < KenyaNetworkData.Highways.Length; h++)
             {
-                int count = h < perDirectionPerHighway.Length ? perDirectionPerHighway[h] : 3;
+                int count = h < perDirectionPerHighway.Length ? perDirectionPerHighway[h] : 2;
                 for (int dir = 0; dir < 2; dir++)
                 {
                     bool fwd = (dir == 0);
                     for (int k = 0; k < count; k++)
                     {
                         float progress = (k + 0.35f) / count;
-                        if (h == 0 && fwd && progress < 0.36f) progress = 0.48f; // keep clear of player Scania start in Nairobi
+                        if (h == 0 && fwd && progress < 0.42f) progress = 0.56f; // clear player start in Nairobi CBD
 
                         KenyaSplineTraffic ai;
-                        if (importedVehiclePrefabs != null && importedVehiclePrefabs.Count > 0)
+                        if (realTrafficCatalog.Count > 0)
+                        {
+                            var entry = realTrafficCatalog[seed % realTrafficCatalog.Count];
+                            ai = CreateHighDetailKenyanTrafficVehicle(
+                                root, $"Real3DTraffic_H{h}_{(fwd ? "F" : "R")}_{k}_{entry.prefab.name}",
+                                entry.prefab, entry.targetLen, entry.extraYaw, entry.remapFbxUrp, seed, matTire, matRim, matGlass, matHeadlight, matTail);
+                            seed++;
+                        }
+                        else if (importedVehiclePrefabs != null && importedVehiclePrefabs.Count > 0)
                         {
                             var prefab = importedVehiclePrefabs[(seed++) % importedVehiclePrefabs.Count];
                             ai = CreateReal3DTrafficVehicle(root, $"Kenya3DVehicle_H{h}_{(fwd ? "F" : "R")}_{k}_{prefab.name}", prefab);
@@ -1112,13 +1142,101 @@ namespace KenyaStreetSim.Editor
                         ai.highwayIndex = h;
                         ai.forwardDirection = fwd;
                         ai.startNormalizedProgress = progress;
-                        ai.laneOffsetMeters = 3.4f;
-                        ai.cruiseSpeed = (h == 0 ? 10.5f : 14.8f) + (seed % 4) * 1.5f;
+                        ai.laneOffsetMeters = 3.45f;
+                        ai.cruiseSpeed = (h == 0 ? 10.0f : 14.5f) + (seed % 4) * 1.4f;
                         totalSpawned++;
                     }
                 }
             }
             return totalSpawned;
+        }
+
+        private static KenyaSplineTraffic CreateHighDetailKenyanTrafficVehicle(
+            Transform parent, string name, GameObject modelPrefab, float targetLen, float extraYaw, bool remapFbxUrp, int colorSeed,
+            Material matTire, Material matRim, Material matGlass, Material matHeadlight, Material matTail)
+        {
+            var go = new GameObject(name);
+            go.transform.SetParent(parent, false);
+            var ai = go.AddComponent<KenyaSplineTraffic>();
+
+            // Wrap inside a clean alignment pivot so prefab root rotations (e.g. 270° X-up GLBs) are preserved intact!
+            var modelPivot = new GameObject("ModelAlignPivot").transform;
+            modelPivot.SetParent(go.transform, false);
+            modelPivot.localPosition = Vector3.zero;
+            modelPivot.localRotation = Quaternion.Euler(0f, extraYaw, 0f);
+            modelPivot.localScale = Vector3.one;
+
+            var inst = (GameObject)PrefabUtility.InstantiatePrefab(modelPrefab);
+            inst.transform.SetParent(modelPivot, false);
+
+            bool isMarcopoloG7 = modelPrefab.name.IndexOf("Marcopolo", System.StringComparison.OrdinalIgnoreCase) >= 0;
+            foreach (var r in inst.GetComponentsInChildren<Renderer>(true))
+            {
+                string rn = r.name.ToLowerInvariant();
+                if (rn.Contains("shadow") || rn == "plane" || (isMarcopoloG7 && (r.name == "Object_22" || r.name == "Object_83")))
+                {
+                    r.gameObject.SetActive(false);
+                }
+            }
+
+            Bounds rawB = MeasureRenderers(modelPivot);
+            float scale = targetLen / Mathf.Max(0.5f, rawB.size.z);
+            modelPivot.localScale = Vector3.one * scale;
+            Bounds scaledB = MeasureRenderers(modelPivot);
+            Vector3 relCenter = scaledB.center - go.transform.position;
+            float relMinY = scaledB.min.y - go.transform.position.y;
+            modelPivot.localPosition = new Vector3(-relCenter.x, -relMinY, -relCenter.z);
+            Bounds aligned = MeasureRenderers(modelPivot);
+
+            Color[] suvPaints = { Palette.Hex("#ECEFF4"), Palette.Hex("#181C24"), Palette.Hex("#8E9AA8"), Palette.Hex("#1A3564"), Palette.Hex("#7A1E24") };
+            Color chosenPaint = suvPaints[colorSeed % suvPaints.Length];
+            var matPaint = GetMat($"RealSuvPaint_{ColorUtility.ToHtmlStringRGB(chosenPaint)}", chosenPaint, 0.88f, 0.42f);
+            var matChrome = GetMat("EnaChrome", Palette.EnaChrome, 0.96f, 0.94f);
+            var matBlackTrim = GetMat("EnaStripeBlackGloss", Palette.EnaStripeBlack, 0.42f, 0.15f);
+
+            var wheelList = new List<Transform>();
+            foreach (var r in inst.GetComponentsInChildren<Renderer>(true))
+            {
+                if (!r.gameObject.activeInHierarchy) continue;
+                string rn = r.name.ToLowerInvariant();
+                if ((rn.Contains("wheel") || rn.Contains("tyre") || rn.Contains("tire")) &&
+                    Vector3.Distance(r.transform.position, r.bounds.center) < 0.14f)
+                {
+                    wheelList.Add(r.transform);
+                }
+
+                if (remapFbxUrp)
+                {
+                    var matAmber = GetMat("IndicatorAmber", Palette.UiAccentAmber, 0.7f, 0f, Palette.UiAccentAmber * 0.8f);
+                    var mats = r.sharedMaterials;
+                    bool changed = false;
+                    for (int i = 0; i < mats.Length; i++)
+                    {
+                        var m = mats[i];
+                        string mn = m != null ? m.name.ToLowerInvariant() : "";
+                        if (mn.Contains("tyre") || mn.Contains("tire") || mn.Contains("rubber")) mats[i] = matTire;
+                        else if (mn.Contains("yellow")) mats[i] = matAmber;
+                        else if (mn.Contains("glass") || mn.Contains("window") || mn.Contains("wind") || mn.Contains("trasnsparent")) mats[i] = matGlass;
+                        else if (mn.Contains("chrome") || mn.Contains("silver") || mn.Contains("rim") || mn.Contains("alloy") || mn.Contains("metalic") || mn.Contains("mirror")) mats[i] = matChrome;
+                        else if (mn.Contains("tail") || mn.Contains("brake") || mn.Contains("red") || mn.Contains("reflector")) mats[i] = matTail;
+                        else if (mn.Contains("head") || mn.Contains("light") || mn.Contains("lamp")) mats[i] = matHeadlight;
+                        else if (mn.Contains("black") || mn.Contains("plastic") || mn.Contains("grille") || mn.Contains("interior") || mn.Contains("carbon")) mats[i] = matBlackTrim;
+                        else mats[i] = matPaint;
+                        changed = true;
+                    }
+                    if (changed) r.sharedMaterials = mats;
+                }
+            }
+
+            var col = go.AddComponent<BoxCollider>();
+            Vector3 sz = aligned.size;
+            col.center = new Vector3(0f, sz.y * 0.5f, 0f);
+            col.size = new Vector3(Mathf.Clamp(sz.x, 1.85f, 2.75f), Mathf.Clamp(sz.y, 1.5f, 3.8f), Mathf.Clamp(sz.z, 4.4f, 13.8f));
+
+            ai.vehicleHalfLength = col.size.z * 0.52f;
+            ai.wheelRadius = targetLen > 6.5f ? 0.48f : 0.42f;
+            ai.wheelVisuals = wheelList.ToArray();
+            return ai;
         }
 
         private static KenyaSplineTraffic CreateReal3DTrafficVehicle(Transform parent, string name, GameObject modelPrefab)
@@ -1713,6 +1831,10 @@ namespace KenyaStreetSim.Editor
                 // Wrap real 3D Scania steering wheel around its exact mesh center so A/D turns it smoothly!
                 if (realSteeringWheel != null)
                 {
+                    if (PrefabUtility.IsPartOfPrefabInstance(scaniaInst))
+                    {
+                        PrefabUtility.UnpackPrefabInstance(scaniaInst, PrefabUnpackMode.Completely, InteractionMode.AutomatedAction);
+                    }
                     var swRenderer = realSteeringWheel.GetComponent<Renderer>();
                     Vector3 worldCenter = swRenderer != null ? swRenderer.bounds.center : realSteeringWheel.position;
                     var pivotGo = new GameObject("ScaniaSteeringPivot");
@@ -1917,32 +2039,28 @@ namespace KenyaStreetSim.Editor
             var body = new GameObject("VisualBodyRoot").transform;
             body.SetParent(root.transform, false);
 
+            // Wrap inside a clean alignment pivot so prefab root rotations (e.g. 270° X-up GLBs) are preserved intact!
+            var modelPivot = new GameObject($"{goName}_AlignPivot").transform;
+            modelPivot.SetParent(body, false);
+            modelPivot.localPosition = Vector3.zero;
+            modelPivot.localRotation = Quaternion.identity;
+            modelPivot.localScale = Vector3.one;
+
             var inst = (GameObject)PrefabUtility.InstantiatePrefab(modelAsset);
             inst.name = $"{goName}_Model";
-            inst.transform.SetParent(body, false);
-            inst.transform.localPosition = Vector3.zero;
-            inst.transform.localRotation = Quaternion.identity;
-            inst.transform.localScale = Vector3.one;
+            inst.transform.SetParent(modelPivot, false);
 
-            // Measure raw imported bounds (ignoring shadow planes)
-            Bounds rawB = MeasureRenderers(inst.transform);
-            float autoYaw = (rawB.size.x > rawB.size.z * 1.15f) ? 90f : 0f;
-            inst.transform.localRotation = Quaternion.Euler(0f, autoYaw + extraYawDeg, 0f);
-            Bounds rotB = MeasureRenderers(inst.transform);
-            float curLen = Mathf.Max(0.5f, rotB.size.z);
-            float scale = targetLength / curLen;
-            inst.transform.localScale = Vector3.one * scale;
-            Bounds finalB = MeasureRenderers(inst.transform);
-            // Center X=0, ground bottom at Y=0, center length at Z=0!
-            inst.transform.localPosition = new Vector3(-finalB.center.x, -finalB.min.y, -finalB.center.z);
-            Bounds aligned = MeasureRenderers(inst.transform);
-
-            // Make front glass transparent if present so [C] cockpit view sees cleanly out the front
+            // Hide shadow planes & Marcopolo side plinth outliers + make front glass transparent BEFORE measuring bounds
+            bool isMarcopoloG7 = assetPath.IndexOf("Marcopolo", System.StringComparison.OrdinalIgnoreCase) >= 0;
             var matClearGlass = GetTransparentGlassMat("ScaniaCrystalWindshield", new Color(0.86f, 0.94f, 1f, 0.08f));
             foreach (var r in inst.GetComponentsInChildren<Renderer>(true))
             {
                 string rn = r.name.ToLowerInvariant();
-                if (rn.Contains("shadow") || rn == "plane") { r.gameObject.SetActive(false); continue; }
+                if (rn.Contains("shadow") || rn == "plane" || (isMarcopoloG7 && (r.name == "Object_22" || r.name == "Object_83")))
+                {
+                    r.gameObject.SetActive(false);
+                    continue;
+                }
                 var mats = r.sharedMaterials;
                 bool changed = false;
                 for (int mi = 0; mi < mats.Length; mi++)
@@ -1957,6 +2075,21 @@ namespace KenyaStreetSim.Editor
                 }
                 if (changed) r.sharedMaterials = mats;
             }
+
+            // Measure natural imported bounds, align forward axis along +Z, scale to exact Kenyan length, center X/Z and ground Y=0!
+            Bounds rawB = MeasureRenderers(modelPivot);
+            float autoYaw = (rawB.size.x > rawB.size.z * 1.15f) ? 90f : 0f;
+            modelPivot.localRotation = Quaternion.Euler(0f, autoYaw + extraYawDeg, 0f);
+            Bounds rotB = MeasureRenderers(modelPivot);
+            float curLen = Mathf.Max(0.5f, rotB.size.z);
+            float scale = targetLength / curLen;
+            modelPivot.localScale = Vector3.one * scale;
+            Bounds finalB = MeasureRenderers(modelPivot);
+            // Convert world-space Bounds center/min into body-local space!
+            Vector3 relCenter = finalB.center - body.position;
+            float relMinY = finalB.min.y - body.position.y;
+            modelPivot.localPosition = new Vector3(-relCenter.x, -relMinY, -relCenter.z);
+            Bounds aligned = MeasureRenderers(modelPivot);
 
             float halfW = Mathf.Clamp(aligned.size.x * 0.5f, 1.0f, 1.38f);
             float fullH = Mathf.Clamp(aligned.size.y, 2.5f, 4.0f);
@@ -1989,22 +2122,24 @@ namespace KenyaStreetSim.Editor
             ctrl.leftIndicatorRenderers = new[] { indFL.GetComponent<Renderer>(), indRL.GetComponent<Renderer>() };
             ctrl.rightIndicatorRenderers = new[] { indFR.GetComponent<Renderer>(), indRR.GetComponent<Renderer>() };
 
-            // Clean ETS2-style [C] RHD Cockpit Overlay Rig (Dashboard + 3-Spoke Steering Wheel + BOTH Working Live Side Mirrors!)
-            // Placed cleanly at front windshield height so pressing C ALWAYS shows dashboard + both live side mirrors clearly!
-            float cabEyeY = isCoach ? 2.28f : 2.16f;
-            float cabFrontZ = halfL - 0.18f;
+            // Clean ETS2-style [C] RHD Cockpit Overlay Rig (ONLY visible in [C] Cockpit Mode so real 3D exteriors stay 100% pristine!)
+            // Placed cleanly just ahead of opaque imported windshields so pressing [C] ALWAYS delivers a crystal-clear unobstructed
+            // highway view + RHD Dashboard + live Telemetry + spinning Steering Wheel + BOTH working live Left & Right Side Mirrors!
+            float cabEyeY = isCoach ? 2.42f : 2.22f;
+            float camZ = halfL + 0.16f;
+            float cabFrontZ = camZ + 0.64f;
             var cockpitRig = new GameObject("ModCockpitDashboardRig").transform;
             cockpitRig.SetParent(body, false);
-            cockpitRig.localPosition = new Vector3(0f, cabEyeY - 0.56f, cabFrontZ);
+            cockpitRig.localPosition = new Vector3(0f, cabEyeY - 0.54f, cabFrontZ);
 
-            CreateBox("ModDashDeck", cockpitRig, new Vector3(0f, 0f, 0.12f), new Vector3(halfW * 1.66f, 0.34f, 0.48f), matInterior, false);
-            CreateBox("ModDashHood", cockpitRig, new Vector3(0.48f, 0.24f, 0.08f), new Vector3(0.56f, 0.18f, 0.28f), matBlack, false);
-            var modSpeedTmp = CreateWorldSignText("ModDashSpeed", cockpitRig, "00 km/h | G:N", new Vector3(0.48f, 0.26f, -0.07f), new Vector2(0.48f, 0.07f), 0.38f, Palette.UiAccentGreen, Quaternion.identity, noWrap: true);
-            var modStatusTmp = CreateWorldSignText("ModDashStatus", cockpitRig, $"{plateNum}\nKENYA GPS", new Vector3(0.48f, 0.19f, -0.07f), new Vector2(0.48f, 0.08f), 0.24f, Palette.UiAccentAmber, Quaternion.identity, noWrap: false);
+            CreateBox("ModDashDeck", cockpitRig, new Vector3(0f, 0f, 0.12f), new Vector3(halfW * 1.72f, 0.34f, 0.46f), matInterior, false);
+            CreateBox("ModDashHood", cockpitRig, new Vector3(0.42f, 0.28f, 0.08f), new Vector3(0.56f, 0.20f, 0.28f), matBlack, false);
+            var modSpeedTmp = CreateWorldSignText("ModDashSpeed", cockpitRig, "00 km/h | G:N", new Vector3(0.42f, 0.32f, -0.07f), new Vector2(0.48f, 0.07f), 0.38f, Palette.UiAccentGreen, Quaternion.identity, noWrap: true);
+            var modStatusTmp = CreateWorldSignText("ModDashStatus", cockpitRig, $"{plateNum}\nKENYA GPS", new Vector3(0.42f, 0.24f, -0.07f), new Vector2(0.48f, 0.08f), 0.24f, Palette.UiAccentAmber, Quaternion.identity, noWrap: false);
 
             var steerPivot = new GameObject("SteeringWheelPivot").transform;
             steerPivot.SetParent(cockpitRig, false);
-            steerPivot.localPosition = new Vector3(0.48f, 0.14f, -0.22f);
+            steerPivot.localPosition = new Vector3(0.42f, 0.11f, -0.22f);
             steerPivot.localRotation = Quaternion.Euler(64f, 0f, 0f);
             for (int seg = 0; seg < 12; seg++)
             {
@@ -2018,23 +2153,23 @@ namespace KenyaStreetSim.Editor
             ctrl.steeringWheelVisual = steerPivot;
             ctrl.steeringWheelSpinAxis = Vector3.up;
 
-            // BOTH Working Live Left & Right Side Mirrors cleanly inside the driver's [C] FOV!
-            var modMirL = BuildLiveSideMirrorHousing(body, "ModMirrorL",
-                new Vector3(-halfW - 0.18f, cabEyeY - 0.04f, cabFrontZ + 0.56f),
-                new Vector3(-halfW + 0.02f, cabEyeY + 0.04f, cabFrontZ + 0.16f),
-                new Vector3(0f, 26f, 0f), new Vector2(0.24f, 0.46f), matBlack, matChrome);
-            var modMirR = BuildLiveSideMirrorHousing(body, "ModMirrorR",
-                new Vector3( halfW + 0.18f, cabEyeY - 0.04f, cabFrontZ + 0.34f),
-                new Vector3( halfW - 0.02f, cabEyeY + 0.04f, cabFrontZ + 0.14f),
-                new Vector3(0f, -22f, 0f), new Vector2(0.24f, 0.46f), matBlack, matChrome);
+            // BOTH Working Live Left & Right Side Mirrors angled cleanly toward the RHD driver's eyes!
+            var modMirL = BuildLiveSideMirrorHousing(cockpitRig, "ModMirrorL",
+                new Vector3(-halfW * 0.56f, 0.54f, 0.34f),
+                new Vector3(-halfW * 0.78f, 0.54f, 0.16f),
+                new Vector3(0f, -32f, 0f), new Vector2(0.24f, 0.42f), matBlack, matChrome);
+            var modMirR = BuildLiveSideMirrorHousing(cockpitRig, "ModMirrorR",
+                new Vector3( halfW * 0.94f, 0.54f, 0.24f),
+                new Vector3( halfW * 0.80f, 0.54f, 0.12f),
+                new Vector3(0f,  26f, 0f), new Vector2(0.24f, 0.42f), matBlack, matChrome);
 
             var camL = new GameObject("ModMirrorCamL").transform;
             camL.SetParent(root.transform, false);
-            camL.localPosition = new Vector3(-halfW - 0.24f, cabEyeY - 0.04f, cabFrontZ + 0.22f);
+            camL.localPosition = new Vector3(-halfW - 0.26f, cabEyeY - 0.04f, halfL - 0.20f);
             camL.localRotation = Quaternion.Euler(4f, 173f, 0f);
             var camR = new GameObject("ModMirrorCamR").transform;
             camR.SetParent(root.transform, false);
-            camR.localPosition = new Vector3( halfW + 0.24f, cabEyeY - 0.04f, cabFrontZ + 0.12f);
+            camR.localPosition = new Vector3( halfW + 0.26f, cabEyeY - 0.04f, halfL - 0.20f);
             camR.localRotation = Quaternion.Euler(4f, 187f, 0f);
 
             var mirrors = root.AddComponent<KenyaVehicleMirrors>();
@@ -2044,11 +2179,13 @@ namespace KenyaStreetSim.Editor
             mirrors.rightMirrorCameraAnchor = camR;
             mirrors.dashSpeedText = modSpeedTmp;
             mirrors.dashStatusText = modStatusTmp;
+            mirrors.cockpitOnlyRig = cockpitRig.gameObject;
+            cockpitRig.gameObject.SetActive(false);
 
             var cockpitCam = new GameObject("CockpitCameraAnchor").transform;
             cockpitCam.SetParent(root.transform, false);
-            cockpitCam.localPosition = new Vector3(0.48f, cabEyeY, cabFrontZ - 0.64f);
-            cockpitCam.localRotation = Quaternion.Euler(9.0f, 0f, 0f);
+            cockpitCam.localPosition = new Vector3(0.42f, cabEyeY, camZ);
+            cockpitCam.localRotation = Quaternion.Euler(7.5f, 0f, 0f);
             ctrl.cockpitCameraAnchor = cockpitCam;
 
             var dashCam = new GameObject("DashcamAnchor").transform;
@@ -2082,6 +2219,7 @@ namespace KenyaStreetSim.Editor
             bool has = false;
             foreach (var r in root.GetComponentsInChildren<Renderer>(true))
             {
+                if (!r.gameObject.activeInHierarchy) continue;
                 string rn = r.name.ToLowerInvariant();
                 if (rn.Contains("shadow") || rn == "plane") continue;
                 if (!has) { b = r.bounds; has = true; }

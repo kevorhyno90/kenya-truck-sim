@@ -20,6 +20,8 @@ namespace KenyaStreetSim
         [Header("Live 3D Dashboard Telemetry")]
         public TextMeshPro dashSpeedText;
         public TextMeshPro dashStatusText;
+        [Tooltip("Optional interior-only cockpit rig (hidden in exterior Chase view, shown cleanly when pressing C)")]
+        public GameObject cockpitOnlyRig;
 
         private Camera leftMirrorCam;
         private Camera rightMirrorCam;
@@ -32,6 +34,7 @@ namespace KenyaStreetSim
         private void Awake()
         {
             vehicle = GetComponent<KenyaStreetVehicle>();
+            if (cockpitOnlyRig != null) cockpitOnlyRig.SetActive(false);
             SetupMirror("LeftMirror", leftMirrorCameraAnchor, leftMirrorSurfaces, out leftRt, out leftMirrorCam, out leftMirrorMat);
             SetupMirror("RightMirror", rightMirrorCameraAnchor, rightMirrorSurfaces, out rightRt, out rightMirrorCam, out rightMirrorMat);
         }
@@ -59,10 +62,10 @@ namespace KenyaStreetSim
             mat = null;
             if (camAnchor == null || surfaces == null || surfaces.Length == 0) return;
 
-            rt = new RenderTexture(256, 384, 16, RenderTextureFormat.Default)
+            rt = new RenderTexture(384, 512, 16, RenderTextureFormat.Default)
             {
                 name = $"{name}_{label}_RT",
-                antiAliasing = 1,
+                antiAliasing = 2,
                 filterMode = FilterMode.Bilinear
             };
             rt.Create();
@@ -117,6 +120,10 @@ namespace KenyaStreetSim
                              loop.streetCamera.CurrentMode == KenyaStreetCamera.CameraMode.CockpitRHD &&
                              loop.State == StreetGameLoop.RunState.Running;
 
+            if (cockpitOnlyRig != null && cockpitOnlyRig.activeSelf != inCockpit)
+            {
+                cockpitOnlyRig.SetActive(inCockpit);
+            }
             if (leftMirrorCam != null && leftMirrorCam.enabled != inCockpit)
             {
                 leftMirrorCam.enabled = inCockpit;

@@ -46,6 +46,27 @@ namespace KenyaStreetSim
         public void SetTarget(KenyaStreetVehicle vehicle)
         {
             targetVehicle = vehicle;
+            if (vehicle != null)
+            {
+                if (vehicle.isCoach)
+                {
+                    chaseDistance = 14.6f;
+                    chaseHeight = 4.25f;
+                    chaseLookHeight = 2.15f;
+                }
+                else if (vehicle.plateNumber == "KCP 380D" || (vehicle.displayName != null && vehicle.displayName.IndexOf("Police", System.StringComparison.OrdinalIgnoreCase) >= 0))
+                {
+                    chaseDistance = 8.4f;
+                    chaseHeight = 2.65f;
+                    chaseLookHeight = 1.40f;
+                }
+                else
+                {
+                    chaseDistance = 11.2f;
+                    chaseHeight = 3.45f;
+                    chaseLookHeight = 1.80f;
+                }
+            }
         }
 
         public void CycleMode()
@@ -94,7 +115,7 @@ namespace KenyaStreetSim
                     if (cam != null) cam.fieldOfView = 55f;
                     break;
                 case CameraMode.CockpitRHD:
-                    UpdateAnchorCamera(targetVehicle.cockpitCameraAnchor, 78f);
+                    UpdateAnchorCamera(targetVehicle.cockpitCameraAnchor, 85f);
                     break;
                 case CameraMode.DashcamBumper:
                     UpdateAnchorCamera(targetVehicle.bumperCameraAnchor, 64f);
@@ -140,7 +161,7 @@ namespace KenyaStreetSim
                     UpdateChaseCamera();
                     break;
                 case CameraMode.CockpitRHD:
-                    UpdateAnchorCamera(targetVehicle.cockpitCameraAnchor, 78f);
+                    UpdateAnchorCamera(targetVehicle.cockpitCameraAnchor, 85f);
                     break;
                 case CameraMode.DashcamBumper:
                     UpdateAnchorCamera(targetVehicle.bumperCameraAnchor, 64f);

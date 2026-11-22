@@ -182,19 +182,19 @@ namespace KenyaStreetSim.Editor
                 Box($"RedStripeBed_{side}", body, new Vector3(sx, 1.16f, -1.28f), new Vector3(0.025f, 0.10f, 2.34f), matStripeRed);
                 Box($"YelStripeBed_{side}", body, new Vector3(sx, 1.06f, -1.28f), new Vector3(0.025f, 0.09f, 2.34f), matStripeYellow);
 
-                // Gold/Red Kenya Police Coat of Arms Crest Quad on both doors!
+                // Gold/Red Kenya Police Coat of Arms Crest Quad cleanly forward on front door!
                 var crestQuad = GameObject.CreatePrimitive(PrimitiveType.Quad);
                 crestQuad.name = $"KenyaPoliceCrest_{side}";
                 crestQuad.transform.SetParent(body, false);
-                crestQuad.transform.localPosition = new Vector3(side * 0.948f, 1.12f, 0.82f);
+                crestQuad.transform.localPosition = new Vector3(side * 0.948f, 1.15f, 0.88f);
                 crestQuad.transform.localRotation = Quaternion.Euler(0f, side < 0 ? 90f : -90f, 0f);
-                crestQuad.transform.localScale = new Vector3(0.46f, 0.46f, 1f);
+                crestQuad.transform.localScale = new Vector3(0.42f, 0.42f, 1f);
                 Object.DestroyImmediate(crestQuad.GetComponent<Collider>());
                 crestQuad.GetComponent<Renderer>().sharedMaterial = matCrest;
 
-                // Bold white "KENYA POLICE" lettering right next to the crest!
+                // Bold white "KENYA POLICE" lettering clearly separated behind the crest!
                 WorldText($"DoorKenyaPoliceTxt_{side}", body, "KENYA POLICE",
-                    new Vector3(side * 0.952f, 1.16f, 0.12f), new Vector2(1.05f, 0.28f), 1.65f, Color.white,
+                    new Vector3(side * 0.952f, 1.16f, -0.18f), new Vector2(1.15f, 0.28f), 1.48f, Color.white,
                     Quaternion.Euler(0f, side < 0 ? 90f : -90f, 0f));
             }
 
@@ -328,18 +328,18 @@ namespace KenyaStreetSim.Editor
             var cockpit = new GameObject("RhdCockpitInterior").transform;
             cockpit.SetParent(body, false);
             Box("RhdDashMain", cockpit, new Vector3(0f, 1.32f, 0.94f), new Vector3(1.66f, 0.34f, 0.44f), matInterior);
-            Box("DashBinnacle", cockpit, new Vector3(0.44f, 1.54f, 0.92f), new Vector3(0.54f, 0.18f, 0.28f), matBlack);
+            Box("DashBinnacle", cockpit, new Vector3(0.42f, 1.60f, 0.92f), new Vector3(0.56f, 0.20f, 0.28f), matBlack);
             Box("PassengerGrabBar", cockpit, new Vector3(-0.46f, 1.44f, 0.72f), new Vector3(0.44f, 0.05f, 0.05f), matSteelBlack);
             Box("DriverSeatBack", cockpit, new Vector3(0.44f, 1.30f, 0.12f), new Vector3(0.48f, 0.68f, 0.12f), matVinylSeat);
             Box("PassengerSeatBack", cockpit, new Vector3(-0.44f, 1.30f, 0.12f), new Vector3(0.48f, 0.68f, 0.12f), matVinylSeat);
 
-            var lcSpeedTmp = WorldText("LcDashSpeed", cockpit, "00 km/h | G:N", new Vector3(0.44f, 1.56f, 0.76f), new Vector2(0.46f, 0.07f), 0.38f, Palette.UiAccentGreen, Quaternion.identity);
-            var lcStatusTmp = WorldText("LcDashStatus", cockpit, "KENYA POLICE\nKCP 380D [G]", new Vector3(0.44f, 1.49f, 0.76f), new Vector2(0.46f, 0.08f), 0.24f, Palette.UiAccentAmber, Quaternion.identity);
+            var lcSpeedTmp = WorldText("LcDashSpeed", cockpit, "00 km/h | G:N", new Vector3(0.42f, 1.64f, 0.76f), new Vector2(0.48f, 0.07f), 0.38f, Palette.UiAccentGreen, Quaternion.identity);
+            var lcStatusTmp = WorldText("LcDashStatus", cockpit, "KENYA POLICE\nKCP 380D [G]", new Vector3(0.42f, 1.56f, 0.76f), new Vector2(0.48f, 0.08f), 0.24f, Palette.UiAccentAmber, Quaternion.identity);
 
-            // Hollow 3-Spoke RHD Land Cruiser Steering Wheel on the RIGHT (X = +0.44)!
+            // Hollow 3-Spoke RHD Land Cruiser Steering Wheel on the RIGHT (X = +0.42)!
             var steerPivot = new GameObject("SteeringWheelPivot").transform;
             steerPivot.SetParent(cockpit, false);
-            steerPivot.localPosition = new Vector3(0.44f, 1.42f, 0.62f);
+            steerPivot.localPosition = new Vector3(0.42f, 1.37f, 0.60f);
             steerPivot.localRotation = Quaternion.Euler(66f, 0f, 0f);
             for (int seg = 0; seg < 12; seg++)
             {
@@ -352,16 +352,16 @@ namespace KenyaStreetSim.Editor
             ctrl.steeringWheelVisual = steerPivot;
             ctrl.steeringWheelSpinAxis = Vector3.up;
 
-            // BOTH Working Live Left & Right Exterior Side Mirrors cleanly visible on press [C]!
-            var mirrorL = BuildMirror(body, "PoliceMirrorL", new Vector3(-1.08f, 1.66f, 1.06f), new Vector3(-0.88f, 1.64f, 0.96f), new Vector3(0f, 24f, 0f), new Vector2(0.20f, 0.34f), matSteelBlack, matChrome);
-            var mirrorR = BuildMirror(body, "PoliceMirrorR", new Vector3( 1.08f, 1.66f, 0.94f), new Vector3( 0.88f, 1.64f, 0.88f), new Vector3(0f, -20f, 0f), new Vector2(0.20f, 0.34f), matSteelBlack, matChrome);
+            // BOTH Working Live Left & Right Exterior Side Mirrors angled cleanly toward the RHD driver's eyes!
+            var mirrorL = BuildMirror(body, "PoliceMirrorL", new Vector3(-0.98f, 1.62f, 1.44f), new Vector3(-0.88f, 1.60f, 1.08f), new Vector3(0f, -34f, 0f), new Vector2(0.24f, 0.36f), matSteelBlack, matChrome);
+            var mirrorR = BuildMirror(body, "PoliceMirrorR", new Vector3( 1.06f, 1.62f, 0.98f), new Vector3( 0.88f, 1.60f, 0.90f), new Vector3(0f,  26f, 0f), new Vector2(0.24f, 0.36f), matSteelBlack, matChrome);
             var camL = new GameObject("MirrorCamL").transform;
             camL.SetParent(root.transform, false);
-            camL.localPosition = new Vector3(-1.14f, 1.66f, 0.90f);
+            camL.localPosition = new Vector3(-1.24f, 1.62f, 0.96f);
             camL.localRotation = Quaternion.Euler(4f, 173f, 0f);
             var camR = new GameObject("MirrorCamR").transform;
             camR.SetParent(root.transform, false);
-            camR.localPosition = new Vector3(1.14f, 1.66f, 0.82f);
+            camR.localPosition = new Vector3(1.14f, 1.62f, 0.86f);
             camR.localRotation = Quaternion.Euler(4f, 187f, 0f);
 
             var mirrors = root.AddComponent<KenyaVehicleMirrors>();
@@ -374,8 +374,8 @@ namespace KenyaStreetSim.Editor
 
             var cockpitCam = new GameObject("CockpitCameraAnchor").transform;
             cockpitCam.SetParent(root.transform, false);
-            cockpitCam.localPosition = new Vector3(0.44f, 1.74f, 0.24f);
-            cockpitCam.localRotation = Quaternion.Euler(8.5f, 0f, 0f);
+            cockpitCam.localPosition = new Vector3(0.40f, 1.72f, 0.22f);
+            cockpitCam.localRotation = Quaternion.Euler(7.5f, 0f, 0f);
             ctrl.cockpitCameraAnchor = cockpitCam;
 
             var dashCam = new GameObject("DashcamAnchor").transform;

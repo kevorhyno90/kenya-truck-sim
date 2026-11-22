@@ -623,17 +623,22 @@ namespace KenyaStreetSim
                 if (lbl != null) lbl.fontSize = 15.5f;
             }
 
-            // Start button & pulsing prompt cleanly at bottom
-            CreateButton("StartDriveBtn", tr, "START DRIVING", new Vector2(0f, -432f), new Vector2(340f, 58f), Palette.UiAccentRed, Palette.UiTextPrimary, () =>
+            // Start button & pulsing prompt cleanly bottom-anchored (immune to any aspect ratio!)
+            var startBtn = CreateButton("StartDriveBtn", tr, "START DRIVING", Vector2.zero, new Vector2(360f, 58f), Palette.UiAccentRed, Palette.UiTextPrimary, () =>
             {
                 StreetGameLoop.Instance?.StartRun();
             });
+            var srt = startBtn.GetComponent<RectTransform>();
+            srt.anchorMin = new Vector2(0.5f, 0.095f);
+            srt.anchorMax = new Vector2(0.5f, 0.095f);
+            srt.pivot = new Vector2(0.5f, 0.5f);
+            srt.anchoredPosition = Vector2.zero;
 
             titlePromptText = CreateText("PromptLine", tr, "PRESS  ENTER  OR  SPACE  TO  HIT  THE  KENYAN  HIGHWAY", 18.5f, FontStyles.Bold, Palette.UiTextPrimary, TextAlignmentOptions.Center);
             titlePromptText.characterSpacing = 3.5f;
             var prt = titlePromptText.rectTransform;
-            prt.anchorMin = new Vector2(0.5f, 0.035f);
-            prt.anchorMax = new Vector2(0.5f, 0.035f);
+            prt.anchorMin = new Vector2(0.5f, 0.032f);
+            prt.anchorMax = new Vector2(0.5f, 0.032f);
             prt.sizeDelta = new Vector2(960f, 32f);
             prt.anchoredPosition = Vector2.zero;
         }

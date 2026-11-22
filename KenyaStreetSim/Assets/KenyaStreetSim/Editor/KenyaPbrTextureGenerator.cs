@@ -20,10 +20,10 @@ namespace KenyaStreetSim.Editor
                 Directory.CreateDirectory(TexFolder);
             }
 
-            GenerateTarmac(512);
+            GenerateTarmac(1024);
             GenerateMurramSoil(512);
-            GenerateCabroPavers(512);
-            GenerateWeatheredPlaster(512);
+            GenerateCabroPavers(1024);
+            GenerateWeatheredPlaster(1024);
             GenerateCorrugatedMabati(512);
             GenerateTreeBark(256);
             GenerateLeafClusterAlpha(512);
@@ -362,7 +362,9 @@ namespace KenyaStreetSim.Editor
                 $"{TexFolder}/Mabati_Normal.png",
                 $"{TexFolder}/Bark_Normal.png",
                 $"{TexFolder}/TireTread_Normal.png",
-                $"{TexFolder}/WindowFacade_Normal.png"
+                $"{TexFolder}/WindowFacade_Normal.png",
+                $"{TexFolder}/PoliceLC_Canvas_Normal.png",
+                $"{TexFolder}/DiamondPlate_Normal.png"
             };
 
             foreach (var p in normalPaths)
@@ -372,7 +374,8 @@ namespace KenyaStreetSim.Editor
                 imp.textureType = TextureImporterType.NormalMap;
                 imp.wrapMode = TextureWrapMode.Repeat;
                 imp.filterMode = FilterMode.Trilinear;
-                imp.anisoLevel = 8;
+                imp.anisoLevel = 16;
+                imp.textureCompression = TextureImporterCompression.CompressedHQ;
                 imp.SaveAndReimport();
             }
 
@@ -385,7 +388,9 @@ namespace KenyaStreetSim.Editor
                 $"{TexFolder}/Mabati_Albedo.png",
                 $"{TexFolder}/Bark_Albedo.png",
                 $"{TexFolder}/TireTread_Albedo.png",
-                $"{TexFolder}/WindowFacade_Albedo.png"
+                $"{TexFolder}/WindowFacade_Albedo.png",
+                $"{TexFolder}/PoliceLC_Canvas_Albedo.png",
+                $"{TexFolder}/DiamondPlate_Albedo.png"
             };
 
             foreach (var p in albedoPaths)
@@ -395,19 +400,27 @@ namespace KenyaStreetSim.Editor
                 imp.textureType = TextureImporterType.Default;
                 imp.wrapMode = TextureWrapMode.Repeat;
                 imp.filterMode = FilterMode.Trilinear;
-                imp.anisoLevel = 8;
+                imp.anisoLevel = 16;
+                imp.textureCompression = TextureImporterCompression.CompressedHQ;
                 imp.SaveAndReimport();
             }
 
-            var leafImp = AssetImporter.GetAtPath($"{TexFolder}/LeafCluster_Albedo.png") as TextureImporter;
-            if (leafImp != null)
+            string[] alphaCutoutPaths =
             {
-                leafImp.textureType = TextureImporterType.Default;
-                leafImp.alphaIsTransparency = true;
-                leafImp.wrapMode = TextureWrapMode.Clamp;
-                leafImp.filterMode = FilterMode.Trilinear;
-                leafImp.anisoLevel = 4;
-                leafImp.SaveAndReimport();
+                $"{TexFolder}/LeafCluster_Albedo.png",
+                $"{TexFolder}/PoliceLC_Crest_Albedo.png"
+            };
+            foreach (var ap in alphaCutoutPaths)
+            {
+                var alphaImp = AssetImporter.GetAtPath(ap) as TextureImporter;
+                if (alphaImp == null) continue;
+                alphaImp.textureType = TextureImporterType.Default;
+                alphaImp.alphaIsTransparency = true;
+                alphaImp.wrapMode = TextureWrapMode.Clamp;
+                alphaImp.filterMode = FilterMode.Trilinear;
+                alphaImp.anisoLevel = 16;
+                alphaImp.textureCompression = TextureImporterCompression.CompressedHQ;
+                alphaImp.SaveAndReimport();
             }
         }
 

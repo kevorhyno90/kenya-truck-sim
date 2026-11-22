@@ -116,14 +116,15 @@ namespace KenyaStreetSim
             transform.position = pos;
             transform.rotation = Quaternion.Slerp(transform.rotation, rot, Time.deltaTime * 10f);
 
-            // Spin wheels
+            // Spin wheels cleanly around the vehicle's true right axle regardless of imported mesh axis conventions
             if (wheelVisuals != null && wheelRadius > 0.05f && currentSpeed > 0.05f)
             {
                 float deg = (currentSpeed * Time.deltaTime / wheelRadius) * Mathf.Rad2Deg;
+                Vector3 axleWorld = transform.right;
                 for (int i = 0; i < wheelVisuals.Length; i++)
                 {
                     if (wheelVisuals[i] != null)
-                        wheelVisuals[i].Rotate(Vector3.right, deg, Space.Self);
+                        wheelVisuals[i].Rotate(axleWorld, deg, Space.World);
                 }
             }
         }
