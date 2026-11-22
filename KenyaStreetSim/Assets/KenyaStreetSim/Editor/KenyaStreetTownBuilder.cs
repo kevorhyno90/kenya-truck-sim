@@ -30,6 +30,7 @@ namespace KenyaStreetSim.Editor
         private const string IsuzuFrrAssetPath = "Assets/KenyaStreetSim/ImportedModels/Fleet/Isuzu_FRR_Kenyan.glb";
         private const string IsuzuTxAssetPath = "Assets/KenyaStreetSim/ImportedModels/Fleet/Isuzu_TX_Lorry.glb";
         private const string MarcopoloG7AssetPath = "Assets/KenyaStreetSim/ImportedModels/Fleet/Marcopolo_G7_Volvo.glb";
+        private const string YutongEts2AssetPath = "Assets/KenyaStreetSim/ImportedModels/Fleet/Yutong_ZK6888H_ETS2.glb";
         private const string RangeRoverAssetPath = "Assets/KenyaStreetSim/ImportedModels/Fleet/RangeRover_Sport_2018.fbx";
         private const string ImportedVehiclesFolder = "Assets/KenyaStreetSim/ImportedModels/Vehicles";
         private const string ImportedPeopleFolder = "Assets/KenyaStreetSim/ImportedModels/People";
@@ -143,11 +144,43 @@ namespace KenyaStreetSim.Editor
                 isCoach: true, targetLength: 13.6f, massKg: 11400f, motorTorque: 4250f, maxSpeedKmh: 108f,
                 extraYawDeg: 180f, matSharedTire, matSharedRim, matSharedHead, matSharedTail, matSharedInd, matSharedPlate, matSharedInt, matSharedBlk, matSharedChr)
                 ?? BuildEnaCoach(fleetRoot.transform, startPos);
+            var yutongEts2 = BuildImportedModVehicle(
+                fleetRoot.transform, startPos, YutongEts2AssetPath,
+                "Yutong_ZK6888H_ETS2_KDT888Y", "Yutong ZK6888H ETS2 (KDT 888Y)", "KDT 888Y",
+                isCoach: true, targetLength: 9.85f, massKg: 10400f, motorTorque: 3950f, maxSpeedKmh: 112f,
+                extraYawDeg: 0f, matSharedTire, matSharedRim, matSharedHead, matSharedTail, matSharedInd, matSharedPlate, matSharedInt, matSharedBlk, matSharedChr);
 
-            policeLandCruiser.gameObject.SetActive(false);
-            isuzuFrr.gameObject.SetActive(false);
-            isuzuTx.gameObject.SetActive(false);
-            marcopoloG7.gameObject.SetActive(false);
+            var fleetList = new List<KenyaStreetVehicle> { enaScania, policeLandCruiser, isuzuFrr, isuzuTx, marcopoloG7 };
+            if (yutongEts2 != null) fleetList.Add(yutongEts2);
+
+            // Auto-discover any extra user-converted ETS2 mods (*_ETS2.glb) placed in ImportedModels/Fleet/ via the ETS2 Importer!
+            string fleetDir = "Assets/KenyaStreetSim/ImportedModels/Fleet";
+            if (Directory.Exists(fleetDir))
+            {
+                int extraIdx = 1;
+                foreach (var f in Directory.GetFiles(fleetDir, "*_ETS2.glb"))
+                {
+                    string assetPath = f.Replace("\\", "/");
+                    if (string.Equals(assetPath, YutongEts2AssetPath, System.StringComparison.OrdinalIgnoreCase)) continue;
+                    string modBase = Path.GetFileNameWithoutExtension(f).Replace("_ETS2", "").Replace("_", " ");
+                    string plate = $"KDU {100 + extraIdx:000}E";
+                    var extraMod = BuildImportedModVehicle(
+                        fleetRoot.transform, startPos, assetPath,
+                        $"ETS2Mod_{extraIdx}_{modBase.Replace(" ", "_")}", $"{modBase} ETS2 ({plate})", plate,
+                        isCoach: true, targetLength: 10.5f, massKg: 10500f, motorTorque: 4000f, maxSpeedKmh: 110f,
+                        extraYawDeg: 0f, matSharedTire, matSharedRim, matSharedHead, matSharedTail, matSharedInd, matSharedPlate, matSharedInt, matSharedBlk, matSharedChr);
+                    if (extraMod != null)
+                    {
+                        fleetList.Add(extraMod);
+                        extraIdx++;
+                    }
+                }
+            }
+
+            for (int fi = 1; fi < fleetList.Count; fi++)
+            {
+                fleetList[fi].gameObject.SetActive(false);
+            }
 
             // 9. Runtime Systems: Audio, Time of Day, ETS2 HUD, Interactive [M] Full Kenya Map, Game Loop
             var sysRoot = new GameObject("KenyaStreetSystems");
@@ -162,7 +195,7 @@ namespace KenyaStreetSim.Editor
             var hud = sysRoot.AddComponent<KenyaStreetHUD>();
             var routeMap = sysRoot.AddComponent<KenyaRouteMapUI>();
             var loop = sysRoot.AddComponent<StreetGameLoop>();
-            loop.fleet = new[] { enaScania, policeLandCruiser, isuzuFrr, isuzuTx, marcopoloG7 };
+            loop.fleet = fleetList.ToArray();
             loop.stages = stages;
             loop.streetCamera = camObj.GetComponent<KenyaStreetCamera>();
             loop.hud = hud;
@@ -1096,11 +1129,13 @@ namespace KenyaStreetSim.Editor
             var frrPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(IsuzuFrrAssetPath);
             var txPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(IsuzuTxAssetPath);
             var g7Prefab = AssetDatabase.LoadAssetAtPath<GameObject>(MarcopoloG7AssetPath);
+            var yutongPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(YutongEts2AssetPath);
 
             if (rrPrefab != null) realTrafficCatalog.Add((rrPrefab, 4.88f, 90f, true));
             if (frrPrefab != null) realTrafficCatalog.Add((frrPrefab, 7.90f, 0f, false));
             if (rrPrefab != null) realTrafficCatalog.Add((rrPrefab, 4.88f, 90f, true)); // Extra Nairobi SUVs!
             if (txPrefab != null) realTrafficCatalog.Add((txPrefab, 7.50f, 0f, false));
+            if (yutongPrefab != null) realTrafficCatalog.Add((yutongPrefab, 9.85f, 0f, false)); // Real converted ETS2 Yutong Coach!
             if (g7Prefab != null) realTrafficCatalog.Add((g7Prefab, 13.4f, 180f, false));
 
             // 44 Real High-Detail 3D Passing Kenyan Vehicles distributed smoothly across ALL 8 highways (incl. Nairobi CBD!)
@@ -1185,7 +1220,24 @@ namespace KenyaStreetSim.Editor
             Bounds scaledB = MeasureRenderers(modelPivot);
             Vector3 relCenter = scaledB.center - go.transform.position;
             float relMinY = scaledB.min.y - go.transform.position.y;
-            modelPivot.localPosition = new Vector3(-relCenter.x, -relMinY, -relCenter.z);
+
+            // Detect converted ETS2 wheel locators (ETS2_LOC_wheel_*): ground bottom of tires at Y=0 and mount real spinning wheels!
+            var ets2WheelLocs = new List<Transform>();
+            foreach (var t in inst.GetComponentsInChildren<Transform>(true))
+            {
+                if (t.name.StartsWith("ETS2_LOC_wheel_")) ets2WheelLocs.Add(t);
+            }
+            float yShift = -relMinY;
+            float ets2WheelRadius = 0.50f;
+            if (ets2WheelLocs.Count >= 2)
+            {
+                float avgHubRelY = 0f;
+                for (int w = 0; w < ets2WheelLocs.Count; w++) avgHubRelY += (ets2WheelLocs[w].position.y - go.transform.position.y);
+                avgHubRelY /= ets2WheelLocs.Count;
+                ets2WheelRadius = Mathf.Clamp(avgHubRelY, 0.38f, 0.56f);
+                yShift = ets2WheelRadius - avgHubRelY;
+            }
+            modelPivot.localPosition = new Vector3(-relCenter.x, yShift, -relCenter.z);
             Bounds aligned = MeasureRenderers(modelPivot);
 
             Color[] suvPaints = { Palette.Hex("#ECEFF4"), Palette.Hex("#181C24"), Palette.Hex("#8E9AA8"), Palette.Hex("#1A3564"), Palette.Hex("#7A1E24") };
@@ -1195,6 +1247,21 @@ namespace KenyaStreetSim.Editor
             var matBlackTrim = GetMat("EnaStripeBlackGloss", Palette.EnaStripeBlack, 0.42f, 0.15f);
 
             var wheelList = new List<Transform>();
+            if (ets2WheelLocs.Count >= 2)
+            {
+                for (int w = 0; w < ets2WheelLocs.Count; w++)
+                {
+                    Vector3 locLocal = go.transform.InverseTransformPoint(ets2WheelLocs[w].position);
+                    var pivot = new GameObject($"ETS2_TrafficWheel_{w}").transform;
+                    pivot.SetParent(go.transform, false);
+                    pivot.localPosition = new Vector3(locLocal.x, ets2WheelRadius, locLocal.z);
+                    var tire = CreateCylinder("Tire", pivot, Vector3.zero, new Vector3(ets2WheelRadius * 2f, 0.18f, ets2WheelRadius * 2f), matTire);
+                    tire.transform.localRotation = Quaternion.Euler(0f, 0f, 90f);
+                    var rim = CreateCylinder("Rim", pivot, Vector3.zero, new Vector3(ets2WheelRadius * 1.18f, 0.195f, ets2WheelRadius * 1.18f), matRim);
+                    rim.transform.localRotation = Quaternion.Euler(0f, 0f, 90f);
+                    wheelList.Add(pivot);
+                }
+            }
             foreach (var r in inst.GetComponentsInChildren<Renderer>(true))
             {
                 if (!r.gameObject.activeInHierarchy) continue;
@@ -2086,9 +2153,26 @@ namespace KenyaStreetSim.Editor
             modelPivot.localScale = Vector3.one * scale;
             Bounds finalB = MeasureRenderers(modelPivot);
             // Convert world-space Bounds center/min into body-local space!
+            // If converted from an ETS2 .scs mod (contains ETS2_LOC_wheel_* locators), ground tire bottoms at Y=0!
             Vector3 relCenter = finalB.center - body.position;
             float relMinY = finalB.min.y - body.position.y;
-            modelPivot.localPosition = new Vector3(-relCenter.x, -relMinY, -relCenter.z);
+            var ets2WheelLocs = new List<Transform>();
+            foreach (var t in inst.GetComponentsInChildren<Transform>(true))
+            {
+                if (t.name.StartsWith("ETS2_LOC_wheel_")) ets2WheelLocs.Add(t);
+            }
+            bool hasEts2WheelLocs = ets2WheelLocs.Count >= 2;
+            float ets2WheelRadius = isCoach ? 0.50f : 0.46f;
+            float yShift = -relMinY;
+            if (hasEts2WheelLocs)
+            {
+                float avgHubRelY = 0f;
+                for (int w = 0; w < ets2WheelLocs.Count; w++) avgHubRelY += (ets2WheelLocs[w].position.y - body.position.y);
+                avgHubRelY /= ets2WheelLocs.Count;
+                ets2WheelRadius = Mathf.Clamp(avgHubRelY, 0.38f, 0.56f);
+                yShift = ets2WheelRadius - avgHubRelY;
+            }
+            modelPivot.localPosition = new Vector3(-relCenter.x, yShift, -relCenter.z);
             Bounds aligned = MeasureRenderers(modelPivot);
 
             float halfW = Mathf.Clamp(aligned.size.x * 0.5f, 1.0f, 1.38f);
@@ -2199,18 +2283,58 @@ namespace KenyaStreetSim.Editor
             axleCam.localRotation = Quaternion.Euler(4f, 14f, 0f);
             ctrl.axleCameraAnchor = axleCam;
 
-            // Tuned WheelColliders (hidden visual discs since the real 3D GLB model already renders detailed wheels!)
-            float[] axleZs = isCoach
-                ? new[] { halfL * 0.62f, -halfL * 0.36f, -halfL * 0.56f }
-                : new[] { halfL * 0.64f, -halfL * 0.42f, -halfL * 0.66f };
-            bool[] steerFlags = { true, false, false };
-            bool[] driveFlags = { false, true, true };
-            var entries = BuildWheelColliderSet(root.transform, axleZs, steerFlags, driveFlags, halfW * 0.88f, isCoach ? 0.50f : 0.46f, 0.22f, matTire, matRim);
-            // Hide fallback cylinder wheels so the real GLB's own sculpted tires & rims shine cleanly without Z-fighting!
-            var wVisRoot = root.transform.Find("WheelVisuals");
-            if (wVisRoot != null) wVisRoot.gameObject.SetActive(false);
+            // Tuned WheelColliders: for converted ETS2 .scs mods with ETS2_LOC_wheel_* locators, snap real spinning PBR
+            // bus/truck wheels to the EXACT ETS2 axle coordinates & keep WheelVisuals visible!
+            float[] axleZs;
+            bool[] steerFlags;
+            bool[] driveFlags;
+            float wheelHalfTrack = halfW * 0.88f;
+            float wheelRad = isCoach ? 0.50f : 0.46f;
+            if (hasEts2WheelLocs)
+            {
+                var frontZs = new List<float>();
+                var rearZs = new List<float>();
+                float sumAbsX = 0f;
+                for (int w = 0; w < ets2WheelLocs.Count; w++)
+                {
+                    Vector3 lp = root.transform.InverseTransformPoint(ets2WheelLocs[w].position);
+                    sumAbsX += Mathf.Abs(lp.x);
+                    if (ets2WheelLocs[w].name.Contains("wheel_f") || lp.z > 0f) frontZs.Add(lp.z);
+                    else rearZs.Add(lp.z);
+                }
+                wheelHalfTrack = Mathf.Clamp(sumAbsX / ets2WheelLocs.Count, 0.78f, halfW * 0.96f);
+                wheelRad = ets2WheelRadius;
+                float fz = frontZs.Count > 0 ? AverageList(frontZs) : halfL * 0.55f;
+                float rz = rearZs.Count > 0 ? AverageList(rearZs) : -halfL * 0.45f;
+                axleZs = new[] { fz, rz };
+                steerFlags = new[] { true, false };
+                driveFlags = new[] { false, true };
+            }
+            else
+            {
+                axleZs = isCoach
+                    ? new[] { halfL * 0.62f, -halfL * 0.36f, -halfL * 0.56f }
+                    : new[] { halfL * 0.64f, -halfL * 0.42f, -halfL * 0.66f };
+                steerFlags = new[] { true, false, false };
+                driveFlags = new[] { false, true, true };
+            }
+            var entries = BuildWheelColliderSet(root.transform, axleZs, steerFlags, driveFlags, wheelHalfTrack, wheelRad, 0.22f, matTire, matRim);
+            // Hide fallback cylinder wheels ONLY for Sketchfab GLBs that already bake static wheels into the mesh!
+            if (!hasEts2WheelLocs)
+            {
+                var wVisRoot = root.transform.Find("WheelVisuals");
+                if (wVisRoot != null) wVisRoot.gameObject.SetActive(false);
+            }
             ctrl.wheels = entries;
             return ctrl;
+        }
+
+        private static float AverageList(List<float> vals)
+        {
+            if (vals == null || vals.Count == 0) return 0f;
+            float s = 0f;
+            for (int i = 0; i < vals.Count; i++) s += vals[i];
+            return s / vals.Count;
         }
 
         private static Bounds MeasureRenderers(Transform root)

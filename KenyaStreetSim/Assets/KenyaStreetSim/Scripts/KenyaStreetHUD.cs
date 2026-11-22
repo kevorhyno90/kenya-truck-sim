@@ -603,24 +603,48 @@ namespace KenyaStreetSim
                 if (lbl != null) lbl.fontSize = 17.5f;
             }
 
-            // Row 2: 5 Selectable Real 3D Kenyan Mod Vehicles Garage
-            var fleetRow = CreateBorderedAnchoredPanel("FleetSelector", tr, new Vector2(0.5f, 0.21f), new Vector2(1180f, 92f), Palette.Hex("#161D28"), Palette.UiPanelBorder, 2f);
-            var fleetHeader = CreateText("FleetHeader", fleetRow, "SELECT VEHICLE / MOD  (OR PRESS [V] ANYTIME IN-GAME)", 14.5f, FontStyles.Bold, Palette.UiAccentAmber, TextAlignmentOptions.Left);
-            SetBox(fleetHeader.rectTransform, 18f, -6f, 620f, 18f, new Vector2(0f, 1f));
+            // Row 2: Dynamic Selectable Real 3D Kenyan + ETS2 Mod Vehicles Garage
+            var fleetRow = CreateBorderedAnchoredPanel("FleetSelector", tr, new Vector2(0.5f, 0.21f), new Vector2(1380f, 92f), Palette.Hex("#161D28"), Palette.UiPanelBorder, 2f);
+            var fleetHeader = CreateText("FleetHeader", fleetRow, "SELECT VEHICLE / ETS2 MOD  (OR PRESS [V] ANYTIME IN-GAME)", 14.5f, FontStyles.Bold, Palette.UiAccentAmber, TextAlignmentOptions.Left);
+            SetBox(fleetHeader.rectTransform, 18f, -6f, 680f, 18f, new Vector2(0f, 1f));
 
-            string[] vehLabels = { "SCANIA 2026 (ENA)", "KENYA POLICE LC79", "ISUZU FRR (KENYA)", "ISUZU TX LORRY", "MARCOPOLO G7" };
-            vehicleSelectButtons = new Button[vehLabels.Length];
-            for (int v = 0; v < vehLabels.Length; v++)
+            var loopRef = FindAnyObjectByType<StreetGameLoop>();
+            int fleetCount = (loopRef != null && loopRef.fleet != null && loopRef.fleet.Length > 0) ? loopRef.fleet.Length : 6;
+            string[] shortDefaults = { "SCANIA 2026 (ENA)", "KENYA POLICE LC79", "ISUZU FRR (KENYA)", "ISUZU TX LORRY", "MARCOPOLO G7", "YUTONG ZK6888H (ETS2)" };
+            vehicleSelectButtons = new Button[fleetCount];
+            float gap = 10f;
+            float usableW = 1344f;
+            float btnW = (usableW - gap * Mathf.Max(0, fleetCount - 1)) / Mathf.Max(1, fleetCount);
+            float startX = -usableW * 0.5f + btnW * 0.5f;
+            for (int v = 0; v < fleetCount; v++)
             {
                 int capturedVeh = v;
-                float xPos = -456f + v * 228f;
-                vehicleSelectButtons[v] = CreateButton($"SelectVehBtn_{v}", fleetRow, vehLabels[v], new Vector2(xPos, -10f), new Vector2(216f, 48f), Palette.UiButtonNormal, Palette.UiTextPrimary, () =>
+                string labelText;
+                if (v < shortDefaults.Length)
+                {
+                    labelText = shortDefaults[v];
+                }
+                else
+                {
+                    string rawName = loopRef.fleet[v] != null ? loopRef.fleet[v].displayName : $"ETS2 MOD {v + 1}";
+                    int paren = rawName.IndexOf('(');
+                    if (paren > 4) rawName = rawName.Substring(0, paren).Trim();
+                    labelText = rawName.ToUpperInvariant();
+                }
+
+                float xPos = startX + v * (btnW + gap);
+                vehicleSelectButtons[v] = CreateButton($"SelectVehBtn_{v}", fleetRow, labelText, new Vector2(xPos, -10f), new Vector2(btnW, 48f), Palette.UiButtonNormal, Palette.UiTextPrimary, () =>
                 {
                     StreetGameLoop.Instance?.SelectVehicleIndex(capturedVeh);
                     RefreshVehicleSelectorVisuals();
                 });
                 var lbl = vehicleSelectButtons[v].GetComponentInChildren<TextMeshProUGUI>();
-                if (lbl != null) lbl.fontSize = 15.5f;
+                if (lbl != null)
+                {
+                    lbl.fontSize = fleetCount >= 6 ? 14f : 15.5f;
+                    lbl.textWrappingMode = TextWrappingModes.NoWrap;
+                    lbl.overflowMode = TextOverflowModes.Truncate;
+                }
             }
 
             // Start button & pulsing prompt cleanly bottom-anchored (immune to any aspect ratio!)
