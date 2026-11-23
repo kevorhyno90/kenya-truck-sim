@@ -77,28 +77,24 @@ namespace KenyaStreetSim.Editor
                 if (!Directory.Exists(RealTrafficFolder)) Directory.CreateDirectory(RealTrafficFolder);
                 EditorUtility.RevealInFinder(Path.GetFullPath(RealTrafficFolder));
             });
-            var openBlendBtn = CreateActionBtn("Open Blender Showroom (.blend)", new Color(0.86f, 0.45f, 0.08f), () =>
+            var openBlendBtn = CreateActionBtn("Open Traffic Pack (.blend)", new Color(0.86f, 0.45f, 0.08f), () =>
             {
-                string blendPath = Path.GetFullPath("BlenderStudio/Kenya_Owned_Commercial_Traffic_Pack.blend");
-                if (File.Exists(blendPath))
-                {
-                    EditorUtility.OpenWithDefaultApp(blendPath);
-                    statusLabel.text = $"Opened in Blender: {blendPath}";
-                }
-                else
-                {
-                    statusLabel.text = $"Blender showroom not found yet at: {blendPath}";
-                }
+                OpenInBlenderScriptingTab(Path.GetFullPath("BlenderStudio/Kenya_Owned_Commercial_Traffic_Pack.blend"));
+            });
+            var openHeroBlendBtn = CreateActionBtn("Open Playable Fleet (.blend)", new Color(0.68f, 0.16f, 0.24f), () =>
+            {
+                OpenInBlenderScriptingTab(Path.GetFullPath("BlenderStudio/Kenya_Owned_Playable_Fleet_Studio.blend"));
             });
             var revealBlendBtn = CreateActionBtn("Reveal Blender Folder", new Color(0.32f, 0.36f, 0.46f), () =>
             {
-                string blendPath = Path.GetFullPath("BlenderStudio/Kenya_Owned_Commercial_Traffic_Pack.blend");
+                string blendPath = Path.GetFullPath("BlenderStudio/Kenya_Owned_Playable_Fleet_Studio.blend");
                 string target = File.Exists(blendPath) ? blendPath : Path.GetFullPath("BlenderStudio");
                 if (File.Exists(target) || Directory.Exists(target)) EditorUtility.RevealInFinder(target);
             });
             var refreshBtn = CreateActionBtn("Refresh Count", new Color(0.24f, 0.30f, 0.40f), RefreshCounts);
             btnRow1.Add(openFolderBtn);
             btnRow1.Add(openBlendBtn);
+            btnRow1.Add(openHeroBlendBtn);
             btnRow1.Add(revealBlendBtn);
             btnRow1.Add(refreshBtn);
             trafficCard.Add(btnRow1);
@@ -122,11 +118,11 @@ namespace KenyaStreetSim.Editor
             var ownedLbl = new Label(
                 "✓ 100% OWNED / COMMERCIAL-SAFE RIGHT NOW:\n" +
                 "  • All C# Game Scripts, 16-Town Highway World, Routes, Police Roadblocks & Weather\n" +
-                "  • Sculpted Original Kenya Police LC79 + 6 Sculpted Owned Traffic Vehicles (Saloon, SUV, Pickup, Matatu, Coach, Canter)\n" +
+                "  • Playable Hero Fleet (100% Owned): Blender Savanna Express Coach (KDX 057M), Savanna Parcel Lorry (KDX 409G) & Kenya Police LC79 (KCP 380D)\n" +
+                "  • Passing Traffic Fleet (100% Owned): 6 Blender Photoreal Kenyan Vehicles (Matatu, Probox, Prado SUV, Hilux Pickup, Saloon, Canter) w/ 3D interiors & Kenyan plates!\n" +
                 "  • Poly Haven CC0 2K PBR Textures & 3 African Highland Skyboxes\n" +
                 "  • Wikimedia Public Domain / CC0 / CC BY 4.0 Audio (credited in AUDIO_CREDITS.txt)\n\n" +
-                "! PROTOTYPE IMPORTS (Replace with Asset Store / Blender / CC0 before Paid Store Launch):\n" +
-                "  • ImportedModels/ScaniaTouring2026/, Isuzu_FRR, Isuzu_TX, Marcopolo_G7, Yutong_ETS2, RangeRover_Sport");
+                "✓ COMMERCIAL-SAFE MODE: Turn ON the toggle above & click Rebuild to exclude all legacy prototype models automatically!");
             ownedLbl.style.color = new Color(0.84f, 0.90f, 0.95f);
             ownedLbl.style.whiteSpace = WhiteSpace.Normal;
             auditCard.Add(ownedLbl);
@@ -160,6 +156,31 @@ namespace KenyaStreetSim.Editor
             root.Add(statusLabel);
 
             RefreshCounts();
+        }
+
+        private void OpenInBlenderScriptingTab(string blendPath)
+        {
+            if (!File.Exists(blendPath))
+            {
+                statusLabel.text = $"Blender file not found yet at: {blendPath}";
+                return;
+            }
+            string helperPy = Path.GetFullPath("../tools/blender_open_scripting_tab.py");
+            string blenderExe = @"C:\Program Files\Blender Foundation\Blender 5.3\blender.exe";
+            if (File.Exists(blenderExe) && File.Exists(helperPy))
+            {
+                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                {
+                    FileName = blenderExe,
+                    Arguments = $"\"{blendPath}\" --python \"{helperPy}\"",
+                    UseShellExecute = true
+                });
+            }
+            else
+            {
+                EditorUtility.OpenWithDefaultApp(blendPath);
+            }
+            statusLabel.text = $"Opened in Blender Scripting Studio: {Path.GetFileName(blendPath)}";
         }
 
         private void RefreshCounts()

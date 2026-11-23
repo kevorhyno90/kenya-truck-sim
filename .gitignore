@@ -29,3 +29,7 @@ Thumbs.db
 *.VC.db
 .vs/
 .vscode/
+
+# Blender backups & Python bytecode
+*.blend1
+**/__pycache__/

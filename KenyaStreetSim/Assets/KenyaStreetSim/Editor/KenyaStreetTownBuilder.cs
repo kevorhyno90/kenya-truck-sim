@@ -26,6 +26,8 @@ namespace KenyaStreetSim.Editor
         private const string SettingsFolder = "Assets/KenyaStreetSim/Settings";
         private const string VolumeProfilePath = "Assets/KenyaStreetSim/Settings/KenyaStreetVolumeProfile.asset";
         private const string SkyMatPath = "Assets/KenyaStreetSim/Materials/KenyaSky.mat";
+        private const string OwnedCoachAssetPath = "Assets/KenyaStreetSim/ImportedModels/OwnedFleet/Savanna_Express_Coach_2026.glb";
+        private const string OwnedLorryAssetPath = "Assets/KenyaStreetSim/ImportedModels/OwnedFleet/Savanna_Parcel_Lorry_FRR.glb";
         private const string ScaniaBusAssetPath = "Assets/KenyaStreetSim/ImportedModels/ScaniaTouring2026/Scania_Touring_2026.glb";
         private const string IsuzuFrrAssetPath = "Assets/KenyaStreetSim/ImportedModels/Fleet/Isuzu_FRR_Kenyan.glb";
         private const string IsuzuTxAssetPath = "Assets/KenyaStreetSim/ImportedModels/Fleet/Isuzu_TX_Lorry.glb";
@@ -150,37 +152,61 @@ namespace KenyaStreetSim.Editor
             var matSharedChr = GetMat("EnaChrome", Palette.EnaChrome, 0.96f, 0.94f);
             var matSharedGlass = GetTransparentGlassMat("EnaPanoramicWindshield", Palette.WithAlpha(Palette.EnaGlassDark, 0.14f));
 
-            var enaScania = BuildEnaCoach(fleetRoot.transform, startPos);
+            // 100%-OWNED COMMERCIAL FLAGSHIP PLAYABLE FLEET FIRST (Blender 5.3 Studio + Original Police LC79)!
+            var savannaCoach = BuildImportedModVehicle(
+                fleetRoot.transform, startPos, OwnedCoachAssetPath,
+                "Savanna_Express_Coach_KDX057M", "Savanna Express Coach (KDX 057M)", "KDX 057M",
+                isCoach: true, targetLength: 13.2f, massKg: 11200f, motorTorque: 4300f, maxSpeedKmh: 112f,
+                extraYawDeg: 0f, matSharedTire, matSharedRim, matSharedHead, matSharedTail, matSharedInd, matSharedPlate, matSharedInt, matSharedBlk, matSharedChr);
             var policeLandCruiser = KenyaPoliceLandCruiserBuilder.BuildKenyaPoliceLandCruiser(
                 fleetRoot.transform, startPos,
                 matSharedTire, matSharedHead, matSharedTail, matSharedInd,
                 matSharedPlate, matSharedInt, matSharedBlk, matSharedChr, matSharedGlass);
-            var isuzuFrr = BuildImportedModVehicle(
-                fleetRoot.transform, startPos, IsuzuFrrAssetPath,
-                "Kenyan_Isuzu_FRR_KDL409G", "Kenyan Isuzu FRR (KDL 409G)", "KDL 409G",
-                isCoach: false, targetLength: 8.3f, massKg: 7600f, motorTorque: 3250f, maxSpeedKmh: 98f,
-                extraYawDeg: 0f, matSharedTire, matSharedRim, matSharedHead, matSharedTail, matSharedInd, matSharedPlate, matSharedInt, matSharedBlk, matSharedChr)
-                ?? BuildIsuzuFrr(fleetRoot.transform, startPos);
-            var isuzuTx = BuildImportedModVehicle(
-                fleetRoot.transform, startPos, IsuzuTxAssetPath,
-                "Kenyan_Isuzu_TX_Lorry_KCY812M", "Kenyan Isuzu TX Lorry (KCY 812M)", "KCY 812M",
-                isCoach: false, targetLength: 8.0f, massKg: 8200f, motorTorque: 3350f, maxSpeedKmh: 94f,
-                extraYawDeg: 0f, matSharedTire, matSharedRim, matSharedHead, matSharedTail, matSharedInd, matSharedPlate, matSharedInt, matSharedBlk, matSharedChr)
-                ?? BuildIsuzuFrr(fleetRoot.transform, startPos);
-            var marcopoloG7 = BuildImportedModVehicle(
-                fleetRoot.transform, startPos, MarcopoloG7AssetPath,
-                "Marcopolo_G7_Volvo_KDR100E", "Marcopolo G7 Volvo (KDR 100E)", "KDR 100E",
-                isCoach: true, targetLength: 13.6f, massKg: 11400f, motorTorque: 4250f, maxSpeedKmh: 108f,
-                extraYawDeg: 180f, matSharedTire, matSharedRim, matSharedHead, matSharedTail, matSharedInd, matSharedPlate, matSharedInt, matSharedBlk, matSharedChr)
-                ?? BuildEnaCoach(fleetRoot.transform, startPos);
-            var yutongEts2 = BuildImportedModVehicle(
-                fleetRoot.transform, startPos, YutongEts2AssetPath,
-                "Yutong_ZK6888H_ETS2_KDT888Y", "Yutong ZK6888H ETS2 (KDT 888Y)", "KDT 888Y",
-                isCoach: true, targetLength: 9.85f, massKg: 10400f, motorTorque: 3950f, maxSpeedKmh: 112f,
+            var savannaLorry = BuildImportedModVehicle(
+                fleetRoot.transform, startPos, OwnedLorryAssetPath,
+                "Savanna_Parcel_Lorry_KDX409G", "Savanna Parcel Lorry (KDX 409G)", "KDX 409G",
+                isCoach: false, targetLength: 8.35f, massKg: 7600f, motorTorque: 3350f, maxSpeedKmh: 98f,
                 extraYawDeg: 0f, matSharedTire, matSharedRim, matSharedHead, matSharedTail, matSharedInd, matSharedPlate, matSharedInt, matSharedBlk, matSharedChr);
 
-            var fleetList = new List<KenyaStreetVehicle> { enaScania, policeLandCruiser, isuzuFrr, isuzuTx, marcopoloG7 };
-            if (yutongEts2 != null) fleetList.Add(yutongEts2);
+            var fleetList = new List<KenyaStreetVehicle>();
+            if (savannaCoach != null) fleetList.Add(savannaCoach);
+            fleetList.Add(policeLandCruiser);
+            if (savannaLorry != null) fleetList.Add(savannaLorry);
+
+            // Prototype reference models remain available while testing, and are automatically excluded when Commercial-Safe Mode is ON!
+            if (!KenyaCommercialManagerWindow.UseCommercialSafeBrands)
+            {
+                var enaScania = BuildEnaCoach(fleetRoot.transform, startPos);
+                if (enaScania != null) fleetList.Add(enaScania);
+                var isuzuFrr = BuildImportedModVehicle(
+                    fleetRoot.transform, startPos, IsuzuFrrAssetPath,
+                    "Kenyan_Isuzu_FRR_KDL409G", "Kenyan Isuzu FRR (KDL 409G)", "KDL 409G",
+                    isCoach: false, targetLength: 8.3f, massKg: 7600f, motorTorque: 3250f, maxSpeedKmh: 98f,
+                    extraYawDeg: 0f, matSharedTire, matSharedRim, matSharedHead, matSharedTail, matSharedInd, matSharedPlate, matSharedInt, matSharedBlk, matSharedChr);
+                if (isuzuFrr != null) fleetList.Add(isuzuFrr);
+                var isuzuTx = BuildImportedModVehicle(
+                    fleetRoot.transform, startPos, IsuzuTxAssetPath,
+                    "Kenyan_Isuzu_TX_Lorry_KCY812M", "Kenyan Isuzu TX Lorry (KCY 812M)", "KCY 812M",
+                    isCoach: false, targetLength: 8.0f, massKg: 8200f, motorTorque: 3350f, maxSpeedKmh: 94f,
+                    extraYawDeg: 0f, matSharedTire, matSharedRim, matSharedHead, matSharedTail, matSharedInd, matSharedPlate, matSharedInt, matSharedBlk, matSharedChr);
+                if (isuzuTx != null) fleetList.Add(isuzuTx);
+                var marcopoloG7 = BuildImportedModVehicle(
+                    fleetRoot.transform, startPos, MarcopoloG7AssetPath,
+                    "Marcopolo_G7_Volvo_KDR100E", "Marcopolo G7 Volvo (KDR 100E)", "KDR 100E",
+                    isCoach: true, targetLength: 13.6f, massKg: 11400f, motorTorque: 4250f, maxSpeedKmh: 108f,
+                    extraYawDeg: 180f, matSharedTire, matSharedRim, matSharedHead, matSharedTail, matSharedInd, matSharedPlate, matSharedInt, matSharedBlk, matSharedChr);
+                if (marcopoloG7 != null) fleetList.Add(marcopoloG7);
+                var yutongEts2 = BuildImportedModVehicle(
+                    fleetRoot.transform, startPos, YutongEts2AssetPath,
+                    "Yutong_ZK6888H_ETS2_KDT888Y", "Yutong ZK6888H ETS2 (KDT 888Y)", "KDT 888Y",
+                    isCoach: true, targetLength: 9.85f, massKg: 10400f, motorTorque: 3950f, maxSpeedKmh: 112f,
+                    extraYawDeg: 0f, matSharedTire, matSharedRim, matSharedHead, matSharedTail, matSharedInd, matSharedPlate, matSharedInt, matSharedBlk, matSharedChr);
+                if (yutongEts2 != null) fleetList.Add(yutongEts2);
+            }
+            else if (savannaCoach == null)
+            {
+                fleetList.Insert(0, BuildEnaCoach(fleetRoot.transform, startPos));
+            }
 
             // Auto-discover any extra user-converted ETS2 mods (*_ETS2.glb) placed in ImportedModels/Fleet/ via the ETS2 Importer!
             string fleetDir = "Assets/KenyaStreetSim/ImportedModels/Fleet";
@@ -1214,21 +1240,29 @@ namespace KenyaStreetSim.Editor
             var matHeadlight = GetMat("HeadlightWarm", Palette.HeadlightWarm, 0.85f, 0f, Palette.HeadlightWarm * 2.6f);
             var matTail = GetMat("TaillightRed", Palette.TaillightRed, 0.65f, 0f, Palette.TaillightRed * 1.6f);
 
-            // Load the user's REAL HIGH-DETAIL 3D KENYAN VEHICLES for open rural inter-town highways!
+            // Load the user's 100%-OWNED BLENDER 5.3 HERO COACH & PARCEL LORRY + highway traffic catalog!
             var realTrafficCatalog = new List<(GameObject prefab, float targetLen, float extraYaw, bool remapFbxUrp)>();
-            var rrPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(RangeRoverAssetPath);
-            var frrPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(IsuzuFrrAssetPath);
-            var txPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(IsuzuTxAssetPath);
-            var g7Prefab = AssetDatabase.LoadAssetAtPath<GameObject>(MarcopoloG7AssetPath);
-            var g7ExpPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(MarcopoloExpressAssetPath);
-            var yutongPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(YutongEts2AssetPath);
+            var ownedCoachPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(OwnedCoachAssetPath);
+            var ownedLorryPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(OwnedLorryAssetPath);
+            if (ownedCoachPrefab != null) realTrafficCatalog.Add((ownedCoachPrefab, 13.2f, 0f, false));
+            if (ownedLorryPrefab != null) realTrafficCatalog.Add((ownedLorryPrefab, 8.35f, 0f, false));
 
-            if (rrPrefab != null) realTrafficCatalog.Add((rrPrefab, 4.88f, 90f, true));
-            if (frrPrefab != null) realTrafficCatalog.Add((frrPrefab, 7.90f, 0f, false));
-            if (yutongPrefab != null) realTrafficCatalog.Add((yutongPrefab, 9.85f, 0f, false));
-            if (txPrefab != null) realTrafficCatalog.Add((txPrefab, 7.50f, 0f, false));
-            if (g7ExpPrefab != null) realTrafficCatalog.Add((g7ExpPrefab, 13.4f, 180f, false));
-            if (g7Prefab != null) realTrafficCatalog.Add((g7Prefab, 13.4f, 180f, false));
+            var rrPrefab = KenyaCommercialManagerWindow.UseCommercialSafeBrands ? null : AssetDatabase.LoadAssetAtPath<GameObject>(RangeRoverAssetPath);
+            if (!KenyaCommercialManagerWindow.UseCommercialSafeBrands)
+            {
+                var frrPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(IsuzuFrrAssetPath);
+                var txPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(IsuzuTxAssetPath);
+                var g7Prefab = AssetDatabase.LoadAssetAtPath<GameObject>(MarcopoloG7AssetPath);
+                var g7ExpPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(MarcopoloExpressAssetPath);
+                var yutongPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(YutongEts2AssetPath);
+
+                if (rrPrefab != null) realTrafficCatalog.Add((rrPrefab, 4.88f, 90f, true));
+                if (frrPrefab != null) realTrafficCatalog.Add((frrPrefab, 7.90f, 0f, false));
+                if (yutongPrefab != null) realTrafficCatalog.Add((yutongPrefab, 9.85f, 0f, false));
+                if (txPrefab != null) realTrafficCatalog.Add((txPrefab, 7.50f, 0f, false));
+                if (g7ExpPrefab != null) realTrafficCatalog.Add((g7ExpPrefab, 13.4f, 180f, false));
+                if (g7Prefab != null) realTrafficCatalog.Add((g7Prefab, 13.4f, 180f, false));
+            }
 
             // A) SPARSE SMOOTH RURAL INTER-TOWN HIGHWAY TRAFFIC (Reduced density outside major towns -> ZERO traffic jams!)
             int[] ruralPerDir = { 1, 2, 1, 1, 1, 2, 1, 2 };
@@ -2553,28 +2587,55 @@ namespace KenyaStreetSim.Editor
             chassisCol.center = new Vector3(0f, fullH * 0.52f, 0f);
             chassisCol.size = new Vector3(halfW * 1.92f, fullH * 0.78f, halfL * 1.94f);
 
-            // Kenyan Yellow Plates + Headlights + Blinkers + Taillights
-            CreateBox("FrontPlate", body, new Vector3(0f, 0.65f, halfL + 0.03f), new Vector3(0.64f, 0.18f, 0.04f), matPlate, false);
-            CreateWorldSignText("FrontPlateTxt", body, plateNum, new Vector3(0f, 0.65f, halfL + 0.06f), new Vector2(0.62f, 0.17f), 1.2f, Palette.EnaStripeBlack, Quaternion.Euler(0f, 180f, 0f), noWrap: true);
-            CreateBox("RearPlate", body, new Vector3(0f, 0.76f, -halfL - 0.03f), new Vector3(0.68f, 0.19f, 0.04f), matPlate, false);
-            CreateWorldSignText("RearPlateTxt", body, plateNum, new Vector3(0f, 0.76f, -halfL - 0.06f), new Vector2(0.66f, 0.18f), 1.2f, Palette.EnaStripeBlack, Quaternion.identity, noWrap: true);
+            bool isOwnedBlenderHero = goName.StartsWith("Savanna_", System.StringComparison.OrdinalIgnoreCase);
 
-            var headL = CreateBox("HeadL", body, new Vector3(-halfW * 0.74f, 0.98f, halfL + 0.01f), new Vector3(0.32f, 0.18f, 0.05f), matHead, false);
-            var headR = CreateBox("HeadR", body, new Vector3( halfW * 0.74f, 0.98f, halfL + 0.01f), new Vector3(0.32f, 0.18f, 0.05f), matHead, false);
-            var indFL = CreateBox("IndFL", body, new Vector3(-halfW * 0.92f, 0.98f, halfL - 0.04f), new Vector3(0.14f, 0.18f, 0.06f), matInd, false);
-            var indFR = CreateBox("IndFR", body, new Vector3( halfW * 0.92f, 0.98f, halfL - 0.04f), new Vector3(0.14f, 0.18f, 0.06f), matInd, false);
-            var tailL = CreateBox("TailL", body, new Vector3(-halfW * 0.80f, 1.05f, -halfL - 0.01f), new Vector3(0.28f, 0.28f, 0.05f), matTail, false);
-            var tailR = CreateBox("TailR", body, new Vector3( halfW * 0.80f, 1.05f, -halfL - 0.01f), new Vector3(0.28f, 0.28f, 0.05f), matTail, false);
-            var indRL = CreateBox("IndRL", body, new Vector3(-halfW * 0.80f, 0.80f, -halfL - 0.01f), new Vector3(0.24f, 0.14f, 0.05f), matInd, false);
-            var indRR = CreateBox("IndRR", body, new Vector3( halfW * 0.80f, 0.80f, -halfL - 0.01f), new Vector3(0.24f, 0.14f, 0.05f), matInd, false);
+            // Kenyan Yellow Plates & Lamps:
+            // For our Blender 5.3 owned heroes, bind directly to the vehicle's real recessed Blender headlights,
+            // brake lights & indicators (ZERO protruding proxy boxes!) and keep crisp baked KDX plates!
+            if (isOwnedBlenderHero)
+            {
+                var hList = new List<Renderer>();
+                var bList = new List<Renderer>();
+                var lInd = new List<Renderer>();
+                var rInd = new List<Renderer>();
+                foreach (var r in inst.GetComponentsInChildren<Renderer>(true))
+                {
+                    string rn = r.name;
+                    if (rn.StartsWith("HeadL_") || rn.StartsWith("DRL_") || rn.StartsWith("FogF_")) hList.Add(r);
+                    else if (rn.StartsWith("Tail_") || rn.StartsWith("RearTopBrake")) bList.Add(r);
+                    else if (rn.StartsWith("IndF_-1") || rn.StartsWith("IndR_-1")) lInd.Add(r);
+                    else if (rn.StartsWith("IndF_1") || rn.StartsWith("IndR_1")) rInd.Add(r);
+                }
+                ctrl.headlightRenderers = hList.ToArray();
+                ctrl.brakeLightRenderers = bList.ToArray();
+                ctrl.leftIndicatorRenderers = lInd.ToArray();
+                ctrl.rightIndicatorRenderers = rInd.ToArray();
+            }
+            else
+            {
+                CreateBox("FrontPlate", body, new Vector3(0f, 0.65f, halfL + 0.03f), new Vector3(0.64f, 0.18f, 0.04f), matPlate, false);
+                CreateWorldSignText("FrontPlateTxt", body, plateNum, new Vector3(0f, 0.65f, halfL + 0.06f), new Vector2(0.62f, 0.17f), 1.2f, Palette.EnaStripeBlack, Quaternion.Euler(0f, 180f, 0f), noWrap: true);
+                CreateBox("RearPlate", body, new Vector3(0f, 0.76f, -halfL - 0.03f), new Vector3(0.68f, 0.19f, 0.04f), matPlate, false);
+                CreateWorldSignText("RearPlateTxt", body, plateNum, new Vector3(0f, 0.76f, -halfL - 0.06f), new Vector2(0.66f, 0.18f), 1.2f, Palette.EnaStripeBlack, Quaternion.identity, noWrap: true);
+
+                var headL = CreateBox("HeadL", body, new Vector3(-halfW * 0.74f, 0.98f, halfL + 0.01f), new Vector3(0.32f, 0.18f, 0.05f), matHead, false);
+                var headR = CreateBox("HeadR", body, new Vector3( halfW * 0.74f, 0.98f, halfL + 0.01f), new Vector3(0.32f, 0.18f, 0.05f), matHead, false);
+                var indFL = CreateBox("IndFL", body, new Vector3(-halfW * 0.92f, 0.98f, halfL - 0.04f), new Vector3(0.14f, 0.18f, 0.06f), matInd, false);
+                var indFR = CreateBox("IndFR", body, new Vector3( halfW * 0.92f, 0.98f, halfL - 0.04f), new Vector3(0.14f, 0.18f, 0.06f), matInd, false);
+                var tailL = CreateBox("TailL", body, new Vector3(-halfW * 0.80f, 1.05f, -halfL - 0.01f), new Vector3(0.28f, 0.28f, 0.05f), matTail, false);
+                var tailR = CreateBox("TailR", body, new Vector3( halfW * 0.80f, 1.05f, -halfL - 0.01f), new Vector3(0.28f, 0.28f, 0.05f), matTail, false);
+                var indRL = CreateBox("IndRL", body, new Vector3(-halfW * 0.80f, 0.80f, -halfL - 0.01f), new Vector3(0.24f, 0.14f, 0.05f), matInd, false);
+                var indRR = CreateBox("IndRR", body, new Vector3( halfW * 0.80f, 0.80f, -halfL - 0.01f), new Vector3(0.24f, 0.14f, 0.05f), matInd, false);
+
+                ctrl.headlightRenderers = new[] { headL.GetComponent<Renderer>(), headR.GetComponent<Renderer>() };
+                ctrl.brakeLightRenderers = new[] { tailL.GetComponent<Renderer>(), tailR.GetComponent<Renderer>() };
+                ctrl.leftIndicatorRenderers = new[] { indFL.GetComponent<Renderer>(), indRL.GetComponent<Renderer>() };
+                ctrl.rightIndicatorRenderers = new[] { indFR.GetComponent<Renderer>(), indRR.GetComponent<Renderer>() };
+            }
 
             var spotL = CreateHeadlightSpot(root.transform, "HeadlightBeamL", new Vector3(-halfW * 0.74f, 0.98f, halfL + 0.12f));
             var spotR = CreateHeadlightSpot(root.transform, "HeadlightBeamR", new Vector3( halfW * 0.74f, 0.98f, halfL + 0.12f));
             ctrl.headlightSpots = new[] { spotL, spotR };
-            ctrl.headlightRenderers = new[] { headL.GetComponent<Renderer>(), headR.GetComponent<Renderer>() };
-            ctrl.brakeLightRenderers = new[] { tailL.GetComponent<Renderer>(), tailR.GetComponent<Renderer>() };
-            ctrl.leftIndicatorRenderers = new[] { indFL.GetComponent<Renderer>(), indRL.GetComponent<Renderer>() };
-            ctrl.rightIndicatorRenderers = new[] { indFR.GetComponent<Renderer>(), indRR.GetComponent<Renderer>() };
 
             // Full ETS2-grade Realistic RHD Cab Cockpit Overlay Rig (ONLY visible in [C] Cockpit Mode!)
             // Framed squarely in front of the driver's eyes so 100% of the smooth sculpted leather Steering Wheel,
@@ -2587,7 +2648,8 @@ namespace KenyaStreetSim.Editor
             cockpitRig.SetParent(body, false);
             cockpitRig.localPosition = new Vector3(0f, cabEyeY - 0.24f, cabFrontZ);
 
-            string brandBadge = displayName.IndexOf("Isuzu", System.StringComparison.OrdinalIgnoreCase) >= 0 ? "ISUZU"
+            string brandBadge = displayName.IndexOf("Savanna", System.StringComparison.OrdinalIgnoreCase) >= 0 ? "SAVANNA"
+                              : displayName.IndexOf("Isuzu", System.StringComparison.OrdinalIgnoreCase) >= 0 ? "ISUZU"
                               : displayName.IndexOf("Yutong", System.StringComparison.OrdinalIgnoreCase) >= 0 ? "YUTONG"
                               : displayName.IndexOf("Volvo", System.StringComparison.OrdinalIgnoreCase) >= 0 ? "VOLVO"
                               : "KENYA";
@@ -2653,6 +2715,108 @@ namespace KenyaStreetSim.Editor
             axleCam.localPosition = new Vector3(-halfW - 0.85f, 0.95f, halfL * 0.25f);
             axleCam.localRotation = Quaternion.Euler(4f, 14f, 0f);
             ctrl.axleCameraAnchor = axleCam;
+
+            // Bind real articulated Blender wheels (Wheel_FL/FR/ML/MR/RL/RR) directly to WheelColliders
+            // AND bind Coach_PassengerDoor_Pivot directly to [O] door animation!
+            var blenderWheels = new List<Transform>();
+            Transform blenderCoachDoor = null;
+            if (isOwnedBlenderHero)
+            {
+                if (PrefabUtility.IsPartOfPrefabInstance(inst))
+                    PrefabUtility.UnpackPrefabInstance(inst, PrefabUnpackMode.Completely, InteractionMode.AutomatedAction);
+
+                foreach (var t in inst.GetComponentsInChildren<Transform>(true))
+                {
+                    if (t.name.StartsWith("Wheel_") && t.GetComponent<Renderer>() != null)
+                        blenderWheels.Add(t);
+                    else if (t.name.StartsWith("Coach_PassengerDoor_Pivot"))
+                        blenderCoachDoor = t;
+                }
+
+                // Remove generic procedural door meshes created by BuildFullRealisticCabCockpit while keeping StepLight & BoardingDoorPoint!
+                var procDoorSys = body.Find("AnimatedPassengerDoorSystem");
+                if (procDoorSys != null)
+                {
+                    foreach (string killName in new[] { "DoorEntryWellBack", "DoorGlowStep1", "DoorGlowStep2", "DoorHandrailL", "PassengerDoorLeafPivot" })
+                    {
+                        var ch = procDoorSys.Find(killName);
+                        if (ch != null) Object.DestroyImmediate(ch.gameObject);
+                    }
+                }
+
+                // Wire the Blender Coach's articulated left passenger door directly to [O] + Bus Stage auto-boarding!
+                if (blenderCoachDoor != null)
+                {
+                    var doorComp = root.GetComponent<KenyaVehicleDoorAndWipers>();
+                    if (doorComp != null)
+                    {
+                        var doorAnimRoot = new GameObject("BlenderCoachDoorAnimPivot").transform;
+                        doorAnimRoot.SetParent(body, false);
+                        doorAnimRoot.position = blenderCoachDoor.position;
+                        doorAnimRoot.rotation = body.rotation;
+                        blenderCoachDoor.SetParent(doorAnimRoot, true);
+
+                        doorComp.passengerDoorPivot = doorAnimRoot;
+                        doorComp.doorClosedLocalPos = doorAnimRoot.localPosition;
+                        doorComp.doorOpenLocalPos = doorAnimRoot.localPosition + new Vector3(-0.18f, 0f, 0.14f);
+                        doorComp.doorClosedLocalEuler = Vector3.zero;
+                        doorComp.doorOpenLocalEuler = new Vector3(0f, -72f, 0f);
+                        if (doorComp.boardingDoorPoint != null)
+                            doorComp.boardingDoorPoint.position = doorAnimRoot.position + new Vector3(-0.55f, -1.1f, -0.45f);
+                    }
+                }
+            }
+
+            if (isOwnedBlenderHero && blenderWheels.Count >= 4)
+            {
+                var wcRoot = new GameObject("WheelColliders").transform;
+                wcRoot.SetParent(root.transform, false);
+                var wVisRoot = new GameObject("WheelVisuals").transform;
+                wVisRoot.SetParent(root.transform, false);
+
+                var wheelEntries = new List<KenyaStreetVehicle.WheelEntry>();
+                foreach (var bw in blenderWheels)
+                {
+                    var r = bw.GetComponent<Renderer>();
+                    Vector3 centerW = r != null ? r.bounds.center : bw.position;
+                    float rad = r != null ? Mathf.Clamp(r.bounds.extents.y, 0.36f, 0.58f) : (isCoach ? 0.52f : 0.48f);
+                    Vector3 localPos = root.transform.InverseTransformPoint(centerW);
+                    bool isSteer = bw.name.Contains("_FL") || bw.name.Contains("_FR");
+                    bool isDrive = !isSteer;
+
+                    var wcGo = new GameObject($"WC_{bw.name}");
+                    wcGo.transform.SetParent(wcRoot, false);
+                    wcGo.transform.localPosition = new Vector3(localPos.x, rad + 0.08f, localPos.z);
+                    var wc = wcGo.AddComponent<WheelCollider>();
+                    wc.radius = rad;
+                    wc.suspensionDistance = 0.22f;
+                    wc.mass = 45f;
+                    var spr = wc.suspensionSpring;
+                    spr.spring = isCoach ? 58000f : 44000f;
+                    spr.damper = isCoach ? 6200f : 4800f;
+                    spr.targetPosition = 0.45f;
+                    wc.suspensionSpring = spr;
+                    var fwdF = wc.forwardFriction; fwdF.stiffness = 1.65f; wc.forwardFriction = fwdF;
+                    var sideF = wc.sidewaysFriction; sideF.stiffness = 1.85f; wc.sidewaysFriction = sideF;
+
+                    // Wrap Blender wheel inside an axle-centered identity pivot so WheelCollider.GetWorldPose rolls & steers cleanly!
+                    var pivot = new GameObject($"Visual_{bw.name}").transform;
+                    pivot.SetParent(wVisRoot, false);
+                    pivot.position = centerW;
+                    pivot.rotation = root.transform.rotation;
+                    bw.SetParent(pivot, true);
+
+                    wheelEntries.Add(new KenyaStreetVehicle.WheelEntry
+                    {
+                        collider = wc,
+                        visualMesh = pivot,
+                        isSteer = isSteer,
+                        isDrive = isDrive
+                    });
+                }
+                ctrl.wheels = wheelEntries.ToArray();
+                return ctrl;
+            }
 
             // Tuned WheelColliders: for converted ETS2 .scs mods with ETS2_LOC_wheel_* locators, snap real spinning PBR
             // bus/truck wheels to the EXACT ETS2 axle coordinates & keep WheelVisuals visible!

@@ -21,19 +21,27 @@ import bpy
 import bmesh
 from mathutils import Vector, Euler, Matrix
 
-REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+_script_dir = os.path.dirname(os.path.abspath(__file__)) if "__file__" in globals() else ""
+_candidate_root = os.path.abspath(os.path.join(_script_dir, "..")) if _script_dir else ""
+REPO_ROOT = _candidate_root if os.path.isdir(os.path.join(_candidate_root, "KenyaStreetSim")) else r"C:\Users\USER\.gemini\antigravity\scratch\kenya-truck-sim"
 UNITY_TRAFFIC_DIR = os.path.join(REPO_ROOT, "KenyaStreetSim", "Assets", "KenyaStreetSim", "ImportedModels", "RealTraffic")
 STUDIO_DIR = os.path.join(REPO_ROOT, "KenyaStreetSim", "BlenderStudio")
 PREVIEW_PNG = sys.argv[-1] if (len(sys.argv) > 1 and sys.argv[-1].lower().endswith(".png")) else os.path.join(STUDIO_DIR, "kenya_fleet_showroom.png")
 
 os.makedirs(UNITY_TRAFFIC_DIR, exist_ok=True)
 os.makedirs(STUDIO_DIR, exist_ok=True)
+TEX_DIR = os.path.join(STUDIO_DIR, "Textures")
+
+_tools_dir = os.path.join(REPO_ROOT, "tools")
+if _tools_dir not in sys.path:
+    sys.path.insert(0, _tools_dir)
+import kenya_auto_textures
 
 
 # ==============================================================================
-# 1. AUTOMOTIVE PBR MATERIALS (Clearcoat Metallic Paint, Glossy Glass, Chrome)
+# 1. AUTOMOTIVE PBR MATERIALS (Clearcoat Metallic Paint, Semi-Transparent Glass, Textured Decals)
 # ==============================================================================
-def make_mat(name, base_col, metallic=0.0, roughness=0.4, coat=0.0, emission=None, emission_strength=0.0):
+def make_mat(name, base_col, metallic=0.0, roughness=0.4, coat=0.0, emission=None, emission_strength=0.0, alpha=1.0):
     if name in bpy.data.materials:
         return bpy.data.materials[name]
     mat = bpy.data.materials.new(name=name)
@@ -41,6 +49,12 @@ def make_mat(name, base_col, metallic=0.0, roughness=0.4, coat=0.0, emission=Non
     bsdf.inputs["Base Color"].default_value = (*base_col, 1.0)
     bsdf.inputs["Metallic"].default_value = metallic
     bsdf.inputs["Roughness"].default_value = roughness
+    if "Alpha" in bsdf.inputs and alpha < 1.0:
+        bsdf.inputs["Alpha"].default_value = alpha
+        if hasattr(mat, "blend_method"):
+            mat.blend_method = 'BLEND'
+        if hasattr(mat, "surface_render_method"):
+            mat.surface_render_method = 'BLENDED'
     if "Coat Weight" in bsdf.inputs:
         bsdf.inputs["Coat Weight"].default_value = coat
         bsdf.inputs["Coat Roughness"].default_value = 0.05
@@ -50,34 +64,74 @@ def make_mat(name, base_col, metallic=0.0, roughness=0.4, coat=0.0, emission=Non
     return mat
 
 
+def make_textured_mat(name, png_path, roughness=0.28, metallic=0.04, emission_strength=0.0):
+    if name in bpy.data.materials:
+        return bpy.data.materials[name]
+    mat = bpy.data.materials.new(name=name)
+    nt = mat.node_tree
+    bsdf = nt.nodes.get("Principled BSDF")
+    bsdf.inputs["Roughness"].default_value = roughness
+    bsdf.inputs["Metallic"].default_value = metallic
+
+    tex_node = nt.nodes.new("ShaderNodeTexImage")
+    img = bpy.data.images.load(png_path, check_existing=True)
+    try:
+        img.pack()
+    except Exception:
+        pass
+    tex_node.image = img
+    nt.links.new(tex_node.outputs["Color"], bsdf.inputs["Base Color"])
+    if emission_strength > 0.0 and "Emission Color" in bsdf.inputs:
+        nt.links.new(tex_node.outputs["Color"], bsdf.inputs["Emission Color"])
+        bsdf.inputs["Emission Strength"].default_value = emission_strength
+    return mat
+
+
 def init_materials():
-    return {
-        "pearl_white":  make_mat("Paint_PearlWhite",  (0.90, 0.92, 0.94), metallic=0.18, roughness=0.18, coat=1.0),
-        "silver":       make_mat("Paint_Silver",      (0.64, 0.68, 0.74), metallic=0.72, roughness=0.20, coat=1.0),
-        "navy":         make_mat("Paint_MidnightNavy",(0.05, 0.12, 0.28), metallic=0.55, roughness=0.18, coat=1.0),
-        "maroon":       make_mat("Paint_WineMaroon",  (0.42, 0.05, 0.08), metallic=0.48, roughness=0.18, coat=1.0),
-        "gunmetal":     make_mat("Paint_Gunmetal",    (0.15, 0.18, 0.22), metallic=0.68, roughness=0.20, coat=1.0),
-        "canter_blue":  make_mat("Paint_CanterBlue",  (0.08, 0.28, 0.62), metallic=0.35, roughness=0.22, coat=0.9),
-        "cargo_white":  make_mat("Cargo_BoxWhite",    (0.84, 0.86, 0.89), metallic=0.10, roughness=0.36, coat=0.2),
-        "psv_yellow":   make_mat("Matatu_PSV_Yellow", (0.98, 0.76, 0.02), metallic=0.08, roughness=0.24, coat=0.8),
-        "matatu_teal":  make_mat("Matatu_LowerTeal",  (0.04, 0.36, 0.44), metallic=0.28, roughness=0.22, coat=0.9),
-        "glass":        make_mat("Auto_TintedGlass",  (0.03, 0.06, 0.09), metallic=0.32, roughness=0.04, coat=1.0),
-        "black_trim":   make_mat("Auto_BlackTrim",    (0.055, 0.06, 0.07), metallic=0.10, roughness=0.48),
-        "wheel_cavity": make_mat("Auto_WheelCavity",  (0.015, 0.016, 0.02), metallic=0.10, roughness=0.75),
-        "grille_dark":  make_mat("Auto_GrilleDark",   (0.022, 0.025, 0.030), metallic=0.22, roughness=0.42),
-        "chrome":       make_mat("Auto_Chrome",       (0.88, 0.91, 0.94), metallic=0.98, roughness=0.07),
-        "alloy":        make_mat("Auto_AlloyRim",     (0.76, 0.80, 0.85), metallic=0.92, roughness=0.15),
-        "tire":         make_mat("Auto_TireRubber",   (0.036, 0.038, 0.044), metallic=0.02, roughness=0.82),
-        "brake_disc":   make_mat("Auto_BrakeDisc",    (0.18, 0.19, 0.22), metallic=0.80, roughness=0.45),
-        "caliper_red":  make_mat("Auto_BrakeCaliper", (0.68, 0.06, 0.06), metallic=0.30, roughness=0.32),
-        "headlight":    make_mat("Auto_Headlight",    (0.98, 0.96, 0.88), metallic=0.12, roughness=0.06, emission=(1.0, 0.95, 0.82), emission_strength=2.2),
-        "foglight":     make_mat("Auto_Foglight",     (0.95, 0.92, 0.82), metallic=0.10, roughness=0.08, emission=(0.95, 0.90, 0.72), emission_strength=1.1),
-        "indicator":    make_mat("Auto_IndicatorAmb", (0.96, 0.50, 0.04), metallic=0.08, roughness=0.14, emission=(1.0, 0.52, 0.04), emission_strength=1.4),
-        "taillight":    make_mat("Auto_TaillightRed", (0.86, 0.04, 0.04), metallic=0.08, roughness=0.12, emission=(0.95, 0.05, 0.04), emission_strength=2.2),
-        "plate_yellow": make_mat("Kenya_PlateYellow", (0.96, 0.78, 0.08), metallic=0.05, roughness=0.30),
-        "reflect_red":  make_mat("Kenya_ReflectRed",  (0.92, 0.08, 0.06), metallic=0.10, roughness=0.18, emission=(0.8, 0.05, 0.04), emission_strength=0.6),
-        "dest_amber":   make_mat("Matatu_DestBoard",  (0.98, 0.68, 0.06), metallic=0.05, roughness=0.18, emission=(1.0, 0.68, 0.08), emission_strength=1.5),
+    tex_paths = kenya_auto_textures.ensure_all_textures(TEX_DIR)
+    mats = {
+        "pearl_white":   make_mat("Paint_PearlWhite",   (0.90, 0.92, 0.94), metallic=0.18, roughness=0.18, coat=1.0),
+        "silver":        make_mat("Paint_Silver",       (0.64, 0.68, 0.74), metallic=0.72, roughness=0.20, coat=1.0),
+        "navy":          make_mat("Paint_MidnightNavy", (0.05, 0.12, 0.28), metallic=0.55, roughness=0.18, coat=1.0),
+        "maroon":        make_mat("Paint_WineMaroon",   (0.42, 0.05, 0.08), metallic=0.48, roughness=0.18, coat=1.0),
+        "gunmetal":      make_mat("Paint_Gunmetal",     (0.15, 0.18, 0.22), metallic=0.68, roughness=0.20, coat=1.0),
+        "canter_blue":   make_mat("Paint_CanterBlue",   (0.08, 0.28, 0.62), metallic=0.35, roughness=0.22, coat=0.9),
+        "cargo_white":   make_mat("Cargo_BoxWhite",     (0.84, 0.86, 0.89), metallic=0.10, roughness=0.36, coat=0.2),
+        "psv_yellow":    make_mat("Matatu_PSV_Yellow",  (0.98, 0.76, 0.02), metallic=0.08, roughness=0.24, coat=0.8),
+        "matatu_teal":   make_mat("Matatu_LowerTeal",   (0.04, 0.36, 0.44), metallic=0.28, roughness=0.22, coat=0.9),
+        # Semi-transparent reflective tinted glass -> lets 3D RHD cabin seats & steering wheel show softly inside!
+        "glass":         make_mat("Auto_TintedGlass",   (0.04, 0.08, 0.12), metallic=0.25, roughness=0.05, coat=1.0, alpha=0.64),
+        "interior_dark": make_mat("Auto_InteriorDash",  (0.06, 0.065, 0.075), metallic=0.05, roughness=0.62),
+        "seat_fabric":   make_mat("Auto_SeatFabric",    (0.16, 0.14, 0.13), metallic=0.02, roughness=0.78),
+        "seat_beige":    make_mat("Auto_SeatBeige",     (0.46, 0.38, 0.28), metallic=0.02, roughness=0.74),
+        "black_trim":    make_mat("Auto_BlackTrim",     (0.055, 0.06, 0.07), metallic=0.10, roughness=0.48),
+        "wheel_cavity":  make_mat("Auto_WheelCavity",   (0.015, 0.016, 0.02), metallic=0.10, roughness=0.75),
+        "grille_dark":   make_mat("Auto_GrilleDark",    (0.022, 0.025, 0.030), metallic=0.22, roughness=0.42),
+        "chrome":        make_mat("Auto_Chrome",        (0.88, 0.91, 0.94), metallic=0.98, roughness=0.07),
+        "alloy":         make_mat("Auto_AlloyRim",      (0.76, 0.80, 0.85), metallic=0.92, roughness=0.15),
+        "tire":          make_mat("Auto_TireRubber",    (0.036, 0.038, 0.044), metallic=0.02, roughness=0.82),
+        "brake_disc":    make_mat("Auto_BrakeDisc",     (0.18, 0.19, 0.22), metallic=0.80, roughness=0.45),
+        "caliper_red":   make_mat("Auto_BrakeCaliper",  (0.68, 0.06, 0.06), metallic=0.30, roughness=0.32),
+        "headlight":     make_mat("Auto_Headlight",     (0.98, 0.96, 0.88), metallic=0.12, roughness=0.06, emission=(1.0, 0.95, 0.82), emission_strength=2.2),
+        "foglight":      make_mat("Auto_Foglight",      (0.95, 0.92, 0.82), metallic=0.10, roughness=0.08, emission=(0.95, 0.90, 0.72), emission_strength=1.1),
+        "indicator":     make_mat("Auto_IndicatorAmb",  (0.96, 0.50, 0.04), metallic=0.08, roughness=0.14, emission=(1.0, 0.52, 0.04), emission_strength=1.4),
+        "taillight":     make_mat("Auto_TaillightRed",  (0.86, 0.04, 0.04), metallic=0.08, roughness=0.12, emission=(0.95, 0.05, 0.04), emission_strength=2.2),
+        "plate_yellow":  make_mat("Kenya_PlateYellow",  (0.96, 0.78, 0.08), metallic=0.05, roughness=0.30),
+        "reflect_red":   make_mat("Kenya_ReflectRed",   (0.92, 0.08, 0.06), metallic=0.10, roughness=0.18, emission=(0.8, 0.05, 0.04), emission_strength=0.6),
+        "dest_amber":    make_mat("Matatu_DestBoard",   (0.98, 0.68, 0.06), metallic=0.05, roughness=0.18, emission=(1.0, 0.68, 0.08), emission_strength=1.5),
     }
+    # Crisp printed Kenyan license plates, LED boards, SACCO graphics & safety chevrons!
+    mats["plate_matatu"]  = make_textured_mat("PlateTex_Matatu",  tex_paths["plate_matatu"],  roughness=0.22)
+    mats["plate_probox"]  = make_textured_mat("PlateTex_Probox",  tex_paths["plate_probox"],  roughness=0.22)
+    mats["plate_prado"]   = make_textured_mat("PlateTex_Prado",   tex_paths["plate_prado"],   roughness=0.22)
+    mats["plate_hilux"]   = make_textured_mat("PlateTex_Hilux",   tex_paths["plate_hilux"],   roughness=0.22)
+    mats["plate_saloon"]  = make_textured_mat("PlateTex_Saloon",  tex_paths["plate_saloon"],  roughness=0.22)
+    mats["plate_canter"]  = make_textured_mat("PlateTex_Canter",  tex_paths["plate_canter"],  roughness=0.22)
+    mats["led_matatu"]    = make_textured_mat("LEDTex_Matatu",    tex_paths["led_matatu"],    roughness=0.12, emission_strength=1.9)
+    mats["banner_matatu"] = make_textured_mat("Banner_Matatu",    tex_paths["banner_matatu"], roughness=0.24)
+    mats["chevron"]       = make_textured_mat("Chevron_Safety",   tex_paths["chevron"],       roughness=0.18, emission_strength=0.45)
+    mats["speed_80"]      = make_textured_mat("Sticker_80KPH",    tex_paths["speed_80"],      roughness=0.25)
+    return mats
 
 
 # ==============================================================================
@@ -464,7 +518,70 @@ def add_wipers_handles_exhaust(parent, col, half_w, cowl_y, cowl_z, handle_ys, h
     create_cylinder("ExhaustTip", (half_w * 0.56, rear_y - 0.04, exhaust_z), 0.038, 0.22, 12, mats["chrome"], parent, col, rot_deg=(90, 0, 0))
 
 
-def add_mirrors_lights_plates(parent, col, half_w, mir_y, mir_z, front_y, rear_y, head_z, tail_z, plate_f_z, plate_r_z, mir_mat, mats, mir_scale=1.0, fog_z=None):
+def create_decal_quad(name, loc, width, height, facing, mat, parent, col, rot_deg=(0, 0, 0)):
+    """Creates an upright UV-mapped quad facing '+Y' (front), '-Y' (rear), '-X' (left), or '+X' (right)."""
+    mesh = bpy.data.meshes.new(name + "_Mesh")
+    bm = bmesh.new()
+    uv_layer = bm.loops.layers.uv.new("UVMap")
+    hw, hh = width * 0.5, height * 0.5
+    if facing == '+Y':
+        pts = [( hw, 0, -hh), (-hw, 0, -hh), (-hw, 0,  hh), ( hw, 0,  hh)]
+    elif facing == '-Y':
+        pts = [(-hw, 0, -hh), ( hw, 0, -hh), ( hw, 0,  hh), (-hw, 0,  hh)]
+    elif facing == '-X':
+        pts = [(0,  hw, -hh), (0, -hw, -hh), (0, -hw,  hh), (0,  hw,  hh)]
+    else:  # '+X'
+        pts = [(0, -hw, -hh), (0,  hw, -hh), (0,  hw,  hh), (0, -hw,  hh)]
+    uvs = [(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)]
+    verts = [bm.verts.new(Vector(p)) for p in pts]
+    face = bm.faces.new(verts)
+    for loop, uv in zip(face.loops, uvs):
+        loop[uv_layer].uv = uv
+    bm.to_mesh(mesh)
+    bm.free()
+
+    obj = bpy.data.objects.new(name, mesh)
+    obj.location = Vector(loc)
+    obj.rotation_euler = Euler([math.radians(a) for a in rot_deg], 'XYZ')
+    obj.data.materials.append(mat)
+    link_obj(obj, parent, col)
+    return obj
+
+
+def add_rhd_cabin_interior(parent, col, width, dash_y, dash_z, seat_ys, seat_z, mats, seat_mat_key="seat_fabric"):
+    """
+    Sculpts a real 3D Kenyan Right-Hand-Drive (+X side) cabin interior visible softly behind semi-transparent tinted glass:
+      - Dark interior floor tub, wrap-around dashboard cowl, RHD steering wheel rim & column,
+        center rearview mirror, and contoured seats with headrests!
+    """
+    seat_mat = mats[seat_mat_key]
+    dash_mat = mats["interior_dark"]
+    hw = width * 0.5
+
+    # Wrap-around dashboard cowl
+    create_beveled_box("CabinDashCowl", (0, dash_y, dash_z), (width * 0.94, 0.44, 0.24), dash_mat, parent, col, bevel_w=0.04)
+    # Kenyan RHD (+X) Steering Wheel (tilted ring + steering column!)
+    sw_x = hw * 0.48
+    create_cylinder("CabinSteerCol", (sw_x, dash_y - 0.16, dash_z + 0.06), 0.032, 0.28, 10, dash_mat, parent, col, rot_deg=(72, 0, 0))
+    create_cylinder("CabinSteerRim", (sw_x, dash_y - 0.28, dash_z + 0.12), 0.17, 0.034, 18, mats["black_trim"], parent, col, rot_deg=(72, 0, 0))
+    # Interior center rearview mirror hanging near windshield top
+    create_beveled_box("CabinRearMirror", (0, dash_y + 0.04, dash_z + 0.46), (0.20, 0.04, 0.06), mats["black_trim"], parent, col, bevel_w=0.008)
+
+    # Seat rows (driver + front passenger + rear bench/rows with headrests!)
+    for r_idx, sy in enumerate(seat_ys):
+        if r_idx == 0:
+            for sx in (-hw * 0.46, hw * 0.46):
+                create_beveled_box(f"SeatCush_{r_idx}_{sx:.2f}", (sx, sy, seat_z), (width * 0.36, 0.44, 0.12), seat_mat, parent, col, bevel_w=0.03)
+                create_beveled_box(f"SeatBack_{r_idx}_{sx:.2f}", (sx, sy - 0.20, seat_z + 0.32), (width * 0.34, 0.12, 0.52), seat_mat, parent, col, rot_deg=(-12, 0, 0), bevel_w=0.03)
+                create_beveled_box(f"SeatHead_{r_idx}_{sx:.2f}", (sx, sy - 0.24, seat_z + 0.64), (0.20, 0.09, 0.16), seat_mat, parent, col, bevel_w=0.025)
+        else:
+            create_beveled_box(f"BenchCush_{r_idx}", (0, sy, seat_z), (width * 0.86, 0.44, 0.12), seat_mat, parent, col, bevel_w=0.03)
+            create_beveled_box(f"BenchBack_{r_idx}", (0, sy - 0.20, seat_z + 0.30), (width * 0.84, 0.12, 0.48), seat_mat, parent, col, rot_deg=(-10, 0, 0), bevel_w=0.03)
+            for sx in (-hw * 0.52, 0.0, hw * 0.52):
+                create_beveled_box(f"BenchHead_{r_idx}_{sx:.2f}", (sx, sy - 0.23, seat_z + 0.60), (0.19, 0.08, 0.15), seat_mat, parent, col, bevel_w=0.02)
+
+
+def add_mirrors_lights_plates(parent, col, half_w, mir_y, mir_z, front_y, rear_y, head_z, tail_z, plate_f_z, plate_r_z, mir_mat, mats, mir_scale=1.0, fog_z=None, plate_mat=None):
     for side in (-1.0, 1.0):
         create_beveled_box(f"MirArm_{side}", (side * (half_w + 0.05 * mir_scale), mir_y, mir_z), (0.14 * mir_scale, 0.045, 0.045), mats["black_trim"], parent, col, bevel_w=0.008)
         create_beveled_box(f"MirCap_{side}", (side * (half_w + 0.14 * mir_scale), mir_y - 0.02, mir_z + 0.02), (0.16 * mir_scale, 0.10 * mir_scale, 0.12 * mir_scale), mir_mat, parent, col, bevel_w=0.022)
@@ -473,8 +590,11 @@ def add_mirrors_lights_plates(parent, col, half_w, mir_y, mir_z, front_y, rear_y
         create_beveled_box(f"Tail_{side}",   (side * half_w * 0.72, rear_y, tail_z), (0.26, 0.07, 0.22), mats["taillight"], parent, col, bevel_w=0.02)
         if fog_z is not None:
             create_beveled_box(f"FogL_{side}", (side * half_w * 0.70, front_y + 0.02, fog_z), (0.14, 0.05, 0.07), mats["foglight"], parent, col, bevel_w=0.012)
-    create_beveled_box("PlateFront", (0, front_y + 0.03, plate_f_z), (0.48, 0.025, 0.12), mats["plate_yellow"], parent, col, bevel_w=0.004)
-    create_beveled_box("PlateRear",  (0, rear_y - 0.03,  plate_r_z), (0.48, 0.025, 0.12), mats["plate_yellow"], parent, col, bevel_w=0.004)
+    pmat = plate_mat if plate_mat is not None else mats["plate_yellow"]
+    create_beveled_box("PlateFront", (0, front_y + 0.03, plate_f_z), (0.50, 0.020, 0.13), mats["black_trim"], parent, col, bevel_w=0.004)
+    create_decal_quad("PlateFrontTex", (0, front_y + 0.044, plate_f_z), 0.48, 0.12, '+Y', pmat, parent, col)
+    create_beveled_box("PlateRear",  (0, rear_y - 0.03,  plate_r_z), (0.50, 0.020, 0.13), mats["black_trim"], parent, col, bevel_w=0.004)
+    create_decal_quad("PlateRearTex",  (0, rear_y - 0.044,  plate_r_z), 0.48, 0.12, '-Y', pmat, parent, col)
 
 
 # ==============================================================================
@@ -503,22 +623,28 @@ def build_kenya_matatu_14seater(mats, col):
         belt_stripe_mat=mats["psv_yellow"], lower_skirt_mat=mats["matatu_teal"],
         wheel_cutouts=cutouts,
     )
-    # PSV Front Destination Route Signbox on Roof Brow + Roof Air Vent Hatch
-    create_beveled_box("PsvDestHousing", (0, 1.82, 2.16), (1.06, 0.24, 0.16), mats["black_trim"], root, col, rot_deg=(12, 0, 0), bevel_w=0.025)
-    create_beveled_box("PsvDestGlow",    (0, 1.93, 2.16), (0.94, 0.04, 0.10), mats["dest_amber"], root, col, rot_deg=(12, 0, 0), bevel_w=0.008)
+    # PSV Front Destination Route Signbox (Real Glowing LED Text!) + SACCO Side Banners + Roof Air Vent Hatch
+    create_beveled_box("PsvDestHousing", (0, 1.82, 2.16), (1.10, 0.24, 0.17), mats["black_trim"], root, col, rot_deg=(12, 0, 0), bevel_w=0.025)
+    create_decal_quad("PsvDestLedTex",   (0, 1.946, 2.142), 1.00, 0.13, '+Y', mats["led_matatu"], root, col, rot_deg=(12, 0, 0))
     create_beveled_box("RoofVentHatch",  (0, -0.42, 2.18), (0.76, 0.62, 0.07), mats["black_trim"], root, col, bevel_w=0.02)
+    # Crisp Highland SACCO PSV side stripe graphics on left & right belt panels!
+    create_decal_quad("MatatuSaccoL", (-0.978, -0.20, 1.08), 1.65, 0.26, '-X', mats["banner_matatu"], root, col)
+    create_decal_quad("MatatuSaccoR", ( 0.978, -0.20, 1.08), 1.65, 0.26, '+X', mats["banner_matatu"], root, col)
 
     create_beveled_box("FrontGrille", (0, 2.51, 0.88), (1.14, 0.06, 0.24), mats["grille_dark"], root, col, bevel_w=0.015)
     create_beveled_box("GrilleChrome", (0, 2.54, 0.90), (1.06, 0.03, 0.05), mats["chrome"], root, col, bevel_w=0.008)
     create_beveled_box("FrontBumper", (0, 2.48, 0.44), (1.84, 0.20, 0.22), mats["black_trim"], root, col, bevel_w=0.04)
     create_beveled_box("RearBumper",  (0, -2.48, 0.44), (1.84, 0.18, 0.22), mats["black_trim"], root, col, bevel_w=0.04)
-    # Bold Proud Kenyan Matte-Black & Chrome Bullbar (clearly pops against white nose!)
+    # Bold Proud Kenyan Matte-Black Bullbar
     create_cylinder("BullbarTop", (0, 2.66, 0.84), 0.034, 1.48, 14, mats["black_trim"], root, col, rot_deg=(0, 90, 0))
     create_cylinder("BullbarBot", (0, 2.66, 0.56), 0.034, 1.48, 14, mats["black_trim"], root, col, rot_deg=(0, 90, 0))
     for sx in (-0.44, 0.44):
         create_cylinder(f"BullbarPost_{sx}", (sx, 2.64, 0.70), 0.032, 0.42, 12, mats["black_trim"], root, col)
 
-    add_mirrors_lights_plates(root, col, 0.94, 1.92, 1.38, 2.50, -2.51, 0.90, 0.96, 0.46, 0.64, mats["black_trim"], mats, mir_scale=1.15, fog_z=0.45)
+    # Full 3D 14-Seater PSV Interior Cabin (RHD Steering Wheel, Dashboard & 4 Seat Rows visible through tinted windows!)
+    add_rhd_cabin_interior(root, col, 1.56, dash_y=1.96, dash_z=1.18, seat_ys=(1.32, 0.45, -0.45, -1.40), seat_z=0.86, mats=mats, seat_mat_key="seat_fabric")
+
+    add_mirrors_lights_plates(root, col, 0.94, 1.92, 1.38, 2.50, -2.51, 0.90, 0.96, 0.46, 0.64, mats["black_trim"], mats, mir_scale=1.15, fog_z=0.45, plate_mat=mats["plate_matatu"])
     add_wipers_handles_exhaust(root, col, 0.96, 2.38, 1.24, (1.42, 0.50), 1.12, -2.50, 0.30, mats["black_trim"], mats)
     add_wheel_set(root, col, 0.91, f_y, r_y, w_rad, 0.23, 5, mats)
     return root
@@ -554,7 +680,8 @@ def build_kenya_probox_wagon(mats, col):
     create_beveled_box("RearBumper",  (0, -2.10, 0.40), (1.66, 0.18, 0.20), mats["black_trim"], root, col, bevel_w=0.035)
     create_beveled_box("RoofAntenna", (0, -1.68, 1.56), (0.04, 0.14, 0.06), mats["black_trim"], root, col, bevel_w=0.012)
 
-    add_mirrors_lights_plates(root, col, 0.85, 0.78, 1.05, 2.11, -2.12, 0.76, 0.84, 0.40, 0.56, mats["silver"], mats, mir_scale=1.05, fog_z=0.40)
+    add_rhd_cabin_interior(root, col, 1.36, dash_y=0.72, dash_z=0.92, seat_ys=(0.06, -0.82), seat_z=0.62, mats=mats, seat_mat_key="seat_fabric")
+    add_mirrors_lights_plates(root, col, 0.85, 0.78, 1.05, 2.11, -2.12, 0.76, 0.84, 0.40, 0.56, mats["silver"], mats, mir_scale=1.05, fog_z=0.40, plate_mat=mats["plate_probox"])
     add_wipers_handles_exhaust(root, col, 0.87, 1.08, 1.00, (0.04, -0.82), 0.90, -2.11, 0.26, mats["black_trim"], mats)
     add_wheel_set(root, col, 0.82, f_y, r_y, w_rad, 0.20, 5, mats)
     return root
@@ -599,7 +726,8 @@ def build_kenya_prado_suv(mats, col):
     create_cylinder("RearSpareCover", (0, -2.44, 1.04), 0.38, 0.20, 24, mats["navy"], root, col, rot_deg=(90, 0, 0), bevel_w=0.03)
     create_cylinder("RearSpareChrome", (0, -2.46, 1.04), 0.36, 0.16, 24, mats["chrome"], root, col, rot_deg=(90, 0, 0))
 
-    add_mirrors_lights_plates(root, col, 0.95, 0.80, 1.28, 2.33, -2.35, 0.98, 1.12, 0.55, 0.62, mats["navy"], mats, mir_scale=1.28, fog_z=0.60)
+    add_rhd_cabin_interior(root, col, 1.54, dash_y=0.80, dash_z=1.18, seat_ys=(0.12, -0.86), seat_z=0.84, mats=mats, seat_mat_key="seat_beige")
+    add_mirrors_lights_plates(root, col, 0.95, 0.80, 1.28, 2.33, -2.35, 0.98, 1.12, 0.55, 0.62, mats["navy"], mats, mir_scale=1.28, fog_z=0.60, plate_mat=mats["plate_prado"])
     add_wipers_handles_exhaust(root, col, 0.97, 1.14, 1.26, (0.08, -0.88), 1.10, -2.34, 0.38, mats["chrome"], mats)
     add_wheel_set(root, col, 0.93, f_y, r_y, w_rad, 0.26, 6, mats)
     return root
@@ -644,7 +772,8 @@ def build_kenya_hilux_pickup(mats, col):
     create_beveled_box("FrontBumper",  (0, 2.50, 0.54), (1.80, 0.22, 0.22), mats["black_trim"], root, col, bevel_w=0.035)
     create_beveled_box("RearBumper",   (0, -2.53, 0.56), (1.80, 0.20, 0.18), mats["chrome"], root, col, bevel_w=0.03)
 
-    add_mirrors_lights_plates(root, col, 0.93, 0.98, 1.24, 2.51, -2.53, 0.94, 0.96, 0.55, 0.62, mats["chrome"], mats, mir_scale=1.22, fog_z=0.58)
+    add_rhd_cabin_interior(root, col, 1.50, dash_y=0.96, dash_z=1.14, seat_ys=(0.30, -0.44), seat_z=0.82, mats=mats, seat_mat_key="seat_fabric")
+    add_mirrors_lights_plates(root, col, 0.93, 0.98, 1.24, 2.51, -2.53, 0.94, 0.96, 0.55, 0.62, mats["chrome"], mats, mir_scale=1.22, fog_z=0.58, plate_mat=mats["plate_hilux"])
     add_wipers_handles_exhaust(root, col, 0.95, 1.30, 1.24, (0.28, -0.44), 1.08, -2.52, 0.40, mats["chrome"], mats)
     add_wheel_set(root, col, 0.91, f_y, r_y, w_rad, 0.26, 6, mats)
     return root
@@ -679,7 +808,8 @@ def build_kenya_saloon_sedan(mats, col):
     create_beveled_box("SedanChromeBar",  (0, 2.23, 0.66), (0.90, 0.03, 0.035), mats["chrome"], root, col, bevel_w=0.005)
     create_beveled_box("LowerIntake",     (0, 2.19, 0.38), (1.36, 0.14, 0.14), mats["black_trim"], root, col, bevel_w=0.025)
 
-    add_mirrors_lights_plates(root, col, 0.86, 0.72, 1.00, 2.21, -2.21, 0.68, 0.80, 0.40, 0.58, mats["gunmetal"], mats, mir_scale=1.05, fog_z=0.39)
+    add_rhd_cabin_interior(root, col, 1.38, dash_y=0.62, dash_z=0.88, seat_ys=(-0.02, -0.80), seat_z=0.56, mats=mats, seat_mat_key="seat_beige")
+    add_mirrors_lights_plates(root, col, 0.86, 0.72, 1.00, 2.21, -2.21, 0.68, 0.80, 0.40, 0.58, mats["gunmetal"], mats, mir_scale=1.05, fog_z=0.39, plate_mat=mats["plate_saloon"])
     add_wipers_handles_exhaust(root, col, 0.88, 1.04, 0.96, (-0.02, -0.78), 0.88, -2.21, 0.27, mats["chrome"], mats)
     add_wheel_set(root, col, 0.83, f_y, r_y, w_rad, 0.21, 5, mats)
     return root
@@ -703,8 +833,27 @@ def build_kenya_canter_truck(mats, col):
         side_win_spans=(0,), windshield_span=1,
         wheel_cutouts=cutouts,
     )
-    # Aerodynamic Cab Roof Wind Deflector fairing into Freight Box!
-    create_beveled_box("CabWindDeflector", (0, 1.92, 2.74), (1.88, 1.38, 0.62), mats["cargo_white"], root, col, rot_deg=(24, 0, 0), bevel_w=0.06)
+    # True Aerodynamic Sloped Roof Wind Deflector Wedge sitting 100% flush on Canter cab roof!
+    wd_mesh = bpy.data.meshes.new("CabWindDeflector_Mesh")
+    wbm = bmesh.new()
+    v0 = wbm.verts.new(Vector((-0.96, 1.24, 2.44)))
+    v1 = wbm.verts.new(Vector(( 0.96, 1.24, 2.44)))
+    v2 = wbm.verts.new(Vector(( 0.88, 2.54, 2.44)))
+    v3 = wbm.verts.new(Vector((-0.88, 2.54, 2.44)))
+    v4 = wbm.verts.new(Vector((-0.96, 1.24, 3.16)))
+    v5 = wbm.verts.new(Vector(( 0.96, 1.24, 3.16)))
+    v6 = wbm.verts.new(Vector(( 0.88, 2.54, 2.54)))
+    v7 = wbm.verts.new(Vector((-0.88, 2.54, 2.54)))
+    wbm.faces.new((v0, v1, v2, v3)); wbm.faces.new((v4, v7, v6, v5))
+    wbm.faces.new((v0, v4, v5, v1)); wbm.faces.new((v3, v2, v6, v7))
+    wbm.faces.new((v0, v3, v7, v4)); wbm.faces.new((v1, v5, v6, v2))
+    bmesh.ops.bevel(wbm, geom=list(wbm.edges), offset=0.05, segments=3, affect='EDGES', clamp_overlap=True)
+    bmesh.ops.recalc_face_normals(wbm, faces=wbm.faces)
+    wbm.to_mesh(wd_mesh); wbm.free()
+    wd_obj = bpy.data.objects.new("CabWindDeflector", wd_mesh)
+    wd_obj.data.materials.append(mats["cargo_white"])
+    link_obj(wd_obj, root, col)
+    smooth_obj(wd_obj, 42.0)
 
     # Recessed Dark Truck Grille with 3 Crisp Chrome Louver Bars!
     create_beveled_box("CabGrilleDark", (0, 3.14, 1.22), (1.56, 0.07, 0.34), mats["grille_dark"], root, col, bevel_w=0.02)
@@ -724,9 +873,14 @@ def build_kenya_canter_truck(mats, col):
     create_beveled_box("FreightCargoBox", (0, -1.06, 2.04), (2.24, 4.22, 2.26), mats["cargo_white"], root, col, bevel_w=0.05)
     create_beveled_box("CargoRoofTrim",   (0, -1.06, 3.18), (2.28, 4.28, 0.08), mats["alloy"], root, col, bevel_w=0.02)
     create_beveled_box("SafetyStripeYel", (0, -1.06, 1.02), (2.27, 4.18, 0.14), mats["psv_yellow"], root, col, bevel_w=0.01)
-    create_beveled_box("SafetyStripeRed", (0, -3.19, 1.08), (2.14, 0.04, 0.16), mats["reflect_red"], root, col, bevel_w=0.005)
+    # Crisp Red/Yellow Kenyan Diagonal Reflective Chevron Strip + 80 KPH Speed Governor Sticker on Rear!
+    create_decal_quad("RearChevronTex", (0, -3.195, 1.08), 2.14, 0.20, '-Y', mats["chevron"], root, col)
+    create_decal_quad("Rear80KphTex",   (0.76, -3.195, 2.52), 0.34, 0.34, '-Y', mats["speed_80"], root, col)
     for ry in (-2.7, -2.0, -1.3, -0.6, 0.1, 0.8):
         create_beveled_box(f"CargoRib_{ry}", (0, ry, 2.04), (2.27, 0.055, 2.10), mats["alloy"], root, col, bevel_w=0.008)
+
+    # Full 3D Cab-Over Truck Interior (RHD Steering Wheel, Truck Dashboard & Cab Seats visible behind windshield!)
+    add_rhd_cabin_interior(root, col, 1.66, dash_y=2.66, dash_z=1.50, seat_ys=(1.92,), seat_z=1.22, mats=mats, seat_mat_key="seat_fabric")
 
     # Solidly Mounted Truck Side Mirrors with Top & Bottom Horizontal Mounting Brackets into Cab A-Pillar!
     for side in (-1.0, 1.0):
@@ -739,8 +893,10 @@ def build_kenya_canter_truck(mats, col):
         create_beveled_box(f"HeadL_{side}", (side * 0.72, 3.16, 0.84), (0.28, 0.07, 0.14), mats["headlight"], root, col, bevel_w=0.02)
         create_beveled_box(f"IndF_{side}",  (side * 0.90, 3.12, 0.84), (0.10, 0.07, 0.13), mats["indicator"], root, col, bevel_w=0.015)
         create_beveled_box(f"Tail_{side}",  (side * 0.84, -3.20, 0.86), (0.26, 0.07, 0.22), mats["taillight"], root, col, bevel_w=0.02)
-    create_beveled_box("PlateFront", (0, 3.24, 0.68), (0.48, 0.025, 0.12), mats["plate_yellow"], root, col, bevel_w=0.004)
-    create_beveled_box("PlateRear",  (0, -3.21, 0.72), (0.48, 0.025, 0.12), mats["plate_yellow"], root, col, bevel_w=0.004)
+    create_beveled_box("PlateFront", (0, 3.24, 0.68), (0.50, 0.020, 0.13), mats["black_trim"], root, col, bevel_w=0.004)
+    create_decal_quad("PlateFrontTex", (0, 3.254, 0.68), 0.48, 0.12, '+Y', mats["plate_canter"], root, col)
+    create_beveled_box("PlateRear",  (0, -3.21, 0.72), (0.50, 0.020, 0.13), mats["black_trim"], root, col, bevel_w=0.004)
+    create_decal_quad("PlateRearTex",  (0, -3.224, 0.72), 0.48, 0.12, '-Y', mats["plate_canter"], root, col)
 
     add_wipers_handles_exhaust(root, col, 1.02, 3.06, 1.56, (1.66,), 1.44, -3.16, 0.44, mats["black_trim"], mats)
 
@@ -829,22 +985,67 @@ def setup_showroom_and_render(vehicles):
     bpy.context.scene.collection.objects.link(cam_obj)
     bpy.context.scene.camera = cam_obj
 
+    # Pre-load this generator script into Blender's Text Editor AND set Scripting tab + Material Preview!
+    script_disk_path = os.path.join(REPO_ROOT, "tools", "blender_build_kenya_vehicles.py")
+    loaded_txt = None
+    if os.path.isfile(script_disk_path):
+        loaded_txt = bpy.data.texts.get("blender_build_kenya_vehicles.py")
+        if loaded_txt is None:
+            loaded_txt = bpy.data.texts.load(script_disk_path)
+
+    for screen in bpy.data.screens:
+        for area in screen.areas:
+            if area.type == 'VIEW_3D':
+                for space in area.spaces:
+                    if space.type == 'VIEW_3D':
+                        space.shading.type = 'MATERIAL'
+                        space.region_3d.view_perspective = 'CAMERA'
+            elif area.type == 'TEXT_EDITOR' and loaded_txt is not None:
+                for space in area.spaces:
+                    if space.type == 'TEXT_EDITOR':
+                        space.text = loaded_txt
+                        space.show_line_numbers = True
+                        space.show_syntax_highlight = True
+
+    scripting_ws = bpy.data.workspaces.get("Scripting")
+    if scripting_ws is not None:
+        for wm in bpy.data.window_managers:
+            for win in wm.windows:
+                win.workspace = scripting_ws
+
     blend_path = os.path.join(STUDIO_DIR, "Kenya_Owned_Commercial_Traffic_Pack.blend")
     bpy.ops.wm.save_as_mainfile(filepath=blend_path)
-    print(f"SAVED MASTER BLEND: {blend_path}")
+    print(f"SAVED MASTER BLEND (Scripting Tab + Material Preview): {blend_path}")
 
     scene = bpy.context.scene
     scene.render.engine = 'BLENDER_EEVEE'
     scene.render.resolution_x = 1280
     scene.render.resolution_y = 720
-    scene.render.filepath = PREVIEW_PNG
-    scene.render.image_settings.file_format = 'PNG'
-    bpy.ops.render.render(write_still=True)
-    print(f"RENDERED PREVIEW: {PREVIEW_PNG}")
+
+    if bpy.app.background and len(sys.argv) > 1 and sys.argv[-1].lower().endswith(".png"):
+        scene.render.filepath = PREVIEW_PNG
+        scene.render.image_settings.file_format = 'PNG'
+        bpy.ops.render.render(write_still=True)
+        print(f"RENDERED PREVIEW: {PREVIEW_PNG}")
+    else:
+        print("LIVE SHOWROOM READY IN BLENDER 5.3 VIEWPORT!")
 
 
 def main():
-    bpy.ops.wm.read_factory_settings(use_empty=True)
+    if bpy.app.background:
+        # Keep full Blender UI workspaces (Layout, Modeling, Sculpting, Shading, Scripting!)
+        bpy.ops.wm.read_factory_settings(use_empty=False)
+
+    # Clear startup Cube / Light / Camera or previous vehicles without losing UI workspaces
+    for obj in list(bpy.data.objects):
+        bpy.data.objects.remove(obj, do_unlink=True)
+    for m in list(bpy.data.meshes):
+        if m.users == 0:
+            bpy.data.meshes.remove(m)
+    for mat in list(bpy.data.materials):
+        if mat.users == 0:
+            bpy.data.materials.remove(mat)
+
     mats = init_materials()
     col = bpy.context.scene.collection
 

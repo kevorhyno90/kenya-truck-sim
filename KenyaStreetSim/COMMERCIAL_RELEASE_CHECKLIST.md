@@ -7,17 +7,20 @@ You own **100%** of your Unity 6 C# codebase, 16-town Kenyan highway network, ga
 ## 1. Already 100% Owned & Commercial-Safe
 - **All C# Runtime & Editor Code** (`Assets/KenyaStreetSim/Scripts/` & `Editor/`)
 - **16-Town Kenya Connected Highway Map, 8 Corridors, 3 Roundabouts, 4 Police Roadblocks**
-- **100%-Owned Blender 5.3 Studio Kenyan Traffic Fleet (6 Original `.glb` Vehicles + Master `.blend`):**
+- **100%-Owned Blender 5.3 Flagship Playable Fleet (Ready to Sell Commercially!):**
+  - Editable Blender 5.3 Playable Studio: `BlenderStudio/Kenya_Owned_Playable_Fleet_Studio.blend` (reproducible via `tools/blender_build_playable_fleet.py`)
+  - `ImportedModels/OwnedFleet/Savanna_Express_Coach_2026.glb` (13.2m Tri-Axle 6×2 Luxury Touring Coach w/ 10-row 3D walk-in cabin, seats, RHD cockpit, opening left passenger door, roof HVAC, LED route board, KDX 057M plates & 6 Alcoa wheels!)
+  - `ImportedModels/OwnedFleet/Savanna_Parcel_Lorry_FRR.glb` (8.35m Heavy Commercial Parcel Lorry w/ full RHD cab interior, wind deflector, west-coast mirrors, ribbed freight box, rear swing doors w/ cam-lock rods, KDX 409G plates, 80 KPH sticker, chevrons & 4 commercial wheels!)
+  - `KenyaPoliceLC79MeshFactory` (Playable Patrol Land Cruiser 79 — `KCP 380D`)
+- **100%-Owned Blender 5.3 Photoreal Kenyan Passing Traffic Fleet (6 Original `.glb` Vehicles + Master `.blend`):**
   - Editable Blender 5.3 Showroom: `BlenderStudio/Kenya_Owned_Commercial_Traffic_Pack.blend` (reproducible via `tools/blender_build_kenya_vehicles.py`)
-  - `ImportedModels/RealTraffic/Kenya_Matatu_14Seater_PSV.glb` (14-Seater PSV Matatu w/ inset recessed windows, yellow PSV belt, route destination box & bullbar)
-  - `ImportedModels/RealTraffic/Kenya_Probox_Wagon.glb` (Everyday Kenyan Station Wagon w/ roof rails & 5-spoke alloy rims)
-  - `ImportedModels/RealTraffic/Kenya_Prado_Highland_SUV.glb` (Executive 4x4 Highland SUV w/ vertical chrome grille, fender flares, running boards & rear spare cover)
-  - `ImportedModels/RealTraffic/Kenya_Hilux_DoubleCab_Pickup.glb` (Double-Cab 4x4 Pickup w/ chrome sports rollbar, fender flares & cargo liner)
-  - `ImportedModels/RealTraffic/Kenya_Saloon_Taxi_Sedan.glb` (3-Box Highway Saloon Sedan w/ recessed windows & 5-spoke alloys)
-  - `ImportedModels/RealTraffic/Kenya_Canter_Commercial_Truck.glb` (Cab-Over Commercial Cargo Truck w/ wind deflector, slatted grille, solid mirror brackets & Kenyan safety stripes)
-- **Original Sculpted 3D Vehicles (Owned by You):**
-  - `KenyaPoliceLC79MeshFactory` (Playable Patrol Land Cruiser 79)
-  - `KenyaOwnedTrafficMeshFactory` (Backup sculpted traffic meshes)
+  - All 6 vehicles now feature **semi-transparent tinted glass with 3D RHD interiors (seats, dashboards & steering wheels)**, **printed Kenyan K-series license plates**, **LED Matatu route board & Highland SACCO branding**, and **80 KPH + reflective safety chevrons**!
+  - `ImportedModels/RealTraffic/Kenya_Matatu_14Seater_PSV.glb` (`KDG 412B`)
+  - `ImportedModels/RealTraffic/Kenya_Probox_Wagon.glb` (`KCS 704L`)
+  - `ImportedModels/RealTraffic/Kenya_Prado_Highland_SUV.glb` (`KDP 900K`)
+  - `ImportedModels/RealTraffic/Kenya_Hilux_DoubleCab_Pickup.glb` (`KDM 285G`)
+  - `ImportedModels/RealTraffic/Kenya_Saloon_Taxi_Sedan.glb` (`KCT 518N`)
+  - `ImportedModels/RealTraffic/Kenya_Canter_Commercial_Truck.glb` (`KDL 630E`)
 - **CC0 2K PBR Textures & 3 African Highland Panoramic Skyboxes** (`Textures/CC0_PBR/` — Poly Haven CC0)
 - **Real Field-Recorded Audio** (`Assets/KenyaStreetSim/Audio/` — Public Domain / CC0 / CC BY 4.0; keep `AUDIO_CREDITS.txt` included in your in-game Credits screen!)
 
