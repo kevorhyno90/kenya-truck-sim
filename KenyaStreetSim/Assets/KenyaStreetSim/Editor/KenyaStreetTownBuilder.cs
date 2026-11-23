@@ -43,9 +43,10 @@ namespace KenyaStreetSim.Editor
         private const string RealPoliceSirenAssetPath = "Assets/KenyaStreetSim/Audio/PoliceSiren_Real.ogg";
         private const string RealBusDoorAssetPath = "Assets/KenyaStreetSim/Audio/BusDoor_Pneumatic_Real.ogg";
         private const string ImportedVehiclesFolder = "Assets/KenyaStreetSim/ImportedModels/Vehicles";
+        private const string RealTrafficDropFolder = "Assets/KenyaStreetSim/ImportedModels/RealTraffic";
         private const string ImportedPeopleFolder = "Assets/KenyaStreetSim/ImportedModels/People";
 
-        private static readonly string[] ShopNames =
+        private static readonly string[] ShopNamesPrototype =
         {
             "SAFARICOM SHOP", "M-PESA AGENT", "JAVA HOUSE", "NAIVAS SUPERMARKET",
             "KCB BANK", "EQUITY BANK", "ARTCAFFE", "QUICKMART",
@@ -53,10 +54,22 @@ namespace KenyaStreetSim.Editor
             "UHURU BAKERY", "CO-OP BANK", "RIFT VALLEY OPTICS", "SAVANNAH GRILL"
         };
 
+        private static readonly string[] ShopNamesCommercialSafe =
+        {
+            "SAFARITEL SHOP", "M-PAY AGENT", "HIGHLAND COFFEE", "NAVA MART",
+            "K-BANK KENYA", "HERITAGE BANK", "SAVANNA CAFE", "SPEEDY MART",
+            "KENYA PHARMACY", "SIMBA ELECTRONICS", "ELDORET SPARES", "METRO EXPRESS",
+            "UHURU BAKERY", "UNITY BANK", "RIFT VALLEY OPTICS", "SAVANNAH GRILL"
+        };
+
+        private static string[] ShopNames =>
+            KenyaCommercialManagerWindow.UseCommercialSafeBrands ? ShopNamesCommercialSafe : ShopNamesPrototype;
+
         private static Dictionary<string, Material> matCache;
         private static Shader urpLitShader;
         private static Shader urpParticleShader;
         private static List<GameObject> importedVehiclePrefabs;
+        private static List<GameObject> realTrafficDropPrefabs;
         private static List<GameObject> importedPeoplePrefabs;
 
         private static Texture2D texTarmacAlb, texTarmacNrm;
@@ -77,6 +90,7 @@ namespace KenyaStreetSim.Editor
             EnsureFolders();
             KenyaPbrTextureGenerator.GenerateAllTextures();
             KenyaSculptedMeshFactory.BuildAllMeshes();
+            KenyaOwnedTrafficMeshFactory.BuildAllMeshes();
             LoadGeneratedTextures();
             DiscoverImportedModels();
 
@@ -253,6 +267,7 @@ namespace KenyaStreetSim.Editor
         private static void DiscoverImportedModels()
         {
             importedVehiclePrefabs = LoadModelsInFolder(ImportedVehiclesFolder);
+            realTrafficDropPrefabs = LoadModelsInFolder(RealTrafficDropFolder);
             importedPeoplePrefabs = LoadModelsInFolder(ImportedPeopleFolder);
         }
 
@@ -1256,9 +1271,9 @@ namespace KenyaStreetSim.Editor
                 }
             }
 
-            // B) LIVELY DIVERSE MAJOR-TOWN CITY CAR CLUSTERS (More varied free 3D cars INSIDE Nairobi, Nakuru, Kisumu, Eldoret & Mombasa!)
-            // Mixes ALL 10 textured CC0 Kenney 3D Car Kit vehicles (sedan, suv, suv-luxury, hatchback-sports, taxi, van, delivery, truck, ambulance, police)
-            // + Range Rovers + Kenyan Matatus circulating smoothly inside major Kenyan town sub-segments!
+            // B) LIVELY MAJOR-TOWN CITY CAR CLUSTERS — 100% REALISTIC SCULPTED OWNED VEHICLES + USER REALTRAFFIC DROPS!
+            // Zero cartoonish low-poly toy cars! Automatically spawns any commercial/Blender/Asset Store models dropped in
+            // ImportedModels/RealTraffic/ alongside our 100%-owned sculpted Kenyan Saloons, 4x4 SUVs, Double-Cab Pickups & 14-Seater Matatus!
             (string townTag, int highwayIdx, float minN, float maxN, int perDir)[] majorTownClusters =
             {
                 ("NairobiCBD", 0, 0.08f, 0.94f, 3),
@@ -1277,16 +1292,18 @@ namespace KenyaStreetSim.Editor
                     for (int k = 0; k < cl.perDir; k++)
                     {
                         float localProg = (k + 0.30f) / cl.perDir;
-                        // Keep immediate player spawn zone in Nairobi CBD forward lane completely clear
                         if (cl.highwayIdx == 0 && fwd && localProg < 0.45f) localProg = 0.52f + k * 0.16f;
 
                         KenyaSplineTraffic ai;
-                        if (importedVehiclePrefabs != null && importedVehiclePrefabs.Count > 0 && (seed % 6 != 5))
+                        if (realTrafficDropPrefabs != null && realTrafficDropPrefabs.Count > 0 && (seed % 2 == 0))
                         {
-                            var prefab = importedVehiclePrefabs[(seed++) % importedVehiclePrefabs.Count];
-                            ai = CreateReal3DTrafficVehicle(root, $"TownCar_{cl.townTag}_{(fwd ? "F" : "R")}_{k}_{prefab.name}", prefab);
+                            var dropPrefab = realTrafficDropPrefabs[(seed++) % realTrafficDropPrefabs.Count];
+                            float estLen = EstimateRealVehicleLength(dropPrefab.name);
+                            ai = CreateHighDetailKenyanTrafficVehicle(
+                                root, $"DropTraffic_{cl.townTag}_{(fwd ? "F" : "R")}_{k}_{dropPrefab.name}",
+                                dropPrefab, estLen, 0f, false, seed, matTire, matRim, matGlass, matHeadlight, matTail);
                         }
-                        else if (rrPrefab != null && (seed % 2 == 0))
+                        else if (rrPrefab != null && (seed % 5 == 4))
                         {
                             ai = CreateHighDetailKenyanTrafficVehicle(
                                 root, $"TownSUV_{cl.townTag}_{(fwd ? "F" : "R")}_{k}_RangeRover",
@@ -1294,7 +1311,11 @@ namespace KenyaStreetSim.Editor
                         }
                         else
                         {
-                            ai = CreateSplineTrafficVehicle(root, $"TownMatatu_{cl.townTag}_{(fwd ? "F" : "R")}_{k}", 0, seed++, matTire, matRim, matGlass, matHeadlight, matTail);
+                            // 100%-owned sculpted Kenyan Saloon, Highland 4x4 SUV, Double-Cab Pickup, or 14-Seater PSV Matatu!
+                            int ownedKind = (seed++) % 4;
+                            ai = CreateOwnedSculptedTrafficVehicle(
+                                root, $"OwnedKenyaCar_{cl.townTag}_{(fwd ? "F" : "R")}_{k}",
+                                ownedKind, seed, matTire, matRim, matGlass, matHeadlight, matTail);
                         }
 
                         ai.highwayIndex = cl.highwayIdx;
@@ -1310,6 +1331,166 @@ namespace KenyaStreetSim.Editor
                 }
             }
             return totalSpawned;
+        }
+
+        private static float EstimateRealVehicleLength(string modelName)
+        {
+            string l = modelName.ToLowerInvariant();
+            if (l.Contains("bus") || l.Contains("coach") || l.Contains("scania") || l.Contains("yutong") || l.Contains("marcopolo")) return 11.8f;
+            if (l.Contains("truck") || l.Contains("lorry") || l.Contains("isuzu") || l.Contains("actros") || l.Contains("fh") || l.Contains("canter")) return 7.8f;
+            if (l.Contains("matatu") || l.Contains("hiace") || l.Contains("van") || l.Contains("pickup") || l.Contains("hilux") || l.Contains("cruiser") || l.Contains("prado") || l.Contains("suv")) return 5.05f;
+            return 4.55f;
+        }
+
+        /// <summary>
+        /// Spawns a 100% user-owned, commercial-safe, smooth sculpted realistic Kenyan vehicle
+        /// (0 = Saloon/Wagon, 1 = Highland 4x4 SUV, 2 = Double-Cab Pickup, 3 = 14-Seater Yellow-Stripe PSV Matatu)
+        /// with metallic automotive PBR finish, chrome trim, Kenyan plates, glowing lights & smooth 24-seg lathed spinning wheels!
+        /// </summary>
+        private static KenyaSplineTraffic CreateOwnedSculptedTrafficVehicle(
+            Transform parent, string name, int kind, int colorSeed,
+            Material matTire, Material matRim, Material matGlass, Material matHeadlight, Material matTail)
+        {
+            var go = new GameObject(name);
+            go.transform.SetParent(parent, false);
+            var ai = go.AddComponent<KenyaSplineTraffic>();
+            var col = go.AddComponent<BoxCollider>();
+
+            Color[] metallicPaints =
+            {
+                Palette.Hex("#ECEFF4"), // Pearl White
+                Palette.Hex("#1A2D4E"), // Midnight Navy
+                Palette.Hex("#AEB6C2"), // Champagne Silver
+                Palette.Hex("#6B1822"), // Deep Wine Maroon
+                Palette.Hex("#2F3640"), // Gunmetal Grey
+                Palette.Hex("#1E4532"), // Highland Forest Green
+                Palette.Hex("#5E432D"), // Metallic Bronze
+                Palette.Hex("#1F5288"), // Rift Cobalt Blue
+            };
+            Color paint = (kind == 3) ? Palette.Hex("#F3F5F8") : metallicPaints[colorSeed % metallicPaints.Length];
+            var matBody = GetMat($"OwnedCarMetal_{ColorUtility.ToHtmlStringRGB(paint)}", paint, 0.86f, 0.40f);
+            var matChrome = GetMat("EnaChrome", Palette.EnaChrome, 0.96f, 0.94f);
+            var matBlackTrim = GetMat("EnaStripeBlackGloss", Palette.EnaStripeBlack, 0.35f, 0.12f);
+            var matPlate = GetMat("PlateYellow", Palette.PlateYellow, 0.45f);
+
+            Transform[] wheels;
+            if (kind == 0) // Kenyan Highway Saloon / Probox-style Wagon
+            {
+                CreateCustomMesh("SculptedSaloonShell", go.transform, Vector3.zero, Quaternion.identity, Vector3.one, KenyaOwnedTrafficMeshFactory.SaloonBodyMesh, matBody, false);
+                CreateBox("CabinGlassSide", go.transform, new Vector3(0f, 1.22f, -0.58f), new Vector3(1.66f, 0.42f, 2.24f), matGlass, false);
+                var ws = CreateBox("FrontWindshield", go.transform, new Vector3(0f, 1.20f, 0.78f), new Vector3(1.46f, 0.48f, 0.08f), matGlass, false);
+                ws.transform.localRotation = Quaternion.Euler(-48f, 0f, 0f);
+                CreateBox("FrontGrille", go.transform, new Vector3(0f, 0.62f, 2.21f), new Vector3(0.96f, 0.22f, 0.06f), matBlackTrim, false);
+                CreateBox("ChromeBar",   go.transform, new Vector3(0f, 0.66f, 2.24f), new Vector3(0.86f, 0.05f, 0.03f), matChrome, false);
+                CreateBox("FrontBumper", go.transform, new Vector3(0f, 0.40f, 2.18f), new Vector3(1.64f, 0.20f, 0.18f), matBlackTrim, false);
+                CreateBox("RearBumper",  go.transform, new Vector3(0f, 0.42f, -2.18f), new Vector3(1.64f, 0.20f, 0.16f), matBlackTrim, false);
+                CreateBox("HeadL", go.transform, new Vector3(-0.62f, 0.70f, 2.20f), new Vector3(0.32f, 0.15f, 0.07f), matHeadlight, false);
+                CreateBox("HeadR", go.transform, new Vector3( 0.62f, 0.70f, 2.20f), new Vector3(0.32f, 0.15f, 0.07f), matHeadlight, false);
+                CreateBox("TailL", go.transform, new Vector3(-0.66f, 0.80f, -2.21f), new Vector3(0.28f, 0.20f, 0.06f), matTail, false);
+                CreateBox("TailR", go.transform, new Vector3( 0.66f, 0.80f, -2.21f), new Vector3(0.28f, 0.20f, 0.06f), matTail, false);
+                CreateBox("PlateF", go.transform, new Vector3(0f, 0.44f, 2.27f), new Vector3(0.48f, 0.12f, 0.02f), matPlate, false);
+                CreateBox("PlateR", go.transform, new Vector3(0f, 0.56f, -2.24f), new Vector3(0.48f, 0.12f, 0.02f), matPlate, false);
+
+                wheels = CreateOwnedLathedWheelSet(go.transform, 0.86f, 1.38f, -1.36f, 0.35f, 1.0f, matTire, matRim);
+                col.center = new Vector3(0f, 0.86f, 0f);
+                col.size = new Vector3(1.82f, 1.48f, 4.48f);
+                ai.vehicleHalfLength = 2.34f;
+                ai.wheelRadius = 0.35f;
+            }
+            else if (kind == 1) // Sculpted Kenyan Highland 4x4 SUV (Prado-class)
+            {
+                CreateCustomMesh("SculptedSuvShell", go.transform, Vector3.zero, Quaternion.identity, Vector3.one, KenyaOwnedTrafficMeshFactory.SuvBodyMesh, matBody, false);
+                CreateBox("SuvSideGlass", go.transform, new Vector3(0f, 1.48f, -0.78f), new Vector3(1.82f, 0.54f, 2.68f), matGlass, false);
+                var ws = CreateBox("SuvWindshield", go.transform, new Vector3(0f, 1.50f, 0.82f), new Vector3(1.62f, 0.62f, 0.08f), matGlass, false);
+                ws.transform.localRotation = Quaternion.Euler(-38f, 0f, 0f);
+                CreateBox("RoofRailL", go.transform, new Vector3(-0.68f, 1.90f, -0.70f), new Vector3(0.06f, 0.07f, 2.35f), matBlackTrim, false);
+                CreateBox("RoofRailR", go.transform, new Vector3( 0.68f, 1.90f, -0.70f), new Vector3(0.06f, 0.07f, 2.35f), matBlackTrim, false);
+                CreateCylinder("RearSpareCover", go.transform, new Vector3(0f, 1.02f, -2.44f), new Vector3(0.76f, 0.12f, 0.76f), matBlackTrim);
+                go.transform.Find("RearSpareCover").localRotation = Quaternion.Euler(90f, 0f, 0f);
+                CreateBox("SuvGrille", go.transform, new Vector3(0f, 0.88f, 2.36f), new Vector3(1.06f, 0.34f, 0.08f), matChrome, false);
+                CreateBox("SuvBumper", go.transform, new Vector3(0f, 0.54f, 2.36f), new Vector3(1.82f, 0.24f, 0.20f), matBlackTrim, false);
+                CreateBox("HeadL", go.transform, new Vector3(-0.68f, 0.94f, 2.35f), new Vector3(0.34f, 0.20f, 0.08f), matHeadlight, false);
+                CreateBox("HeadR", go.transform, new Vector3( 0.68f, 0.94f, 2.35f), new Vector3(0.34f, 0.20f, 0.08f), matHeadlight, false);
+                CreateBox("TailL", go.transform, new Vector3(-0.74f, 1.04f, -2.38f), new Vector3(0.24f, 0.38f, 0.08f), matTail, false);
+                CreateBox("TailR", go.transform, new Vector3( 0.74f, 1.04f, -2.38f), new Vector3(0.24f, 0.38f, 0.08f), matTail, false);
+                CreateBox("PlateF", go.transform, new Vector3(0f, 0.56f, 2.47f), new Vector3(0.50f, 0.13f, 0.02f), matPlate, false);
+
+                wheels = CreateOwnedLathedWheelSet(go.transform, 0.94f, 1.48f, -1.46f, 0.42f, 1.18f, matTire, matRim);
+                col.center = new Vector3(0f, 1.05f, 0f);
+                col.size = new Vector3(1.94f, 1.88f, 4.82f);
+                ai.vehicleHalfLength = 2.52f;
+                ai.wheelRadius = 0.42f;
+            }
+            else if (kind == 2) // Sculpted Kenyan Double-Cab 4x4 Pickup
+            {
+                CreateCustomMesh("SculptedPickupShell", go.transform, Vector3.zero, Quaternion.identity, Vector3.one, KenyaOwnedTrafficMeshFactory.PickupCabMesh, matBody, false);
+                CreateBox("CabSideGlass", go.transform, new Vector3(0f, 1.46f, -0.02f), new Vector3(1.78f, 0.48f, 1.38f), matGlass, false);
+                var ws = CreateBox("PickupWindshield", go.transform, new Vector3(0f, 1.46f, 0.94f), new Vector3(1.58f, 0.56f, 0.08f), matGlass, false);
+                ws.transform.localRotation = Quaternion.Euler(-40f, 0f, 0f);
+                CreateBox("BedRollbarL", go.transform, new Vector3(-0.82f, 1.44f, -0.92f), new Vector3(0.08f, 0.52f, 0.08f), matBlackTrim, false);
+                CreateBox("BedRollbarR", go.transform, new Vector3( 0.82f, 1.44f, -0.92f), new Vector3(0.08f, 0.52f, 0.08f), matBlackTrim, false);
+                CreateBox("BedRollbarTop", go.transform, new Vector3(0f, 1.68f, -0.92f), new Vector3(1.70f, 0.08f, 0.08f), matBlackTrim, false);
+                CreateBox("BedLiner", go.transform, new Vector3(0f, 1.12f, -1.68f), new Vector3(1.62f, 0.14f, 1.66f), matBlackTrim, false);
+                CreateBox("PickupGrille", go.transform, new Vector3(0f, 0.86f, 2.54f), new Vector3(1.04f, 0.30f, 0.08f), matChrome, false);
+                CreateBox("HeadL", go.transform, new Vector3(-0.68f, 0.90f, 2.53f), new Vector3(0.32f, 0.18f, 0.08f), matHeadlight, false);
+                CreateBox("HeadR", go.transform, new Vector3( 0.68f, 0.90f, 2.53f), new Vector3(0.32f, 0.18f, 0.08f), matHeadlight, false);
+                CreateBox("TailL", go.transform, new Vector3(-0.78f, 0.94f, -2.55f), new Vector3(0.18f, 0.36f, 0.08f), matTail, false);
+                CreateBox("TailR", go.transform, new Vector3( 0.78f, 0.94f, -2.55f), new Vector3(0.18f, 0.36f, 0.08f), matTail, false);
+                CreateBox("PlateF", go.transform, new Vector3(0f, 0.56f, 2.60f), new Vector3(0.50f, 0.13f, 0.02f), matPlate, false);
+
+                wheels = CreateOwnedLathedWheelSet(go.transform, 0.92f, 1.62f, -1.58f, 0.42f, 1.18f, matTire, matRim);
+                col.center = new Vector3(0f, 1.02f, 0f);
+                col.size = new Vector3(1.90f, 1.82f, 5.18f);
+                ai.vehicleHalfLength = 2.68f;
+                ai.wheelRadius = 0.42f;
+            }
+            else // Sculpted Kenyan 14-Seater PSV Matatu (Iconic Yellow Belt!)
+            {
+                var matYellowBelt = GetMat("MatatuStripeYellow", Palette.MatatuStripeYellow, 0.58f, 0.12f);
+                var matTealLower  = GetMat("MatatuAccentTeal", Palette.MatatuAccentTeal, 0.68f, 0.18f);
+                CreateCustomMesh("SculptedMatatuShell", go.transform, Vector3.zero, Quaternion.identity, Vector3.one, KenyaOwnedTrafficMeshFactory.MatatuVanMesh, matBody, false);
+                CreateBox("PsvYellowBelt", go.transform, new Vector3(0f, 1.08f, -0.08f), new Vector3(1.99f, 0.22f, 4.66f), matYellowBelt, false);
+                CreateBox("MatatuLowerTrim", go.transform, new Vector3(0f, 0.66f, -0.08f), new Vector3(1.97f, 0.44f, 4.62f), matTealLower, false);
+                CreateBox("MatatuSideGlass", go.transform, new Vector3(0f, 1.62f, -0.22f), new Vector3(1.94f, 0.58f, 4.02f), matGlass, false);
+                var ws = CreateBox("MatatuWindshield", go.transform, new Vector3(0f, 1.66f, 2.22f), new Vector3(1.74f, 0.72f, 0.09f), matGlass, false);
+                ws.transform.localRotation = Quaternion.Euler(-24f, 0f, 0f);
+                CreateBox("MatatuBullbar", go.transform, new Vector3(0f, 0.62f, 2.55f), new Vector3(1.56f, 0.34f, 0.10f), matChrome, false);
+                CreateBox("HeadL", go.transform, new Vector3(-0.68f, 0.86f, 2.50f), new Vector3(0.34f, 0.20f, 0.08f), matHeadlight, false);
+                CreateBox("HeadR", go.transform, new Vector3( 0.68f, 0.86f, 2.50f), new Vector3(0.34f, 0.20f, 0.08f), matHeadlight, false);
+                CreateBox("TailL", go.transform, new Vector3(-0.74f, 0.96f, -2.55f), new Vector3(0.24f, 0.44f, 0.08f), matTail, false);
+                CreateBox("TailR", go.transform, new Vector3( 0.74f, 0.96f, -2.55f), new Vector3(0.24f, 0.44f, 0.08f), matTail, false);
+                CreateBox("PlateF", go.transform, new Vector3(0f, 0.50f, 2.61f), new Vector3(0.52f, 0.14f, 0.02f), matPlate, false);
+
+                wheels = CreateOwnedLathedWheelSet(go.transform, 0.94f, 1.54f, -1.52f, 0.38f, 1.06f, matTire, matRim);
+                col.center = new Vector3(0f, 1.14f, 0f);
+                col.size = new Vector3(1.98f, 2.18f, 5.14f);
+                ai.vehicleHalfLength = 2.68f;
+                ai.wheelRadius = 0.38f;
+            }
+
+            ai.wheelVisuals = wheels;
+            return ai;
+        }
+
+        private static Transform[] CreateOwnedLathedWheelSet(
+            Transform parent, float halfTrack, float frontZ, float rearZ, float radius, float meshScale, Material matTire, Material matRim)
+        {
+            var list = new Transform[4];
+            float[] zs = { frontZ, rearZ };
+            int idx = 0;
+            for (int a = 0; a < 2; a++)
+            {
+                for (int side = -1; side <= 1; side += 2)
+                {
+                    var wPivot = new GameObject($"OwnedWheel_{a}_{(side < 0 ? "L" : "R")}").transform;
+                    wPivot.SetParent(parent, false);
+                    wPivot.localPosition = new Vector3(side * halfTrack, radius, zs[a]);
+                    CreateCustomMesh("Tire", wPivot, Vector3.zero, Quaternion.identity, Vector3.one * meshScale, KenyaOwnedTrafficMeshFactory.CarTireMesh, matTire, false);
+                    CreateCustomMesh("Rim",  wPivot, Vector3.zero, Quaternion.identity, Vector3.one * meshScale, KenyaOwnedTrafficMeshFactory.CarRimMesh, matRim, false);
+                    list[idx++] = wPivot;
+                }
+            }
+            return list;
         }
 
         private static KenyaSplineTraffic CreateHighDetailKenyanTrafficVehicle(
