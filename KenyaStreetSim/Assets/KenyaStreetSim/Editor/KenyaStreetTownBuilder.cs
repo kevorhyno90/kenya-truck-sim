@@ -37,10 +37,10 @@ namespace KenyaStreetSim.Editor
 
         private static readonly string[] ShopNames =
         {
-            "NAIROBI CHEMIST", "M-PESA AGENT", "JAVA CAFE", "KISUMU HARDWARE",
-            "NAIVAS MART", "SAFARI HOTEL", "CYBER & PRINT", "QUICK BITES",
-            "EQUITY AGENT", "SIMBA ELECTRONICS", "ELDORET SPARES", "KENYA PHARMACY",
-            "UHURU BAKERY", "RIFT VALLEY OPTICS", "KCB BANK", "SAVANNAH GRILL"
+            "SAFARICOM SHOP", "M-PESA AGENT", "JAVA HOUSE", "NAIVAS SUPERMARKET",
+            "KCB BANK", "EQUITY BANK", "ARTCAFFE", "QUICKMART",
+            "KENYA PHARMACY", "SIMBA ELECTRONICS", "ELDORET SPARES", "CARREFOUR EXPRESS",
+            "UHURU BAKERY", "CO-OP BANK", "RIFT VALLEY OPTICS", "SAVANNAH GRILL"
         };
 
         private static Dictionary<string, Material> matCache;
@@ -51,6 +51,7 @@ namespace KenyaStreetSim.Editor
 
         private static Texture2D texTarmacAlb, texTarmacNrm;
         private static Texture2D texMurramAlb, texMurramNrm;
+        private static Texture2D texSavannaAlb, texSavannaNrm;
         private static Texture2D texCabroAlb, texCabroNrm;
         private static Texture2D texPlasterAlb, texPlasterNrm;
         private static Texture2D texMabatiAlb, texMabatiNrm;
@@ -58,6 +59,7 @@ namespace KenyaStreetSim.Editor
         private static Texture2D texLeafCluster;
         private static Texture2D texTireAlb, texTireNrm;
         private static Texture2D texGlassAlb, texGlassNrm;
+        private static Texture2D texSkyDay, texSkySunset, texSkyNight;
 
         [MenuItem("Kenya Street Sim/Build Full Kenya ENA Coach Map")]
         public static string BuildKenyaTownScene()
@@ -189,6 +191,9 @@ namespace KenyaStreetSim.Editor
             var tod = sysRoot.AddComponent<KenyaTimeOfDay>();
             tod.sunLight = sunLight;
             tod.skyboxMaterial = skyMat;
+            tod.daySkyPanoramic = texSkyDay;
+            tod.sunsetSkyPanoramic = texSkySunset;
+            tod.nightSkyPanoramic = texSkyNight;
             tod.streetPointLights = streetLights.ToArray();
             tod.lampGlowRenderers = lampRenderers.ToArray();
 
@@ -277,23 +282,42 @@ namespace KenyaStreetSim.Editor
         private static void LoadGeneratedTextures()
         {
             string tf = KenyaPbrTextureGenerator.TexFolder;
-            texTarmacAlb = AssetDatabase.LoadAssetAtPath<Texture2D>($"{tf}/Tarmac_Albedo.png");
-            texTarmacNrm = AssetDatabase.LoadAssetAtPath<Texture2D>($"{tf}/Tarmac_Normal.png");
+            string cc0 = $"{tf}/CC0_PBR";
+
+            // Prefer real photographed CC0 2K Poly Haven PBR maps when present, with clean procedural fallback!
+            texTarmacAlb = LoadFirstTex($"{cc0}/CC0_Asphalt_Albedo.jpg", $"{tf}/Tarmac_Albedo.png");
+            texTarmacNrm = LoadFirstTex($"{cc0}/CC0_Asphalt_Normal.jpg", $"{tf}/Tarmac_Normal.png");
             texMurramAlb = AssetDatabase.LoadAssetAtPath<Texture2D>($"{tf}/Murram_Albedo.png");
             texMurramNrm = AssetDatabase.LoadAssetAtPath<Texture2D>($"{tf}/Murram_Normal.png");
-            texCabroAlb = AssetDatabase.LoadAssetAtPath<Texture2D>($"{tf}/Cabro_Albedo.png");
-            texCabroNrm = AssetDatabase.LoadAssetAtPath<Texture2D>($"{tf}/Cabro_Normal.png");
-            texPlasterAlb = AssetDatabase.LoadAssetAtPath<Texture2D>($"{tf}/Plaster_Albedo.png");
-            texPlasterNrm = AssetDatabase.LoadAssetAtPath<Texture2D>($"{tf}/Plaster_Normal.png");
-            texMabatiAlb = AssetDatabase.LoadAssetAtPath<Texture2D>($"{tf}/Mabati_Albedo.png");
-            texMabatiNrm = AssetDatabase.LoadAssetAtPath<Texture2D>($"{tf}/Mabati_Normal.png");
-            texBarkAlb = AssetDatabase.LoadAssetAtPath<Texture2D>($"{tf}/Bark_Albedo.png");
-            texBarkNrm = AssetDatabase.LoadAssetAtPath<Texture2D>($"{tf}/Bark_Normal.png");
+            texSavannaAlb = LoadFirstTex($"{cc0}/CC0_SavannaTerrain_Albedo.jpg", $"{tf}/Murram_Albedo.png");
+            texSavannaNrm = LoadFirstTex($"{cc0}/CC0_SavannaTerrain_Normal.jpg", $"{tf}/Murram_Normal.png");
+            texCabroAlb = LoadFirstTex($"{cc0}/CC0_Cabro_Albedo.jpg", $"{tf}/Cabro_Albedo.png");
+            texCabroNrm = LoadFirstTex($"{cc0}/CC0_Cabro_Normal.jpg", $"{tf}/Cabro_Normal.png");
+            texPlasterAlb = LoadFirstTex($"{cc0}/CC0_Plaster_Albedo.jpg", $"{tf}/Plaster_Albedo.png");
+            texPlasterNrm = LoadFirstTex($"{cc0}/CC0_Plaster_Normal.jpg", $"{tf}/Plaster_Normal.png");
+            texMabatiAlb = LoadFirstTex($"{cc0}/CC0_Mabati_Albedo.jpg", $"{tf}/Mabati_Albedo.png");
+            texMabatiNrm = LoadFirstTex($"{cc0}/CC0_Mabati_Normal.jpg", $"{tf}/Mabati_Normal.png");
+            texBarkAlb = LoadFirstTex($"{cc0}/CC0_Bark_Albedo.jpg", $"{tf}/Bark_Albedo.png");
+            texBarkNrm = LoadFirstTex($"{cc0}/CC0_Bark_Normal.jpg", $"{tf}/Bark_Normal.png");
             texLeafCluster = AssetDatabase.LoadAssetAtPath<Texture2D>($"{tf}/LeafCluster_Albedo.png");
             texTireAlb = AssetDatabase.LoadAssetAtPath<Texture2D>($"{tf}/TireTread_Albedo.png");
             texTireNrm = AssetDatabase.LoadAssetAtPath<Texture2D>($"{tf}/TireTread_Normal.png");
             texGlassAlb = AssetDatabase.LoadAssetAtPath<Texture2D>($"{tf}/WindowFacade_Albedo.png");
             texGlassNrm = AssetDatabase.LoadAssetAtPath<Texture2D>($"{tf}/WindowFacade_Normal.png");
+
+            texSkyDay = AssetDatabase.LoadAssetAtPath<Texture2D>($"{cc0}/Sky_KenyaDay_2k.hdr");
+            texSkySunset = AssetDatabase.LoadAssetAtPath<Texture2D>($"{cc0}/Sky_KenyaSunset_2k.hdr");
+            texSkyNight = AssetDatabase.LoadAssetAtPath<Texture2D>($"{cc0}/Sky_KenyaNight_2k.hdr");
+        }
+
+        private static Texture2D LoadFirstTex(params string[] paths)
+        {
+            for (int i = 0; i < paths.Length; i++)
+            {
+                var t = AssetDatabase.LoadAssetAtPath<Texture2D>(paths[i]);
+                if (t != null) return t;
+            }
+            return null;
         }
 
         private static Material GetMat(
@@ -422,21 +446,38 @@ namespace KenyaStreetSim.Editor
             sunGo.transform.rotation = Quaternion.Euler(42f, -34f, 0f);
 
             skyMat = AssetDatabase.LoadAssetAtPath<Material>(SkyMatPath);
+            var panoShader = Shader.Find("Skybox/Panoramic");
+            var procShader = Shader.Find("Skybox/Procedural");
             if (skyMat == null)
             {
-                var skyShader = Shader.Find("Skybox/Procedural");
-                skyMat = new Material(skyShader);
+                skyMat = new Material(texSkyDay != null && panoShader != null ? panoShader : procShader);
                 AssetDatabase.CreateAsset(skyMat, SkyMatPath);
             }
-            skyMat.SetColor("_SkyTint", Palette.SkyTint);
-            skyMat.SetColor("_GroundColor", Palette.SkyGround);
-            skyMat.SetFloat("_AtmosphereThickness", 0.72f);
-            skyMat.SetFloat("_SunSize", 0.028f);
-            skyMat.SetFloat("_Exposure", 1.24f);
+            if (texSkyDay != null && panoShader != null)
+            {
+                skyMat.shader = panoShader;
+                skyMat.SetTexture("_MainTex", texSkyDay);
+                skyMat.SetColor("_Tint", Color.white);
+                skyMat.SetFloat("_Exposure", 0.78f);
+                skyMat.SetFloat("_Rotation", 28f);
+                skyMat.SetFloat("_Mapping", 1f);   // Latitude Longitude Layout
+                skyMat.SetFloat("_ImageType", 0f); // 360 Degrees
+            }
+            else
+            {
+                skyMat.shader = procShader;
+                skyMat.SetColor("_SkyTint", Palette.SkyTint);
+                skyMat.SetColor("_GroundColor", Palette.SkyGround);
+                skyMat.SetFloat("_AtmosphereThickness", 0.72f);
+                skyMat.SetFloat("_SunSize", 0.028f);
+                skyMat.SetFloat("_Exposure", 1.24f);
+            }
             EditorUtility.SetDirty(skyMat);
 
             RenderSettings.skybox = skyMat;
             RenderSettings.sun = sun;
+            RenderSettings.defaultReflectionMode = DefaultReflectionMode.Skybox;
+            RenderSettings.reflectionIntensity = 1.0f;
             RenderSettings.ambientMode = AmbientMode.Trilight;
             RenderSettings.ambientSkyColor = Palette.AmbientSky;
             RenderSettings.ambientEquatorColor = Palette.AmbientEquator;
@@ -444,8 +485,9 @@ namespace KenyaStreetSim.Editor
             // Crystal-clear high-altitude Kenyan sunlight visibility (minimal haze!)
             RenderSettings.fog = true;
             RenderSettings.fogMode = FogMode.ExponentialSquared;
-            RenderSettings.fogColor = new Color(0.68f, 0.80f, 0.92f, 1f);
-            RenderSettings.fogDensity = 0.00028f;
+            RenderSettings.fogColor = new Color(0.72f, 0.82f, 0.93f, 1f);
+            RenderSettings.fogDensity = 0.00024f;
+            DynamicGI.UpdateEnvironment();
 
             var profile = AssetDatabase.LoadAssetAtPath<VolumeProfile>(VolumeProfilePath);
             if (profile == null)
@@ -516,8 +558,8 @@ namespace KenyaStreetSim.Editor
 
         private static void BuildKenyaTerrainWaterAndHighways(Transform parent)
         {
-            var matTerrain = GetMat("RiftMurramTerrain", Color.white, 0.08f, 0f, null, texMurramAlb, texMurramNrm, Vector2.one, 1.35f);
-            var matTarmac = GetMat("KenyaHighwayTarmac", Color.white, 0.30f, 0f, null, texTarmacAlb, texTarmacNrm, Vector2.one, 1.25f);
+            var matTerrain = GetMat("RiftMurramTerrain", Palette.Hex("#E4E6DC"), 0.08f, 0f, null, texSavannaAlb, texSavannaNrm, new Vector2(0.85f, 0.85f), 1.45f);
+            var matTarmac = GetMat("KenyaHighwayTarmac", Palette.Hex("#888C94"), 0.24f, 0f, null, texTarmacAlb, texTarmacNrm, new Vector2(1.4f, 1.4f), 1.35f);
             var matMurramShoulder = GetMat("KenyaMurramShoulder", Color.white, 0.10f, 0f, null, texMurramAlb, texMurramNrm, Vector2.one, 1.3f);
             var matWhiteLine = GetMat("RoadLineWhite", Palette.RoadLineWhite, 0.15f);
             var matYellowLine = GetMat("RoadLineYellow", Palette.RoadLineYellow, 0.18f);
@@ -607,9 +649,12 @@ namespace KenyaStreetSim.Editor
                     lamp.SetParent(cbd, false);
                     lamp.position = new Vector3(side * 7.75f, 0.16f, z);
                     lamp.rotation = Quaternion.Euler(0f, side < 0 ? 0f : 180f, 0f);
-                    CreateCylinder("Post", lamp, new Vector3(0f, 3.8f, 0f), new Vector3(0.18f, 3.8f, 0.18f), matPole);
-                    CreateBox("Arm", lamp, new Vector3(1.1f, 7.45f, 0f), new Vector3(2.4f, 0.14f, 0.14f), matPole, false);
-                    var head = CreateBox("Head", lamp, new Vector3(2.15f, 7.32f, 0f), new Vector3(0.68f, 0.16f, 0.36f), matLampGlow, false);
+                    CreateCylinder("PostBase", lamp, new Vector3(0f, 0.55f, 0f), new Vector3(0.24f, 0.55f, 0.24f), matPole);
+                    CreateCylinder("Post", lamp, new Vector3(0f, 3.8f, 0f), new Vector3(0.15f, 3.8f, 0.15f), matPole);
+                    var arm = CreateCylinder("GooseneckArm", lamp, new Vector3(1.05f, 7.62f, 0f), new Vector3(0.085f, 1.20f, 0.085f), matPole);
+                    arm.transform.localRotation = Quaternion.Euler(0f, 0f, -76f);
+                    CreateBox("CobraCap", lamp, new Vector3(2.22f, 7.90f, 0f), new Vector3(0.76f, 0.10f, 0.38f), matPole, false);
+                    var head = CreateBox("Head", lamp, new Vector3(2.22f, 7.80f, 0f), new Vector3(0.64f, 0.08f, 0.32f), matLampGlow, false);
                     glowRenderers.Add(head.GetComponent<Renderer>());
 
                     if (side == -1 && Mathf.Abs(z) < 80f)
@@ -1155,13 +1200,18 @@ namespace KenyaStreetSim.Editor
                         if (h == 0 && fwd && progress < 0.42f) progress = 0.56f; // clear player start in Nairobi CBD
 
                         KenyaSplineTraffic ai;
-                        if (realTrafficCatalog.Count > 0)
+                        if (realTrafficCatalog.Count > 0 && (seed % 5 != 4))
                         {
                             var entry = realTrafficCatalog[seed % realTrafficCatalog.Count];
                             ai = CreateHighDetailKenyanTrafficVehicle(
                                 root, $"Real3DTraffic_H{h}_{(fwd ? "F" : "R")}_{k}_{entry.prefab.name}",
                                 entry.prefab, entry.targetLen, entry.extraYaw, entry.remapFbxUrp, seed, matTire, matRim, matGlass, matHeadlight, matTail);
                             seed++;
+                        }
+                        else if (realTrafficCatalog.Count > 0)
+                        {
+                            // Authentic Kenyan 14-Seater PSV Matatu (yellow belt + sculpted body) mixed into real 3D highway traffic!
+                            ai = CreateSplineTrafficVehicle(root, $"KenyaMatatuPSV_H{h}_{(fwd ? "F" : "R")}_{k}", 0, seed++, matTire, matRim, matGlass, matHeadlight, matTail);
                         }
                         else if (importedVehiclePrefabs != null && importedVehiclePrefabs.Count > 0)
                         {
@@ -1661,15 +1711,26 @@ namespace KenyaStreetSim.Editor
             {
                 float fy = groundH + (f - 1) * floorH;
                 CreateBox($"Cornice_{f}", b, new Vector3(0f, fy + 0.12f, frontZ + 0.28f), new Vector3(widthFront + 0.35f, 0.24f, 0.65f), matTrim, false);
-                if (f == 1) CreateBox($"BalconyRail_{f}", b, new Vector3(0f, fy + 0.92f, frontZ + 0.56f), new Vector3(widthFront * 0.92f, 0.07f, 0.07f), matRail, false);
+                if (f == 1)
+                {
+                    CreateBox($"BalconyRail_{f}", b, new Vector3(0f, fy + 0.94f, frontZ + 0.56f), new Vector3(widthFront * 0.92f, 0.07f, 0.07f), matRail, false);
+                    int postCnt = Mathf.Max(4, Mathf.FloorToInt(widthFront / 1.8f));
+                    for (int bp = 0; bp <= postCnt; bp++)
+                    {
+                        float bx = Mathf.Lerp(-widthFront * 0.44f, widthFront * 0.44f, (float)bp / postCnt);
+                        CreateBox($"BalconyPost_{f}_{bp}", b, new Vector3(bx, fy + 0.56f, frontZ + 0.56f), new Vector3(0.055f, 0.74f, 0.055f), matRail, false);
+                    }
+                }
 
                 int winCount = Mathf.Max(2, Mathf.FloorToInt(widthFront / 3.4f));
                 float step = (widthFront - 2.0f) / winCount;
                 for (int w = 0; w < winCount; w++)
                 {
                     float wx = -(widthFront - 2.0f) * 0.5f + step * (w + 0.5f);
-                    CreateBox($"WinFrame_{f}_{w}", b, new Vector3(wx, fy + 1.65f, frontZ + 0.05f), new Vector3(1.68f, 1.58f, 0.14f), matFrame, false);
-                    CreateBox($"WinGlass_{f}_{w}", b, new Vector3(wx, fy + 1.65f, frontZ + 0.09f), new Vector3(1.42f, 1.32f, 0.10f), matGlass, false);
+                    CreateBox($"WinLintel_{f}_{w}", b, new Vector3(wx, fy + 2.48f, frontZ + 0.10f), new Vector3(1.88f, 0.14f, 0.22f), matTrim, false);
+                    CreateBox($"WinSill_{f}_{w}",   b, new Vector3(wx, fy + 0.84f, frontZ + 0.12f), new Vector3(1.84f, 0.12f, 0.24f), matTrim, false);
+                    CreateBox($"WinFrame_{f}_{w}",  b, new Vector3(wx, fy + 1.65f, frontZ + 0.05f), new Vector3(1.68f, 1.58f, 0.14f), matFrame, false);
+                    CreateBox($"WinGlass_{f}_{w}",  b, new Vector3(wx, fy + 1.65f, frontZ + 0.09f), new Vector3(1.42f, 1.32f, 0.10f), matGlass, false);
                 }
             }
 

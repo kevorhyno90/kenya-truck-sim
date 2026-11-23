@@ -422,6 +422,52 @@ namespace KenyaStreetSim.Editor
                 alphaImp.textureCompression = TextureImporterCompression.CompressedHQ;
                 alphaImp.SaveAndReimport();
             }
+
+            // Configure Real Photographed CC0 Poly Haven 2K PBR Textures & African Highland HDRI Skyboxes!
+            string cc0Dir = $"{TexFolder}/CC0_PBR";
+            if (Directory.Exists(cc0Dir))
+            {
+                foreach (var file in Directory.GetFiles(cc0Dir))
+                {
+                    string ext = Path.GetExtension(file).ToLowerInvariant();
+                    if (ext != ".jpg" && ext != ".png" && ext != ".hdr") continue;
+                    string assetPath = file.Replace("\\", "/");
+                    var imp = AssetImporter.GetAtPath(assetPath) as TextureImporter;
+                    if (imp == null) continue;
+
+                    string fn = Path.GetFileName(file).ToLowerInvariant();
+                    if (ext == ".hdr")
+                    {
+                        imp.textureType = TextureImporterType.Default;
+                        imp.textureShape = TextureImporterShape.Texture2D;
+                        imp.maxTextureSize = 2048;
+                        imp.mipmapEnabled = false;
+                        imp.wrapModeU = TextureWrapMode.Repeat;
+                        imp.wrapModeV = TextureWrapMode.Clamp;
+                        imp.filterMode = FilterMode.Bilinear;
+                        imp.textureCompression = TextureImporterCompression.CompressedHQ;
+                    }
+                    else if (fn.Contains("_normal"))
+                    {
+                        imp.textureType = TextureImporterType.NormalMap;
+                        imp.maxTextureSize = 2048;
+                        imp.wrapMode = TextureWrapMode.Repeat;
+                        imp.filterMode = FilterMode.Trilinear;
+                        imp.anisoLevel = 16;
+                        imp.textureCompression = TextureImporterCompression.CompressedHQ;
+                    }
+                    else
+                    {
+                        imp.textureType = TextureImporterType.Default;
+                        imp.maxTextureSize = 2048;
+                        imp.wrapMode = TextureWrapMode.Repeat;
+                        imp.filterMode = FilterMode.Trilinear;
+                        imp.anisoLevel = 16;
+                        imp.textureCompression = TextureImporterCompression.CompressedHQ;
+                    }
+                    imp.SaveAndReimport();
+                }
+            }
         }
 
         private static void SaveNormalFromHeight(float[] h, int size, float strength, string path)

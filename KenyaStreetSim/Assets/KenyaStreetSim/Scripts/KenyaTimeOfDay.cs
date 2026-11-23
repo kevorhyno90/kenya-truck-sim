@@ -18,6 +18,9 @@ namespace KenyaStreetSim
         [Header("Scene Lighting References")]
         public Light sunLight;
         public Material skyboxMaterial;
+        public Texture2D daySkyPanoramic;
+        public Texture2D sunsetSkyPanoramic;
+        public Texture2D nightSkyPanoramic;
         public Light[] streetPointLights;
         public Renderer[] lampGlowRenderers;
 
@@ -106,9 +109,9 @@ namespace KenyaStreetSim
                     RenderSettings.ambientSkyColor = Palette.AmbientSky;
                     RenderSettings.ambientEquatorColor = Palette.AmbientEquator;
                     RenderSettings.ambientGroundColor = Palette.AmbientGround;
-                    RenderSettings.fogColor = new Color(0.68f, 0.80f, 0.92f, 1f);
-                    RenderSettings.fogDensity = 0.00028f;
-                    SetSkyParams(Palette.SkyTint, Palette.SkyGround, 0.72f, 1.24f);
+                    RenderSettings.fogColor = new Color(0.72f, 0.82f, 0.93f, 1f);
+                    RenderSettings.fogDensity = 0.00024f;
+                    SetSkyParams(Palette.SkyTint, Palette.SkyGround, 0.72f, 0.78f, daySkyPanoramic, Color.white);
                     break;
 
                 case TimePreset.Sunset:
@@ -122,8 +125,8 @@ namespace KenyaStreetSim
                     RenderSettings.ambientEquatorColor = Palette.Hex("#CC7D52");
                     RenderSettings.ambientGroundColor = Palette.Hex("#36261E");
                     RenderSettings.fogColor = Palette.Hex("#C28668");
-                    RenderSettings.fogDensity = 0.00065f;
-                    SetSkyParams(Palette.Hex("#B8674A"), Palette.Hex("#3B2B22"), 1.45f, 1.06f);
+                    RenderSettings.fogDensity = 0.00060f;
+                    SetSkyParams(Palette.Hex("#B8674A"), Palette.Hex("#3B2B22"), 1.45f, 0.42f, sunsetSkyPanoramic, Color.white);
                     break;
 
                 case TimePreset.Night:
@@ -137,8 +140,8 @@ namespace KenyaStreetSim
                     RenderSettings.ambientEquatorColor = Palette.Hex("#1E2838");
                     RenderSettings.ambientGroundColor = Palette.Hex("#10141C");
                     RenderSettings.fogColor = Palette.Hex("#141B29");
-                    RenderSettings.fogDensity = 0.00110f;
-                    SetSkyParams(Palette.Hex("#0B1120"), Palette.Hex("#0D121C"), 0.28f, 0.30f);
+                    RenderSettings.fogDensity = 0.00105f;
+                    SetSkyParams(Palette.Hex("#0B1120"), Palette.Hex("#0D121C"), 0.28f, 0.55f, nightSkyPanoramic, new Color(0.85f, 0.90f, 1f, 1f));
                     break;
             }
 
@@ -171,10 +174,18 @@ namespace KenyaStreetSim
             }
         }
 
-        private void SetSkyParams(Color tint, Color ground, float thickness, float exposure)
+        private void SetSkyParams(Color tint, Color ground, float thickness, float exposure, Texture2D panoramicTex = null, Color? panoTint = null)
         {
             var mat = skyboxMaterial != null ? skyboxMaterial : RenderSettings.skybox;
             if (mat == null) return;
+            if (mat.HasProperty("_MainTex") && panoramicTex != null)
+            {
+                mat.SetTexture("_MainTex", panoramicTex);
+                if (mat.HasProperty("_Tint")) mat.SetColor("_Tint", panoTint ?? Color.white);
+                if (mat.HasProperty("_Exposure")) mat.SetFloat("_Exposure", exposure);
+                DynamicGI.UpdateEnvironment();
+                return;
+            }
             if (mat.HasProperty("_SkyTint")) mat.SetColor("_SkyTint", tint);
             if (mat.HasProperty("_GroundColor")) mat.SetColor("_GroundColor", ground);
             if (mat.HasProperty("_AtmosphereThickness")) mat.SetFloat("_AtmosphereThickness", thickness);

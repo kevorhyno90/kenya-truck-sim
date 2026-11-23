@@ -31,6 +31,8 @@ namespace KenyaStreetSim.Editor
             Material matChrome,
             Material matClearGlass)
         {
+            KenyaPoliceLC79MeshFactory.BuildAllMeshes();
+
             var root = new GameObject("KenyaPolice_LandCruiser79_KCP380D");
             root.transform.SetParent(parent, false);
             root.transform.position = spawnPos;
@@ -91,18 +93,13 @@ namespace KenyaStreetSim.Editor
             body.SetParent(root.transform, false);
 
             // =========================================================================
-            // 1. CHASSIS LADDER FRAME, HEAVY STEEL FRONT BULLBAR & REAR TOW BUMPER
+            // 1. CHASSIS LADDER FRAME, SCULPTED TUBULAR STEEL BULLBAR & REAR BUMPER
             // =========================================================================
             Box("LadderFrame", body, new Vector3(0f, 0.54f, -0.05f), new Vector3(1.06f, 0.20f, 4.78f), matSteelBlack);
-            Box("FrontBumperBeam", body, new Vector3(0f, 0.68f, 2.58f), new Vector3(1.94f, 0.28f, 0.24f), matSteelBlack);
-            Box("FrontSkidPlate", body, new Vector3(0f, 0.48f, 2.42f), new Vector3(1.18f, 0.12f, 0.42f), matSteelBlack, Quaternion.Euler(22f, 0f, 0f));
-            // Classic 79-Series Wrap-Around Bullbar Loop
-            Box("BullbarTopBar", body, new Vector3(0f, 1.24f, 2.66f), new Vector3(1.88f, 0.075f, 0.075f), matSteelBlack);
-            Box("BullbarMidBar", body, new Vector3(0f, 0.98f, 2.66f), new Vector3(1.88f, 0.065f, 0.065f), matSteelBlack);
-            Box("BullbarUprightL", body, new Vector3(-0.46f, 0.96f, 2.65f), new Vector3(0.08f, 0.60f, 0.08f), matSteelBlack);
-            Box("BullbarUprightR", body, new Vector3( 0.46f, 0.96f, 2.65f), new Vector3(0.08f, 0.60f, 0.08f), matSteelBlack);
-            Box("BullbarOuterL", body, new Vector3(-0.92f, 0.96f, 2.62f), new Vector3(0.07f, 0.56f, 0.14f), matSteelBlack);
-            Box("BullbarOuterR", body, new Vector3( 0.92f, 0.96f, 2.62f), new Vector3(0.07f, 0.56f, 0.14f), matSteelBlack);
+            Box("FrontBumperBeam", body, new Vector3(0f, 0.68f, 2.58f), new Vector3(1.94f, 0.24f, 0.22f), matSteelBlack);
+            Box("FrontSkidPlate", body, new Vector3(0f, 0.48f, 2.42f), new Vector3(1.18f, 0.10f, 0.42f), matSteelBlack, Quaternion.Euler(22f, 0f, 0f));
+            // Classic 79-Series Round Bent-Tube Wrap-Around Steel Bullbar!
+            CustomMesh("SculptedTubularBullbar", body, Vector3.zero, Quaternion.identity, Vector3.one, KenyaPoliceLC79MeshFactory.TubularBullbarMesh, matSteelBlack);
 
             // Heavy matte-black rear steel bumper + center tow shackle + mudflaps
             Box("RearBumperL", body, new Vector3(-0.68f, 0.62f, -2.56f), new Vector3(0.60f, 0.24f, 0.26f), matSteelBlack);
@@ -119,13 +116,11 @@ namespace KenyaStreetSim.Editor
             }
 
             // =========================================================================
-            // 2. ICONIC ROYAL NAVY 79-SERIES HOOD, CAB, FENDERS & OPEN PICKUP BED
+            // 2. SCULPTED ROYAL NAVY 79-SERIES HOOD, CAB, FENDERS & OPEN PICKUP BED
             // =========================================================================
-            // Front Engine Bay & Boxy Hood with subtle power bulge
-            Box("EngineBayLower", body, new Vector3(0f, 1.04f, 1.80f), new Vector3(1.80f, 0.62f, 1.38f), matNavy);
-            Box("HoodTopDeck", body, new Vector3(0f, 1.38f, 1.82f), new Vector3(1.74f, 0.12f, 1.34f), matNavy);
-            Box("HoodCenterBulge", body, new Vector3(0f, 1.44f, 1.76f), new Vector3(0.92f, 0.08f, 1.18f), matNavy);
-            WorldText("HoodPoliceTxt", body, "POLICE", new Vector3(0f, 1.49f, 2.02f), new Vector2(1.2f, 0.34f), 2.3f, Color.white, Quaternion.Euler(90f, 180f, 0f));
+            // Smooth Contoured 79-Series Hood & Beveled Front Fenders with center power bulge!
+            CustomMesh("SculptedHoodAndFenders", body, Vector3.zero, Quaternion.identity, Vector3.one, KenyaPoliceLC79MeshFactory.HoodNoseMesh, matNavy);
+            WorldText("HoodPoliceTxt", body, "POLICE", new Vector3(0f, 1.46f, 1.98f), new Vector2(1.2f, 0.34f), 2.3f, Color.white, Quaternion.Euler(90f, 180f, 0f));
 
             // Iconic Toyota Land Cruiser 79 Slatted Front Grille + Chrome Badge Bar
             Box("GrilleRecess", body, new Vector3(0f, 1.12f, 2.49f), new Vector3(1.16f, 0.38f, 0.06f), matSteelBlack);
@@ -150,10 +145,9 @@ namespace KenyaStreetSim.Editor
             Box("DoorHandleL", body, new Vector3(-0.94f, 1.26f, 0.16f), new Vector3(0.04f, 0.06f, 0.16f), matChrome);
             Box("DoorHandleR", body, new Vector3( 0.94f, 1.26f, 0.16f), new Vector3(0.04f, 0.06f, 0.16f), matChrome);
 
-            // Left-Side Raised Black 4x4 Air Snorkel hugging the A-pillar!
-            Box("SnorkelLowerTube", body, new Vector3(-0.96f, 1.30f, 1.48f), new Vector3(0.11f, 0.11f, 0.78f), matSteelBlack);
-            Box("SnorkelPillarTube", body, new Vector3(-0.96f, 1.74f, 1.08f), new Vector3(0.11f, 0.84f, 0.11f), matSteelBlack, Quaternion.Euler(-16f, 0f, 0f));
-            Cylinder("SnorkelIntakeHead", body, new Vector3(-0.96f, 2.20f, 1.00f), new Vector3(0.20f, 0.10f, 0.22f), matSteelBlack);
+            // Left-Side Curved Cylindrical 4x4 Safari Air Snorkel hugging the fender & A-pillar!
+            CustomMesh("SculptedSafariSnorkel", body, Vector3.zero, Quaternion.identity, Vector3.one, KenyaPoliceLC79MeshFactory.CurvedSnorkelMesh, matSteelBlack);
+            Box("SnorkelRamHead", body, new Vector3(-0.92f, 2.23f, 1.10f), new Vector3(0.14f, 0.14f, 0.18f), matSteelBlack);
 
             // Open Rear Pickup Troop Bed (Diamond-Plate Floor + Side Walls + Wheel Arches)
             Box("BedDiamondFloor", body, new Vector3(0f, 0.84f, -1.28f), new Vector3(1.76f, 0.10f, 2.38f), matBedFloor);
@@ -161,11 +155,12 @@ namespace KenyaStreetSim.Editor
             Box("BedSideWallL", body, new Vector3(-0.87f, 1.14f, -1.28f), new Vector3(0.11f, 0.64f, 2.38f), matNavy);
             Box("BedSideWallR", body, new Vector3( 0.87f, 1.14f, -1.28f), new Vector3(0.11f, 0.64f, 2.38f), matNavy);
 
-            // Flared Off-Road Fender Arches (Front & Rear)
+            // Curved 16-Segment Semi-Circular Off-Road Wheel-Arch Fender Flares (positive scale + Y-rot preserves outward winding!)
             for (int side = -1; side <= 1; side += 2)
             {
-                Box($"FenderFlareFront_{side}", body, new Vector3(side * 0.94f, 1.08f, 1.58f), new Vector3(0.14f, 0.10f, 0.96f), matNavy);
-                Box($"FenderFlareRear_{side}", body, new Vector3(side * 0.94f, 1.08f, -1.52f), new Vector3(0.14f, 0.10f, 0.98f), matNavy);
+                Quaternion archRot = side < 0 ? Quaternion.Euler(0f, 180f, 0f) : Quaternion.identity;
+                CustomMesh($"CurvedFenderArchFront_{side}", body, new Vector3(side * 0.89f, 0.52f, 1.58f), archRot, Vector3.one, KenyaPoliceLC79MeshFactory.FenderArchFlareMesh, matSteelBlack);
+                CustomMesh($"CurvedFenderArchRear_{side}",  body, new Vector3(side * 0.89f, 0.52f, -1.52f), archRot, Vector3.one, KenyaPoliceLC79MeshFactory.FenderArchFlareMesh, matSteelBlack);
             }
 
             // =========================================================================
@@ -217,9 +212,8 @@ namespace KenyaStreetSim.Editor
             Box("CageRailTopR", canopy, new Vector3( 0.80f, 2.34f, -1.28f), new Vector3(0.055f, 0.055f, 2.18f), matSteelBlack);
             Box("CageRailMidC", canopy, new Vector3( 0.00f, 2.38f, -1.28f), new Vector3(0.055f, 0.055f, 2.18f), matSteelBlack);
 
-            // Olive-Khaki Woven Canvas Roof & Side Tarps (pitched slightly toward center crown like real LC79 canvas!)
-            Box("CanvasRoofSlopeL", canopy, new Vector3(-0.44f, 2.40f, -1.28f), new Vector3(0.94f, 0.06f, 2.36f), matCanvas, Quaternion.Euler(0f, 0f, 6f));
-            Box("CanvasRoofSlopeR", canopy, new Vector3( 0.44f, 2.40f, -1.28f), new Vector3(0.94f, 0.06f, 2.36f), matCanvas, Quaternion.Euler(0f, 0f, -6f));
+            // Sculpted Arched & Gently Pleated Olive-Khaki Canvas Canopy Roof draping naturally over steel hoops!
+            CustomMesh("SculptedCanvasRoofCrown", canopy, Vector3.zero, Quaternion.identity, Vector3.one, KenyaPoliceLC79MeshFactory.DrapedCanvasRoofMesh, matCanvas);
             Box("CanvasFrontCurtain", canopy, new Vector3(0f, 1.92f, -0.16f), new Vector3(1.78f, 0.94f, 0.06f), matCanvas);
 
             // Side canvas curtains with 2 clear glossy plastic windows on each side!
@@ -268,8 +262,8 @@ namespace KenyaStreetSim.Editor
             WorldText("BarPoliceFront", barRoot, "POLICE", new Vector3(0f, 0f,  0.15f), new Vector2(0.44f, 0.15f), 0.92f, Color.white, Quaternion.Euler(0f, 180f, 0f));
             WorldText("BarPoliceRear",  barRoot, "POLICE", new Vector3(0f, 0f, -0.15f), new Vector2(0.44f, 0.15f), 0.92f, Color.white, Quaternion.identity);
 
-            var redPod = Box("LightbarRedBank", barRoot, new Vector3(-0.46f, 0f, 0f), new Vector3(0.46f, 0.17f, 0.27f), matBarRed);
-            var bluePod = Box("LightbarBlueBank", barRoot, new Vector3( 0.46f, 0f, 0f), new Vector3(0.46f, 0.17f, 0.27f), matBarBlue);
+            var redPod = CustomMesh("LightbarRedBank", barRoot, new Vector3(-0.46f, 0f, 0f), Quaternion.identity, Vector3.one, KenyaPoliceLC79MeshFactory.BeveledLightPodMesh, matBarRed);
+            var bluePod = CustomMesh("LightbarBlueBank", barRoot, new Vector3( 0.46f, 0f, 0f), Quaternion.identity, Vector3.one, KenyaPoliceLC79MeshFactory.BeveledLightPodMesh, matBarBlue);
 
             var redPlGo = new GameObject("PoliceRedPointLight");
             redPlGo.transform.SetParent(barRoot, false);
@@ -439,9 +433,15 @@ namespace KenyaStreetSim.Editor
                     vis.SetParent(visParent, false);
                     vis.localPosition = wcGo.transform.localPosition;
 
-                    Cylinder("OffroadTire", vis, Vector3.zero, new Vector3(radius * 2f, 0.165f, radius * 2f), matTire, Quaternion.Euler(0f, 0f, 90f));
-                    Cylinder("SteelWheelRim", vis, Vector3.zero, new Vector3(radius * 1.15f, 0.175f, radius * 1.15f), matSteelRim, Quaternion.Euler(0f, 0f, 90f));
-                    Cylinder("HubLock", vis, Vector3.zero, new Vector3(radius * 0.36f, 0.195f, radius * 0.36f), matLug, Quaternion.Euler(0f, 0f, 90f));
+                    // Sculpted 28-segment lathed mud-terrain tire + concave dished black steel rim + 6 chrome lug nuts!
+                    CustomMesh("SculptedOffroadTire", vis, Vector3.zero, Quaternion.identity, Vector3.one, KenyaPoliceLC79MeshFactory.OffroadTireMesh, matTire);
+                    CustomMesh("SculptedDishedRim",   vis, Vector3.zero, Quaternion.identity, Vector3.one, KenyaPoliceLC79MeshFactory.DishedRimMesh, matSteelRim);
+                    Cylinder("HubLock", vis, Vector3.zero, new Vector3(radius * 0.34f, 0.145f, radius * 0.34f), matLug, Quaternion.Euler(0f, 0f, 90f));
+                    for (int lug = 0; lug < 6; lug++)
+                    {
+                        float la = lug * 60f * Mathf.Deg2Rad;
+                        Cylinder($"LugNut_{lug}", vis, new Vector3(side * 0.115f, Mathf.Sin(la) * 0.115f, Mathf.Cos(la) * 0.115f), new Vector3(0.024f, 0.022f, 0.024f), matLug, Quaternion.Euler(0f, 0f, 90f));
+                    }
 
                     list[idx++] = new KenyaStreetVehicle.WheelEntry
                     {
@@ -496,6 +496,18 @@ namespace KenyaStreetSim.Editor
             spot.shadows = LightShadows.None;
             spot.enabled = false;
             return spot;
+        }
+
+        private static GameObject CustomMesh(string name, Transform parent, Vector3 pos, Quaternion rot, Vector3 scale, Mesh mesh, Material mat)
+        {
+            var go = new GameObject(name);
+            go.transform.SetParent(parent, false);
+            go.transform.localPosition = pos;
+            go.transform.localRotation = rot;
+            go.transform.localScale = scale;
+            go.AddComponent<MeshFilter>().sharedMesh = mesh;
+            go.AddComponent<MeshRenderer>().sharedMaterial = mat;
+            return go;
         }
 
         private static Material LoadOrCreateMat(
