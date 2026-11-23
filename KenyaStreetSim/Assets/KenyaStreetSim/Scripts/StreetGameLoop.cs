@@ -57,6 +57,13 @@ namespace KenyaStreetSim
             _ => "TOWNS"
         };
 
+        public int ActiveRouteIndex { get; private set; }
+        public KenyaRouteCatalog.RouteDef ActiveRoute => KenyaRouteCatalog.GetRoute(ActiveRouteIndex);
+        public int CurrentRouteStopStep { get; private set; }
+        public int RouteTotalStops => ActiveRoute.stopHubIndices != null && ActiveRoute.stopHubIndices.Length > 0
+            ? ActiveRoute.stopHubIndices.Length
+            : (stages != null ? stages.Length : 16);
+
         public int CurrentStageIndex { get; private set; }
         public int CompletedStageCount { get; private set; }
         public int TotalKesEarned { get; private set; }
@@ -64,6 +71,8 @@ namespace KenyaStreetSim
         public int SafetyRating { get; private set; } = 100;
         public float ElapsedRunSeconds { get; private set; }
         public string EndReason { get; private set; } = string.Empty;
+
+        public event Action<int> OnRouteSelected;
 
         public BusStageZone ActiveStage =>
             (stages != null && CurrentStageIndex >= 0 && CurrentStageIndex < stages.Length)
@@ -204,9 +213,67 @@ namespace KenyaStreetSim
             hud?.ShowToast($"Arrived at {hub.name} ({hub.corridorTag})");
         }
 
+        public void SelectRoute(int routeIndex, bool moveToStartIfRunning = false)
+        {
+            int count = KenyaRouteCatalog.Routes.Length;
+            ActiveRouteIndex = ((routeIndex % count) + count) % count;
+            var route = ActiveRoute;
+
+            // Keep mode + vehicle nicely aligned when browsing routes on the Title Screen
+            if (State == RunState.Ready)
+            {
+                if (route.kind == KenyaRouteCatalog.RouteKind.FrrParcelCargo && ActiveMode != GameMode.IsuzuCargoHaul)
+                {
+                    SelectGameMode(GameMode.IsuzuCargoHaul, autoSelectRecommendedVehicle: true);
+                }
+                else if (route.kind == KenyaRouteCatalog.RouteKind.BusPassenger && ActiveMode == GameMode.IsuzuCargoHaul)
+                {
+                    SelectGameMode(GameMode.EnaCoachCareer, autoSelectRecommendedVehicle: true);
+                }
+            }
+
+            CurrentRouteStopStep = 0;
+            if (State == RunState.Running)
+            {
+                CompletedStageCount = 0;
+                ResetStagesForNewRun();
+                int firstHub = (route.stopHubIndices != null && route.stopHubIndices.Length > 0) ? route.stopHubIndices[0] : 0;
+                if (moveToStartIfRunning)
+                {
+                    TeleportToTownHub(firstHub);
+                }
+                else
+                {
+                    SetActiveStageByIndex(firstHub);
+                }
+            }
+            else
+            {
+                ResetStagesForNewRun();
+            }
+
+            OnRouteSelected?.Invoke(ActiveRouteIndex);
+            KenyaStreetAudio.Instance?.PlayUiClick();
+            if (State == RunState.Running)
+            {
+                hud?.ShowToast($"ROUTE: {route.shortName}  ({route.stopHubIndices.Length} STOPS  •  FOLLOW CYAN GPS)");
+            }
+        }
+
         public void SelectGameMode(GameMode mode, bool autoSelectRecommendedVehicle = true)
         {
             ActiveMode = mode;
+            if (mode == GameMode.IsuzuCargoHaul && ActiveRoute.kind != KenyaRouteCatalog.RouteKind.FrrParcelCargo)
+            {
+                ActiveRouteIndex = 5; // FRR PARCEL: NAIROBI – ELDORET
+                OnRouteSelected?.Invoke(ActiveRouteIndex);
+            }
+            else if (mode == GameMode.EnaCoachCareer && ActiveRoute.kind == KenyaRouteCatalog.RouteKind.FrrParcelCargo)
+            {
+                ActiveRouteIndex = 0; // NAIROBI – KISII – MIGORI
+                OnRouteSelected?.Invoke(ActiveRouteIndex);
+            }
+
             if (autoSelectRecommendedVehicle && fleet != null && fleet.Length > 0)
             {
                 int recIdx = mode switch
@@ -231,15 +298,27 @@ namespace KenyaStreetSim
             TotalKesEarned = 0;
             PassengersBoarded = 0;
             CompletedStageCount = 0;
-            CurrentStageIndex = 0;
+            CurrentRouteStopStep = 0;
             SafetyRating = 100;
             ElapsedRunSeconds = 0f;
             EndReason = string.Empty;
 
+            var route = ActiveRoute;
+            int firstHub = (route.stopHubIndices != null && route.stopHubIndices.Length > 0) ? route.stopHubIndices[0] : 0;
+            CurrentStageIndex = firstHub;
+
             ResetStagesForNewRun();
             if (ActiveVehicle != null)
             {
-                ActiveVehicle.ResetToPose(startPosition, Quaternion.identity);
+                if (firstHub == 0)
+                {
+                    ActiveVehicle.ResetToPose(startPosition, Quaternion.identity);
+                }
+                else
+                {
+                    TeleportToTownHub(firstHub);
+                }
+                ApplyVehicleAudioProfile(ActiveVehicle);
                 var policeSys = ActiveVehicle.GetComponent<KenyaPoliceEmergencySystem>();
                 if (policeSys != null)
                 {
@@ -256,7 +335,7 @@ namespace KenyaStreetSim
             }
 
             SetState(RunState.Running);
-            hud?.ShowToast($"{ModeDisplayName}  •  {ActiveVehicle?.displayName}");
+            hud?.ShowToast($"{ModeDisplayName}  •  {route.shortName}");
         }
 
         public void PauseRun()
@@ -338,16 +417,40 @@ namespace KenyaStreetSim
             {
                 streetCamera.SetTarget(ActiveVehicle);
             }
+            if (ActiveVehicle != null)
+            {
+                ApplyVehicleAudioProfile(ActiveVehicle);
+            }
+        }
+
+        private static void ApplyVehicleAudioProfile(KenyaStreetVehicle veh)
+        {
+            if (veh == null || KenyaStreetAudio.Instance == null) return;
+            if (veh.plateNumber == "KCP 380D" || (veh.displayName != null && veh.displayName.IndexOf("Police", StringComparison.OrdinalIgnoreCase) >= 0))
+            {
+                KenyaStreetAudio.Instance.SetVehicleAudioProfile(KenyaStreetAudio.EngineProfile.PoliceLandCruiserV8);
+            }
+            else if (veh.isCoach)
+            {
+                KenyaStreetAudio.Instance.SetVehicleAudioProfile(KenyaStreetAudio.EngineProfile.HeavyCoachDiesel);
+            }
+            else
+            {
+                KenyaStreetAudio.Instance.SetVehicleAudioProfile(KenyaStreetAudio.EngineProfile.IsuzuCargoDiesel);
+            }
         }
 
         private void ResetStagesForNewRun()
         {
             if (stages == null) return;
+            var route = ActiveRoute;
+            int firstHub = (route.stopHubIndices != null && route.stopHubIndices.Length > 0) ? route.stopHubIndices[0] : 0;
+            CurrentStageIndex = Mathf.Clamp(firstHub, 0, Mathf.Max(0, stages.Length - 1));
             for (int i = 0; i < stages.Length; i++)
             {
                 if (stages[i] != null)
                 {
-                    stages[i].ResetStage(active: i == 0);
+                    stages[i].ResetStage(active: i == CurrentStageIndex);
                 }
             }
         }
@@ -368,16 +471,18 @@ namespace KenyaStreetSim
 
             OnStageBoarded?.Invoke(stage);
 
-            // Advance to next uncompleted ENA Coach town stage across Kenya!
+            // Advance along the player's SELECTED Kenyan Bus / FRR Parcel Route!
+            var route = ActiveRoute;
             int nextIdx = -1;
-            if (stages != null)
+            if (stages != null && route.stopHubIndices != null && route.stopHubIndices.Length > 0)
             {
-                for (int step = 1; step <= stages.Length; step++)
+                for (int s = 0; s < route.stopHubIndices.Length; s++)
                 {
-                    int cand = (CurrentStageIndex + step) % stages.Length;
-                    if (stages[cand] != null && !stages[cand].IsCompleted)
+                    int hub = route.stopHubIndices[s];
+                    if (hub >= 0 && hub < stages.Length && stages[hub] != null && !stages[hub].IsCompleted)
                     {
-                        nextIdx = cand;
+                        nextIdx = hub;
+                        CurrentRouteStopStep = s;
                         break;
                     }
                 }
@@ -390,6 +495,8 @@ namespace KenyaStreetSim
             }
             else
             {
+                TotalKesEarned += route.bonusKes;
+                EndReason = $"{route.shortName} Complete! (+KES {route.bonusKes:N0} Route Bonus)";
                 TriggerWin();
             }
         }
@@ -428,7 +535,7 @@ namespace KenyaStreetSim
         public void TriggerWin()
         {
             if (State == RunState.Won) return;
-            EndReason = "All Kenyan Town Bus Stages Completed!";
+            if (string.IsNullOrEmpty(EndReason)) EndReason = "All Kenyan Route Stops Completed!";
             if (KenyaStreetAudio.Instance != null)
             {
                 KenyaStreetAudio.Instance.PlayMilestoneSting();

@@ -327,8 +327,15 @@ namespace KenyaStreetSim.Editor
             Box("DriverSeatBack", cockpit, new Vector3(0.44f, 1.30f, 0.12f), new Vector3(0.48f, 0.68f, 0.12f), matVinylSeat);
             Box("PassengerSeatBack", cockpit, new Vector3(-0.44f, 1.30f, 0.12f), new Vector3(0.48f, 0.68f, 0.12f), matVinylSeat);
 
-            var lcSpeedTmp = WorldText("LcDashSpeed", cockpit, "00 km/h | G:N", new Vector3(0.42f, 1.64f, 0.76f), new Vector2(0.48f, 0.07f), 0.38f, Palette.UiAccentGreen, Quaternion.identity);
-            var lcStatusTmp = WorldText("LcDashStatus", cockpit, "KENYA POLICE\nKCP 380D [G]", new Vector3(0.42f, 1.56f, 0.76f), new Vector2(0.48f, 0.08f), 0.24f, Palette.UiAccentAmber, Quaternion.identity);
+            var lcSpeedTmp = WorldText("LcDashSpeed", cockpit, "00 km/h | G:N", new Vector3(0.42f, 1.67f, 0.76f), new Vector2(0.48f, 0.06f), 0.34f, Palette.UiAccentGreen, Quaternion.identity);
+            var lcStatusTmp = WorldText("LcDashStatus", cockpit, "KENYA POLICE • KCP 380D [G]", new Vector3(0.42f, 1.62f, 0.76f), new Vector2(0.48f, 0.05f), 0.22f, Palette.UiAccentAmber, Quaternion.identity);
+
+            // Real Analog Speedo & RPM Needles + Dual 3D Windshield Wipers + Swinging Left Passenger Door!
+            KenyaVehicleFeaturesBuilder.AttachRealDashWipersAndDoor(
+                root, body, cockpit, new Vector3(0.42f, 1.51f, 0.76f),
+                body, new Vector3(0.0f, 1.53f, 1.24f), 0.36f, 0.48f,
+                halfW: 0.92f, halfL: 2.50f, isCoach: false, isPoliceLC79: true,
+                matBlack, matChrome, matNavy, matClearGlass);
 
             // Hollow 3-Spoke RHD Land Cruiser Steering Wheel on the RIGHT (X = +0.42)!
             var steerPivot = new GameObject("SteeringWheelPivot").transform;

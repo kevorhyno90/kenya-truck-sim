@@ -39,9 +39,21 @@ namespace KenyaStreetSim
         private TextMeshProUGUI detailTitleText;
         private TextMeshProUGUI detailInfoText;
         private readonly List<Image> hubPinImages = new List<Image>();
+        private readonly List<GameObject> hubPointBadges = new List<GameObject>();
+        private readonly List<TextMeshProUGUI> hubPointBadgeTexts = new List<TextMeshProUGUI>();
+        private readonly List<Image> hubPointBadgeBgs = new List<Image>();
+        private readonly List<Button> routeSelectButtons = new List<Button>();
+        private readonly List<Image>[] fullHighwaySegImages = new List<Image>[8];
+        private readonly List<Image>[] miniHighwaySegImages = new List<Image>[8];
+        private int lastHighlightedRoute = -1;
 
         private void Awake()
         {
+            for (int i = 0; i < 8; i++)
+            {
+                fullHighwaySegImages[i] = new List<Image>();
+                miniHighwaySegImages[i] = new List<Image>();
+            }
             solidSprite = CreateSolidSprite();
             circleSprite = CreateCircleSprite(32);
             BuildMapCanvas();
@@ -75,6 +87,11 @@ namespace KenyaStreetSim
             }
 
             UpdatePlayerAndTargetMarkers(loop);
+
+            if (lastHighlightedRoute != loop.ActiveRouteIndex)
+            {
+                RefreshRouteOverlay(loop.ActiveRouteIndex);
+            }
         }
 
         public void ToggleFullMap()
@@ -97,9 +114,88 @@ namespace KenyaStreetSim
             if (open)
             {
                 int activeIdx = loop != null ? Mathf.Clamp(loop.CurrentStageIndex, 0, KenyaNetworkData.Hubs.Length - 1) : 0;
+                RefreshRouteOverlay(loop != null ? loop.ActiveRouteIndex : 0);
                 SelectHub(activeIdx);
             }
             KenyaStreetAudio.Instance?.PlayUiClick();
+        }
+
+        public void RefreshRouteOverlay(int routeIndex)
+        {
+            lastHighlightedRoute = routeIndex;
+            var route = KenyaRouteCatalog.GetRoute(routeIndex);
+            bool isParcel = route.kind == KenyaRouteCatalog.RouteKind.FrrParcelCargo;
+            Color activeRoadCol = isParcel ? Palette.Hex("#FF9E1B") : Palette.Hex("#14E8FF");
+
+            // Highlight selected route highways in bright Cyan/Orange & softly dim off-route highways on BOTH maps!
+            for (int h = 0; h < KenyaNetworkData.Highways.Length && h < 8; h++)
+            {
+                bool onRoute = KenyaRouteCatalog.IsHighwayOnRoute(routeIndex, h);
+                Color baseCol = KenyaNetworkData.Highways[h].mapColor;
+                Color c = onRoute ? activeRoadCol : Palette.WithAlpha(baseCol, 0.36f);
+
+                if (fullHighwaySegImages[h] != null)
+                {
+                    for (int i = 0; i < fullHighwaySegImages[h].Count; i++)
+                    {
+                        var img = fullHighwaySegImages[h][i];
+                        if (img == null) continue;
+                        img.color = c;
+                        var sd = img.rectTransform.sizeDelta;
+                        sd.y = onRoute ? 10.5f : 5.5f;
+                        img.rectTransform.sizeDelta = sd;
+                    }
+                }
+                if (miniHighwaySegImages[h] != null)
+                {
+                    for (int i = 0; i < miniHighwaySegImages[h].Count; i++)
+                    {
+                        var img = miniHighwaySegImages[h][i];
+                        if (img == null) continue;
+                        img.color = c;
+                        var sd = img.rectTransform.sizeDelta;
+                        sd.y = onRoute ? 4.4f : 2.2f;
+                        img.rectTransform.sizeDelta = sd;
+                    }
+                }
+            }
+
+            // Update PAX (Passenger Pickup) / PARCEL (FRR Depot) point badges on all 16 town hubs!
+            string tag = isParcel ? "PARCEL" : "PAX";
+            Color badgeCol = isParcel ? Palette.Hex("#E86A0C") : Palette.Hex("#16A85A");
+            for (int i = 0; i < hubPointBadges.Count; i++)
+            {
+                bool onRoute = KenyaRouteCatalog.IsHubOnRoute(routeIndex, i);
+                if (hubPointBadges[i] != null) hubPointBadges[i].SetActive(onRoute);
+                if (i < hubPointBadgeTexts.Count && hubPointBadgeTexts[i] != null) hubPointBadgeTexts[i].text = tag;
+                if (i < hubPointBadgeBgs.Count && hubPointBadgeBgs[i] != null) hubPointBadgeBgs[i].color = badgeCol;
+            }
+
+            // Highlight active route button in the right-hand route selector list
+            for (int r = 0; r < routeSelectButtons.Count; r++)
+            {
+                var btn = routeSelectButtons[r];
+                if (btn == null) continue;
+                bool sel = (r == routeIndex);
+                var rKind = KenyaRouteCatalog.GetRoute(r).kind;
+                var img = btn.GetComponent<Image>();
+                if (img != null)
+                {
+                    img.color = sel
+                        ? (rKind == KenyaRouteCatalog.RouteKind.FrrParcelCargo ? Palette.Hex("#E86A0C") : Palette.Hex("#0FA8C8"))
+                        : Palette.Hex("#212C3C");
+                }
+                var txt = btn.GetComponentInChildren<TextMeshProUGUI>();
+                if (txt != null)
+                {
+                    txt.color = sel ? Palette.UiTextPrimary : Palette.Hex("#C8D4E4");
+                }
+            }
+
+            if (hubPinImages.Count > 0)
+            {
+                SelectHub(selectedHubIndex);
+            }
         }
 
         private void SelectHub(int hubIndex)
@@ -112,22 +208,30 @@ namespace KenyaStreetSim
                 fullSelectedRing.anchoredPosition = WorldToMapPos(hub.xz, fullPlotSize);
             }
 
+            var loop = StreetGameLoop.Instance;
+            int activeRouteIdx = loop != null ? loop.ActiveRouteIndex : 0;
+            var activeRoute = KenyaRouteCatalog.GetRoute(activeRouteIdx);
+            bool isParcelRoute = activeRoute.kind == KenyaRouteCatalog.RouteKind.FrrParcelCargo;
+
             for (int i = 0; i < hubPinImages.Count; i++)
             {
                 if (hubPinImages[i] == null) continue;
                 bool isSel = (i == selectedHubIndex);
-                hubPinImages[i].color = isSel ? Palette.UiAccentAmber : Palette.EnaBodyWhite;
-                hubPinImages[i].rectTransform.localScale = Vector3.one * (isSel ? 1.35f : 1f);
+                bool onRoute = KenyaRouteCatalog.IsHubOnRoute(activeRouteIdx, i);
+                hubPinImages[i].color = isSel
+                    ? Palette.UiAccentAmber
+                    : (onRoute ? (isParcelRoute ? Palette.Hex("#FF9E1B") : Palette.Hex("#2EE87A")) : Palette.WithAlpha(Palette.EnaBodyWhite, 0.55f));
+                hubPinImages[i].rectTransform.localScale = Vector3.one * (isSel ? 1.40f : (onRoute ? 1.15f : 0.90f));
             }
 
-            var loop = StreetGameLoop.Instance;
             float distKm = 0f;
             if (loop != null && loop.ActiveVehicle != null)
             {
                 var vp = loop.ActiveVehicle.transform.position;
-                distKm = Vector2.Distance(new Vector2(vp.x, vp.z), hub.xz) / 100f; // ETS2 visual scale km
+                distKm = Vector2.Distance(new Vector2(vp.x, vp.z), hub.xz) / 100f;
             }
 
+            string pointLabel = isParcelRoute ? "FRR PARCEL DEPOT" : "PASSENGER PICKUP STAGE";
             if (detailTitleText != null)
             {
                 detailTitleText.text = hub.name.ToUpperInvariant();
@@ -135,11 +239,10 @@ namespace KenyaStreetSim
             if (detailInfoText != null)
             {
                 detailInfoText.text =
-                    $"CORRIDOR:  {hub.corridorTag}\n" +
-                    $"REGION:  {FormatBiome(hub.biome)}\n" +
-                    $"DISTANCE:  {distKm:0.1} km (ETS2 Scale)\n" +
-                    $"STAGE FARE:  KES {hub.fareKes:N0}  ({hub.passengers} pax)\n\n" +
-                    "Set as your active GPS Bus Stage to drive there, or jump directly to this Kenyan terminal to explore its streets & highways!";
+                    $"POINT:  {pointLabel}\n" +
+                    $"ROUTE:  {activeRoute.shortName}\n" +
+                    $"CORRIDOR:  {hub.corridorTag}  •  {distKm:0.1} km\n" +
+                    $"PAYOUT:  KES {hub.fareKes:N0}  ({hub.passengers} {(isParcelRoute ? "parcels" : "pax")})";
             }
         }
 
@@ -255,8 +358,8 @@ namespace KenyaStreetSim
             DrawMapWaterBlob(plotRt, new Vector2(845f, -260f), 64f, Palette.Hex("#144963"), miniMapSize);
             DrawMapWaterBlob(plotRt, new Vector2(770f, -310f), 46f, Palette.Hex("#144963"), miniMapSize);
 
-            // Draw all 6 connected Kenyan highways
-            DrawAllHighways(plotRt, miniMapSize, thickness: 2.8f);
+            // Draw all 8 connected Kenyan highways (tracked for live route highlighting!)
+            DrawAllHighways(plotRt, miniMapSize, thickness: 2.8f, miniHighwaySegImages);
 
             // Draw town hub dots
             for (int i = 0; i < KenyaNetworkData.Hubs.Length; i++)
@@ -294,11 +397,11 @@ namespace KenyaStreetSim
 
             var modal = CreateBorderedAnchored("KenyaMapModal", scrim.GetComponent<RectTransform>(), new Vector2(0.5f, 0.5f), new Vector2(1540f, 780f), Palette.Hex("#141B25"), Palette.UiAccentAmber, 3f);
 
-            var title = CreateText("MapTitle", modal, "KENYA ENA COACH — FULL CONNECTED ROUTE NETWORK", 34f, FontStyles.Bold, Palette.UiAccentAmber, TextAlignmentOptions.Left);
-            SetBox(title.rectTransform, 32f, -20f, 1180f, 44f, new Vector2(0f, 1f));
+            var title = CreateText("MapTitle", modal, "KENYA BUS & FRR PARCEL ROUTES  —  INTERACTIVE GUIDED GPS MAP", 31f, FontStyles.Bold, Palette.UiAccentAmber, TextAlignmentOptions.Left);
+            SetBox(title.rectTransform, 32f, -20f, 1220f, 44f, new Vector2(0f, 1f));
 
-            var sub = CreateText("MapSub", modal, "Click any Kenyan city/town terminal below to set GPS Stage or Fast-Travel directly to its highway  •  Press [M] or [ESC] to Close", 17f, FontStyles.Normal, Palette.UiTextMuted, TextAlignmentOptions.Left);
-            SetBox(sub.rectTransform, 32f, -66f, 1280f, 26f, new Vector2(0f, 1f));
+            var sub = CreateText("MapSub", modal, "Select a Kenyan Bus or FRR Parcel Route on the right to highlight its guided path & PAX / PARCEL pickup points  •  Press [M] or [ESC] to Close", 16.5f, FontStyles.Normal, Palette.UiTextMuted, TextAlignmentOptions.Left);
+            SetBox(sub.rectTransform, 32f, -66f, 1320f, 26f, new Vector2(0f, 1f));
 
             CreateButton("CloseMapBtn", modal, "CLOSE  [M]", new Vector2(665f, 340f), new Vector2(165f, 44f), Palette.UiAccentRed, Palette.UiTextPrimary, () => SetFullMapOpen(false));
 
@@ -322,8 +425,8 @@ namespace KenyaStreetSim
             oceanLbl.rectTransform.anchoredPosition = WorldToMapPos(new Vector2(955f, -230f), fullPlotSize);
             oceanLbl.rectTransform.sizeDelta = new Vector2(115f, 46f);
 
-            // Draw all 8 connected Kenyan highways + 3 roundabouts
-            DrawAllHighways(fullMapPlot, fullPlotSize, thickness: 7.0f);
+            // Draw all 8 connected Kenyan highways + 3 roundabouts (tracked for bright Cyan/Orange route highlight!)
+            DrawAllHighways(fullMapPlot, fullPlotSize, thickness: 7.0f, fullHighwaySegImages);
 
             foreach (var rb in KenyaNetworkData.Roundabouts)
             {
@@ -402,6 +505,28 @@ namespace KenyaStreetSim
                 var lbl = CreateText($"HubLbl_{i}", prt, h.name, 14f, FontStyles.Bold, Palette.UiTextPrimary, TextAlignmentOptions.Center);
                 lbl.textWrappingMode = TextWrappingModes.NoWrap;
                 StretchRect(lbl.rectTransform, 4f, 0f, -4f, 0f);
+
+                // Crisp PAX (Passenger Pickup) / PARCEL (FRR Depot) route stop badge right above each pin on the active route!
+                var badgeGo = new GameObject($"HubPointBadge_{i}", typeof(RectTransform), typeof(Image));
+                badgeGo.transform.SetParent(fullMapPlot, false);
+                var brt = badgeGo.GetComponent<RectTransform>();
+                brt.anchorMin = new Vector2(0.5f, 0.5f);
+                brt.anchorMax = new Vector2(0.5f, 0.5f);
+                float badgeY = lOff.y > 0f ? -19f : 19f;
+                float badgeX = (i == 5) ? -34f : 0f; // Keep Naivasha PARCEL/PAX pill cleanly clear of Nakuru pin!
+                brt.anchoredPosition = pos + new Vector2(badgeX, badgeY);
+                brt.sizeDelta = new Vector2(56f, 16f);
+                var bImg = badgeGo.GetComponent<Image>();
+                bImg.sprite = solidSprite;
+                bImg.color = Palette.Hex("#16A85A");
+                bImg.raycastTarget = false;
+                var bTxt = CreateText($"BadgeTxt_{i}", brt, "PAX", 10.5f, FontStyles.Bold, Palette.UiTextPrimary, TextAlignmentOptions.Center);
+                bTxt.textWrappingMode = TextWrappingModes.NoWrap;
+                StretchRect(bTxt.rectTransform, 2f, 0f, -2f, 0f);
+
+                hubPointBadges.Add(badgeGo);
+                hubPointBadgeTexts.Add(bTxt);
+                hubPointBadgeBgs.Add(bImg);
             }
 
             // Live Player Bus Marker on full map
@@ -416,44 +541,74 @@ namespace KenyaStreetSim
             pnImg.sprite = solidSprite;
             pnImg.color = Palette.UiAccentAmber;
 
-            // Right Side: Selected Terminal Info & Quick Actions Panel
+            // Right Side: Selectable Kenyan Bus & FRR Parcel Routes + Active Terminal Actions Panel
             var side = CreateBorderedCorner("HubDetailPanel", modal, new Vector2(1f, 0f), new Vector2(1f, 0f), new Vector2(-28f, 28f), new Vector2(396f, 624f), Palette.Hex("#1A222E"), Palette.UiPanelBorder, 2f);
 
-            detailTitleText = CreateText("DetailTitle", side, "NAIROBI CBD", 30f, FontStyles.Bold, Palette.UiAccentAmber, TextAlignmentOptions.Left);
-            SetBox(detailTitleText.rectTransform, 22f, -20f, 352f, 40f, new Vector2(0f, 1f));
+            var routesHdr = CreateText("RoutesHdr", side, "SELECT KENYA BUS / FRR PARCEL ROUTE", 15f, FontStyles.Bold, Palette.Hex("#14E8FF"), TextAlignmentOptions.Left);
+            SetBox(routesHdr.rectTransform, 18f, -12f, 360f, 22f, new Vector2(0f, 1f));
 
-            detailInfoText = CreateText("DetailInfo", side, "", 17f, FontStyles.Normal, Palette.UiTextPrimary, TextAlignmentOptions.TopLeft);
-            SetBox(detailInfoText.rectTransform, 22f, -68f, 352f, 220f, new Vector2(0f, 1f));
+            routeSelectButtons.Clear();
+            for (int r = 0; r < KenyaRouteCatalog.Routes.Length; r++)
+            {
+                int capturedRoute = r;
+                var rd = KenyaRouteCatalog.Routes[r];
+                string prefix = rd.kind == KenyaRouteCatalog.RouteKind.FrrParcelCargo ? "[PARCEL] " : "[BUS] ";
+                string btnLabel = prefix + rd.shortName;
+                float yCenter = 262f - r * 31f; // neatly fills top half of 624px panel (center = 0, top = +312)
+                var rBtn = CreateButton($"RouteBtn_{r}", side, btnLabel, new Vector2(0f, yCenter), new Vector2(362f, 27f), Palette.Hex("#212C3C"), Palette.UiTextPrimary, () =>
+                {
+                    StreetGameLoop.Instance?.SelectRoute(capturedRoute, moveToStartIfRunning: false);
+                    RefreshRouteOverlay(capturedRoute);
+                    var firstStop = KenyaRouteCatalog.GetRoute(capturedRoute).stopHubIndices[0];
+                    SelectHub(firstStop);
+                });
+                var rLbl = rBtn.GetComponentInChildren<TextMeshProUGUI>();
+                if (rLbl != null)
+                {
+                    rLbl.fontSize = 12.5f;
+                    rLbl.alignment = TextAlignmentOptions.Left;
+                    rLbl.textWrappingMode = TextWrappingModes.NoWrap;
+                    rLbl.overflowMode = TextOverflowModes.Truncate;
+                }
+                routeSelectButtons.Add(rBtn);
+            }
 
-            CreateButton("SetGpsBtn", side, "SET AS GPS STAGE", new Vector2(0f, -20f), new Vector2(344f, 50f), Palette.UiAccentGreen, Palette.UiFadeCurtain, () =>
+            // Crisp divider between Route Picker and Selected Town Actions
+            var divGo = new GameObject("SideDivider", typeof(RectTransform), typeof(Image));
+            divGo.transform.SetParent(side, false);
+            var drt = divGo.GetComponent<RectTransform>();
+            drt.anchorMin = new Vector2(0.5f, 0.5f);
+            drt.anchorMax = new Vector2(0.5f, 0.5f);
+            drt.anchoredPosition = new Vector2(0f, 18f);
+            drt.sizeDelta = new Vector2(360f, 2f);
+            var dImg = divGo.GetComponent<Image>();
+            dImg.sprite = solidSprite;
+            dImg.color = Palette.UiPanelBorder;
+
+            detailTitleText = CreateText("DetailTitle", side, "NAIROBI CBD", 24f, FontStyles.Bold, Palette.UiAccentAmber, TextAlignmentOptions.Left);
+            SetBox(detailTitleText.rectTransform, 18f, -304f, 360f, 32f, new Vector2(0f, 1f));
+
+            detailInfoText = CreateText("DetailInfo", side, "", 15f, FontStyles.Normal, Palette.UiTextPrimary, TextAlignmentOptions.TopLeft);
+            detailInfoText.lineSpacing = 6f;
+            SetBox(detailInfoText.rectTransform, 18f, -340f, 360f, 128f, new Vector2(0f, 1f));
+
+            CreateButton("SetGpsBtn", side, "GUIDE ME TO THIS STOP", new Vector2(0f, -196f), new Vector2(356f, 44f), Palette.UiAccentGreen, Palette.UiFadeCurtain, () =>
             {
                 SetFullMapOpen(false);
                 StreetGameLoop.Instance?.SetActiveStageByIndex(selectedHubIndex);
             });
 
-            CreateButton("TeleportBtn", side, "DRIVE FROM THIS TOWN", new Vector2(0f, -84f), new Vector2(344f, 50f), Palette.UiAccentAmber, Palette.UiFadeCurtain, () =>
+            CreateButton("TeleportBtn", side, "DRIVE FROM THIS TOWN", new Vector2(0f, -252f), new Vector2(356f, 44f), Palette.UiAccentAmber, Palette.UiFadeCurtain, () =>
             {
                 SetFullMapOpen(false);
                 StreetGameLoop.Instance?.TeleportToTownHub(selectedHubIndex);
             });
 
-            // Corridor color legend at bottom of right panel (all 6 corridors across 16 towns!)
-            var legend = CreateText("CorridorLegend", side,
-                "16-TOWN KENYA HIGHWAY CORRIDORS\n" +
-                "• B3 (Red): Nairobi – Narok – Bomet – Kisii\n" +
-                "• A1 (Orange): Kisii – Migori – Sirare Border\n" +
-                "• A104/B1 (Green): Nairobi – Naivasha – Nakuru – Kericho – Kisumu\n" +
-                "• C39 (Violet): Nakuru – Eldoret – Kakamega – Kisumu\n" +
-                "• C19 (Blue): Kisumu – Homa Bay – Kisii Loop\n" +
-                "• A109/B8 (Teal): Nairobi – Mtito Andei – Voi – Mombasa – Malindi",
-                13.5f, FontStyles.Normal, Palette.UiTextPrimary, TextAlignmentOptions.BottomLeft);
-            legend.lineSpacing = 6f;
-            SetBox(legend.rectTransform, 22f, 16f, 354f, 174f, new Vector2(0f, 0f));
-
             fullMapOverlay.SetActive(false);
+            RefreshRouteOverlay(0);
         }
 
-        private void DrawAllHighways(RectTransform parent, Vector2 size, float thickness)
+        private void DrawAllHighways(RectTransform parent, Vector2 size, float thickness, List<Image>[] bucket)
         {
             for (int h = 0; h < KenyaNetworkData.Highways.Length; h++)
             {
@@ -463,16 +618,20 @@ namespace KenyaStreetSim
                 {
                     Vector2 a = WorldToMapPos(new Vector2(pts[i].x, pts[i].z), size);
                     Vector2 b = WorldToMapPos(new Vector2(pts[i + 1].x, pts[i + 1].z), size);
-                    DrawUiSegment(parent, a, b, thickness, def.mapColor);
+                    var segImg = DrawUiSegment(parent, a, b, thickness, def.mapColor);
+                    if (segImg != null && bucket != null && h < bucket.Length && bucket[h] != null)
+                    {
+                        bucket[h].Add(segImg);
+                    }
                 }
             }
         }
 
-        private void DrawUiSegment(RectTransform parent, Vector2 a, Vector2 b, float thickness, Color color)
+        private Image DrawUiSegment(RectTransform parent, Vector2 a, Vector2 b, float thickness, Color color)
         {
             Vector2 delta = b - a;
             float len = delta.magnitude;
-            if (len < 0.5f) return;
+            if (len < 0.5f) return null;
 
             var go = new GameObject("RoadSeg", typeof(RectTransform), typeof(Image));
             go.transform.SetParent(parent, false);
@@ -487,6 +646,7 @@ namespace KenyaStreetSim
             img.sprite = solidSprite;
             img.color = color;
             img.raycastTarget = false;
+            return img;
         }
 
         private void DrawMapWaterBlob(RectTransform parent, Vector2 worldXZ, float diameter, Color color, Vector2 mapSize)

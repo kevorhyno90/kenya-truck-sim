@@ -101,7 +101,22 @@ namespace KenyaStreetSim
 
             if (PlayerInside && vehicle.SpeedKmh <= 12f)
             {
-                BoardingProgress = Mathf.Clamp01(BoardingProgress + Time.deltaTime / requiredHoldSeconds);
+                // When passenger door opens (auto-opened at stage or via [O]), waiting 3D passengers walk right into the bus!
+                var doorSys = vehicle.GetComponent<KenyaVehicleDoorAndWipers>();
+                if (doorSys != null && doorSys.DoorOpen && waitingCommuters != null)
+                {
+                    Vector3 doorWorld = doorSys.GetDoorWorldPoint();
+                    for (int i = 0; i < waitingCommuters.Length; i++)
+                    {
+                        if (waitingCommuters[i] != null && waitingCommuters[i].gameObject.activeSelf)
+                        {
+                            waitingCommuters[i].BeginBoardingToDoor(doorWorld);
+                        }
+                    }
+                }
+
+                float holdDur = Mathf.Max(2.4f, requiredHoldSeconds);
+                BoardingProgress = Mathf.Clamp01(BoardingProgress + Time.deltaTime / holdDur);
                 if (BoardingProgress >= 1f)
                 {
                     CompleteBoarding();

@@ -39,6 +39,10 @@ namespace KenyaStreetSim
         private float idlePhase;
         private float baseBodyY;
         private bool boarded;
+        private bool walkingToDoor;
+        private Vector3 doorTargetPos;
+        private Vector3 initialHomePos;
+        private Quaternion initialHomeRot;
         private float celebrateTimer;
 
         // Cached bone rest local rotations so Blender/glTF rigs animate cleanly regardless of bone roll
@@ -49,6 +53,8 @@ namespace KenyaStreetSim
 
         private void Start()
         {
+            initialHomePos = transform.position;
+            initialHomeRot = transform.rotation;
             walkCyclePhase = Random.Range(0f, Mathf.PI * 2f);
             idlePhase = Random.Range(0f, Mathf.PI * 2f);
             if (bodyPivot != null)
@@ -76,20 +82,33 @@ namespace KenyaStreetSim
             if (rightLowerLeg != null) restShinR = rightLowerLeg.localRotation;
         }
 
+        public void BeginBoardingToDoor(Vector3 doorWorldPos)
+        {
+            if (boarded || !gameObject.activeSelf) return;
+            doorTargetPos = new Vector3(doorWorldPos.x, transform.position.y, doorWorldPos.z);
+            walkingToDoor = true;
+        }
+
         public void TriggerBoardCelebration()
         {
             if (boarded) return;
             boarded = true;
-            celebrateTimer = 1.1f;
+            walkingToDoor = false;
+            celebrateTimer = 0.75f;
         }
 
         public void ResetCommuter()
         {
             boarded = false;
+            walkingToDoor = false;
             celebrateTimer = 0f;
             gameObject.SetActive(true);
             transform.localScale = Vector3.one;
-            if (cachedRest) AnimateIdle(instant: true);
+            if (cachedRest)
+            {
+                transform.SetPositionAndRotation(initialHomePos, initialHomeRot);
+                AnimateIdle(instant: true);
+            }
         }
 
         private void Update()
@@ -118,6 +137,27 @@ namespace KenyaStreetSim
                 {
                     gameObject.SetActive(false);
                 }
+                return;
+            }
+
+            // Waiting 3D Kenyan passenger actively walking right through the open bus door!
+            if (walkingToDoor)
+            {
+                Vector3 toDoor = doorTargetPos - transform.position;
+                toDoor.y = 0f;
+                float dDoor = toDoor.magnitude;
+                if (dDoor < 0.85f)
+                {
+                    boarded = true;
+                    walkingToDoor = false;
+                    gameObject.SetActive(false);
+                    KenyaStreetAudio.Instance?.PlayPickupBlip();
+                    return;
+                }
+                Vector3 stepDir = toDoor.normalized;
+                transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(stepDir, Vector3.up), Time.deltaTime * 10f);
+                transform.position += stepDir * (Mathf.Max(2.2f, walkSpeed * 1.65f) * Time.deltaTime);
+                AnimateWalk();
                 return;
             }
 

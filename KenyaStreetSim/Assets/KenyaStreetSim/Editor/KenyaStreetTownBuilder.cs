@@ -30,8 +30,10 @@ namespace KenyaStreetSim.Editor
         private const string IsuzuFrrAssetPath = "Assets/KenyaStreetSim/ImportedModels/Fleet/Isuzu_FRR_Kenyan.glb";
         private const string IsuzuTxAssetPath = "Assets/KenyaStreetSim/ImportedModels/Fleet/Isuzu_TX_Lorry.glb";
         private const string MarcopoloG7AssetPath = "Assets/KenyaStreetSim/ImportedModels/Fleet/Marcopolo_G7_Volvo.glb";
+        private const string MarcopoloExpressAssetPath = "Assets/KenyaStreetSim/ImportedModels/Fleet/Marcopolo_G7_1200_Express.glb";
         private const string YutongEts2AssetPath = "Assets/KenyaStreetSim/ImportedModels/Fleet/Yutong_ZK6888H_ETS2.glb";
         private const string RangeRoverAssetPath = "Assets/KenyaStreetSim/ImportedModels/Fleet/RangeRover_Sport_2018.fbx";
+        private const string RealCoachHornAssetPath = "Assets/KenyaStreetSim/Audio/CoachAirHorn_Real.ogg";
         private const string ImportedVehiclesFolder = "Assets/KenyaStreetSim/ImportedModels/Vehicles";
         private const string ImportedPeopleFolder = "Assets/KenyaStreetSim/ImportedModels/People";
 
@@ -103,8 +105,11 @@ namespace KenyaStreetSim.Editor
             // 5. Highway Acacia Savanna, Kericho/Kakamega Highlands & Coastal/Lakeside Palm Trees along corridors
             BuildHighwayBiomeFoliage(worldRoot.transform);
 
-            // 6. 60+ Real 3D Spline-Following LHT Passing Kenyan Vehicles across ALL 8 Highways!
+            // 6. Town-Weighted Anti-Jam Passing Traffic (More Diverse Cars in Major Towns, Lighter Rural Highways!)
             int trafficCount = BuildFullKenyaSplineTraffic(worldRoot.transform);
+
+            // 6b. 4 Authentic Kenyan Police Highway Roadblocks (Officer Walks Around Vehicle & Waves You Through!)
+            int roadblockCount = KenyaPoliceRoadblockBuilder.BuildAllRoadblocks(worldRoot.transform);
 
             // 7. Real 3D Animated Sidewalk & Zebra Pedestrians in Nairobi CBD + Regional Towns
             BuildNairobiPedestrians(worldRoot.transform, nairobiLight);
@@ -184,9 +189,20 @@ namespace KenyaStreetSim.Editor
                 fleetList[fi].gameObject.SetActive(false);
             }
 
-            // 9. Runtime Systems: Audio, Time of Day, ETS2 HUD, Interactive [M] Full Kenya Map, Game Loop
+            // 9. Runtime Systems: Real Vehicle Audio, Dynamic Rain/Clouds Weather, 3D GPS Guide, Time of Day, HUD, Interactive Map, Game Loop
             var sysRoot = new GameObject("KenyaStreetSystems");
-            sysRoot.AddComponent<KenyaStreetAudio>();
+            var audioSys = sysRoot.AddComponent<KenyaStreetAudio>();
+            var realHornClip = AssetDatabase.LoadAssetAtPath<AudioClip>(RealCoachHornAssetPath);
+            if (realHornClip != null) audioSys.realCoachHornClip = realHornClip;
+
+            var weatherSys = sysRoot.AddComponent<KenyaWeatherSystem>();
+            if (matCache.TryGetValue("KenyaHighwayTarmac", out var tarmacMat))
+            {
+                weatherSys.highwayTarmacMaterial = tarmacMat;
+            }
+            weatherSys.sunLight = sunLight;
+
+            sysRoot.AddComponent<KenyaGpsRouteGuide>();
 
             var tod = sysRoot.AddComponent<KenyaTimeOfDay>();
             tod.sunLight = sunLight;
@@ -216,7 +232,7 @@ namespace KenyaStreetSim.Editor
             int defaultMatCount = CountDefaultMaterials();
             int housesOnRoad = AuditHousesOnRoad(worldRoot.transform);
             int pedCount = Object.FindObjectsByType<KenyaPedestrianAI>().Length;
-            return $"Built 16-Town Kenya ENA Coach Map ({ScenePath}) | Towns={KenyaNetworkData.Hubs.Length} | Highways={KenyaNetworkData.Highways.Length} | Roundabouts={KenyaNetworkData.Roundabouts.Length} | Vehicles={trafficCount} (3D={importedVehiclePrefabs.Count}) | People={pedCount} (3D={importedPeoplePrefabs.Count}) | Renderers={meshCount} | HousesOnRoad={housesOnRoad} | DefaultMaterials={defaultMatCount} | SpeedBumps=0";
+            return $"Built 16-Town Kenya ENA Coach Map ({ScenePath}) | Towns={KenyaNetworkData.Hubs.Length} | Highways={KenyaNetworkData.Highways.Length} | Roundabouts={KenyaNetworkData.Roundabouts.Length} | Roadblocks={roadblockCount} | Vehicles={trafficCount} (3D={importedVehiclePrefabs.Count}) | People={pedCount} (3D={importedPeoplePrefabs.Count}) | Renderers={meshCount} | HousesOnRoad={housesOnRoad} | DefaultMaterials={defaultMatCount} | SpeedBumps=0";
         }
 
         private static void DiscoverImportedModels()
@@ -1168,67 +1184,112 @@ namespace KenyaStreetSim.Editor
             var matHeadlight = GetMat("HeadlightWarm", Palette.HeadlightWarm, 0.85f, 0f, Palette.HeadlightWarm * 2.6f);
             var matTail = GetMat("TaillightRed", Palette.TaillightRed, 0.65f, 0f, Palette.TaillightRed * 1.6f);
 
-            // Load the user's REAL HIGH-DETAIL 3D KENYAN VEHICLES for live passing traffic across all 8 highways!
+            // Load the user's REAL HIGH-DETAIL 3D KENYAN VEHICLES for open rural inter-town highways!
             var realTrafficCatalog = new List<(GameObject prefab, float targetLen, float extraYaw, bool remapFbxUrp)>();
             var rrPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(RangeRoverAssetPath);
             var frrPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(IsuzuFrrAssetPath);
             var txPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(IsuzuTxAssetPath);
             var g7Prefab = AssetDatabase.LoadAssetAtPath<GameObject>(MarcopoloG7AssetPath);
+            var g7ExpPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(MarcopoloExpressAssetPath);
             var yutongPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(YutongEts2AssetPath);
 
             if (rrPrefab != null) realTrafficCatalog.Add((rrPrefab, 4.88f, 90f, true));
             if (frrPrefab != null) realTrafficCatalog.Add((frrPrefab, 7.90f, 0f, false));
-            if (rrPrefab != null) realTrafficCatalog.Add((rrPrefab, 4.88f, 90f, true)); // Extra Nairobi SUVs!
+            if (yutongPrefab != null) realTrafficCatalog.Add((yutongPrefab, 9.85f, 0f, false));
             if (txPrefab != null) realTrafficCatalog.Add((txPrefab, 7.50f, 0f, false));
-            if (yutongPrefab != null) realTrafficCatalog.Add((yutongPrefab, 9.85f, 0f, false)); // Real converted ETS2 Yutong Coach!
+            if (g7ExpPrefab != null) realTrafficCatalog.Add((g7ExpPrefab, 13.4f, 180f, false));
             if (g7Prefab != null) realTrafficCatalog.Add((g7Prefab, 13.4f, 180f, false));
 
-            // 44 Real High-Detail 3D Passing Kenyan Vehicles distributed smoothly across ALL 8 highways (incl. Nairobi CBD!)
-            int[] perDirectionPerHighway = { 2, 3, 2, 2, 3, 3, 2, 5 };
+            // A) SPARSE SMOOTH RURAL INTER-TOWN HIGHWAY TRAFFIC (Reduced density outside major towns -> ZERO traffic jams!)
+            int[] ruralPerDir = { 1, 2, 1, 1, 1, 2, 1, 2 };
             int seed = 0;
             int totalSpawned = 0;
 
             for (int h = 0; h < KenyaNetworkData.Highways.Length; h++)
             {
-                int count = h < perDirectionPerHighway.Length ? perDirectionPerHighway[h] : 2;
+                int count = h < ruralPerDir.Length ? ruralPerDir[h] : 1;
                 for (int dir = 0; dir < 2; dir++)
                 {
                     bool fwd = (dir == 0);
                     for (int k = 0; k < count; k++)
                     {
-                        float progress = (k + 0.35f) / count;
-                        if (h == 0 && fwd && progress < 0.42f) progress = 0.56f; // clear player start in Nairobi CBD
+                        float progress = (k + 0.42f) / count;
+                        if (h == 0 && fwd && progress < 0.48f) progress = 0.62f; // clear player start in Nairobi CBD
 
                         KenyaSplineTraffic ai;
-                        if (realTrafficCatalog.Count > 0 && (seed % 5 != 4))
+                        if (realTrafficCatalog.Count > 0 && (seed % 4 != 3))
                         {
                             var entry = realTrafficCatalog[seed % realTrafficCatalog.Count];
                             ai = CreateHighDetailKenyanTrafficVehicle(
-                                root, $"Real3DTraffic_H{h}_{(fwd ? "F" : "R")}_{k}_{entry.prefab.name}",
+                                root, $"RuralHighway_H{h}_{(fwd ? "F" : "R")}_{k}_{entry.prefab.name}",
                                 entry.prefab, entry.targetLen, entry.extraYaw, entry.remapFbxUrp, seed, matTire, matRim, matGlass, matHeadlight, matTail);
                             seed++;
                         }
-                        else if (realTrafficCatalog.Count > 0)
-                        {
-                            // Authentic Kenyan 14-Seater PSV Matatu (yellow belt + sculpted body) mixed into real 3D highway traffic!
-                            ai = CreateSplineTrafficVehicle(root, $"KenyaMatatuPSV_H{h}_{(fwd ? "F" : "R")}_{k}", 0, seed++, matTire, matRim, matGlass, matHeadlight, matTail);
-                        }
-                        else if (importedVehiclePrefabs != null && importedVehiclePrefabs.Count > 0)
-                        {
-                            var prefab = importedVehiclePrefabs[(seed++) % importedVehiclePrefabs.Count];
-                            ai = CreateReal3DTrafficVehicle(root, $"Kenya3DVehicle_H{h}_{(fwd ? "F" : "R")}_{k}_{prefab.name}", prefab);
-                        }
                         else
                         {
-                            int kind = (seed++) % 3;
-                            ai = CreateSplineTrafficVehicle(root, $"KenyaTraffic_H{h}_{(fwd ? "F" : "R")}_{k}", kind, seed, matTire, matRim, matGlass, matHeadlight, matTail);
+                            // Authentic Kenyan 14-Seater PSV Matatu mixed onto rural corridors!
+                            ai = CreateSplineTrafficVehicle(root, $"KenyaMatatuPSV_H{h}_{(fwd ? "F" : "R")}_{k}", 0, seed++, matTire, matRim, matGlass, matHeadlight, matTail);
                         }
 
                         ai.highwayIndex = h;
                         ai.forwardDirection = fwd;
                         ai.startNormalizedProgress = progress;
                         ai.laneOffsetMeters = 3.45f;
-                        ai.cruiseSpeed = (h == 0 ? 10.0f : 14.5f) + (seed % 4) * 1.4f;
+                        ai.cruiseSpeed = (h == 0 ? 11.5f : 15.8f) + (seed % 4) * 1.4f;
+                        totalSpawned++;
+                    }
+                }
+            }
+
+            // B) LIVELY DIVERSE MAJOR-TOWN CITY CAR CLUSTERS (More varied free 3D cars INSIDE Nairobi, Nakuru, Kisumu, Eldoret & Mombasa!)
+            // Mixes ALL 10 textured CC0 Kenney 3D Car Kit vehicles (sedan, suv, suv-luxury, hatchback-sports, taxi, van, delivery, truck, ambulance, police)
+            // + Range Rovers + Kenyan Matatus circulating smoothly inside major Kenyan town sub-segments!
+            (string townTag, int highwayIdx, float minN, float maxN, int perDir)[] majorTownClusters =
+            {
+                ("NairobiCBD", 0, 0.08f, 0.94f, 3),
+                ("NakuruCity", 3, 0.62f, 0.96f, 2),
+                ("KisumuCity", 4, 0.60f, 0.95f, 2),
+                ("EldoretCity", 5, 0.28f, 0.62f, 2),
+                ("MombasaCity", 7, 0.56f, 0.84f, 3)
+            };
+
+            for (int c = 0; c < majorTownClusters.Length; c++)
+            {
+                var cl = majorTownClusters[c];
+                for (int dir = 0; dir < 2; dir++)
+                {
+                    bool fwd = (dir == 0);
+                    for (int k = 0; k < cl.perDir; k++)
+                    {
+                        float localProg = (k + 0.30f) / cl.perDir;
+                        // Keep immediate player spawn zone in Nairobi CBD forward lane completely clear
+                        if (cl.highwayIdx == 0 && fwd && localProg < 0.45f) localProg = 0.52f + k * 0.16f;
+
+                        KenyaSplineTraffic ai;
+                        if (importedVehiclePrefabs != null && importedVehiclePrefabs.Count > 0 && (seed % 6 != 5))
+                        {
+                            var prefab = importedVehiclePrefabs[(seed++) % importedVehiclePrefabs.Count];
+                            ai = CreateReal3DTrafficVehicle(root, $"TownCar_{cl.townTag}_{(fwd ? "F" : "R")}_{k}_{prefab.name}", prefab);
+                        }
+                        else if (rrPrefab != null && (seed % 2 == 0))
+                        {
+                            ai = CreateHighDetailKenyanTrafficVehicle(
+                                root, $"TownSUV_{cl.townTag}_{(fwd ? "F" : "R")}_{k}_RangeRover",
+                                rrPrefab, 4.88f, 90f, true, seed++, matTire, matRim, matGlass, matHeadlight, matTail);
+                        }
+                        else
+                        {
+                            ai = CreateSplineTrafficVehicle(root, $"TownMatatu_{cl.townTag}_{(fwd ? "F" : "R")}_{k}", 0, seed++, matTire, matRim, matGlass, matHeadlight, matTail);
+                        }
+
+                        ai.highwayIndex = cl.highwayIdx;
+                        ai.forwardDirection = fwd;
+                        ai.limitToSubRange = true;
+                        ai.rangeMinNorm = fwd ? cl.minN : (1f - cl.maxN);
+                        ai.rangeMaxNorm = fwd ? cl.maxN : (1f - cl.minN);
+                        ai.startNormalizedProgress = Mathf.Repeat(localProg, 1f);
+                        ai.laneOffsetMeters = 3.45f;
+                        ai.cruiseSpeed = 11.2f + (seed % 4) * 1.2f;
                         totalSpawned++;
                     }
                 }
@@ -2009,14 +2070,23 @@ namespace KenyaStreetSim.Editor
                 cockpitCam.localRotation = Quaternion.Euler(9.0f, 0f, 0f);
                 ctrl.cockpitCameraAnchor = cockpitCam;
 
-                // Sleek compact Live 3D Dashboard Telemetry Strip tucked cleanly on top of the Scania dash (never blocks steering wheel!)
+                // Sleek compact Live 3D Dashboard Telemetry Strip tucked cleanly on center dash beside the analog cluster!
                 var dashPod = new GameObject("ScaniaLiveDashTelemetry").transform;
                 dashPod.SetParent(body, false);
-                dashPod.localPosition = new Vector3(-0.56f, 1.78f, 6.76f);
-                dashPod.localRotation = Quaternion.Euler(16f, 0f, 0f);
+                dashPod.localPosition = new Vector3(-0.08f, 1.79f, 6.72f);
+                dashPod.localRotation = Quaternion.Euler(14f, -12f, 0f);
                 CreateBox("DashPodBezel", dashPod, Vector3.zero, new Vector3(0.38f, 0.11f, 0.025f), matBlack, false);
                 var dashSpeedTmp = CreateWorldSignText("DashSpeedTxt", dashPod, "00 km/h | G:N", new Vector3(0f, 0.024f, -0.018f), new Vector2(0.36f, 0.055f), 0.34f, Palette.UiAccentGreen, Quaternion.identity, noWrap: true);
                 var dashStatusTmp = CreateWorldSignText("DashStatusTxt", dashPod, "ENA GPS OK\nNAIROBI CBD", new Vector3(0f, -0.025f, -0.018f), new Vector2(0.36f, 0.055f), 0.22f, Palette.UiAccentAmber, Quaternion.identity, noWrap: false);
+
+                // Real 3D Analog Speedo/RPM Cluster (centered cleanly through upper steering wheel!) + Dual Animated 3D Windshield Wipers + Animated Left Pneumatic Passenger Door!
+                var matEnaDoorAccent = GetMat("EnaSkirtRedGloss", Palette.EnaSkirtRed, 0.72f, 0.10f);
+                var matEnaClearGlass = GetTransparentGlassMat("ScaniaCrystalWindshield", new Color(0.86f, 0.94f, 1f, 0.14f));
+                KenyaVehicleFeaturesBuilder.AttachRealDashWipersAndDoor(
+                    root, body, body, new Vector3(-0.60f, 1.75f, 6.64f),
+                    body, new Vector3(0f, 1.72f, 7.20f), 0.54f, 0.58f,
+                    halfW: 1.28f, halfL: 7.28f, isCoach: true, isPoliceLC79: true, // isPoliceLC79=true suppresses extra cowl box since Scania has its own real 3D nose!
+                    matBlack, matChrome, matEnaDoorAccent, matEnaClearGlass);
 
                 // BOTH WORKING LIVE REAR-VIEW SIDE MIRRORS (Exterior Mirrors + Scania 2026 Left & Right A-Pillar Digital Mirror Monitors!)
                 var mirrorLGlass = BuildLiveSideMirrorHousing(body, "LiveMirrorLeft",  new Vector3(-1.58f, 2.06f, 6.90f), new Vector3(-1.26f, 2.16f, 6.72f), new Vector3(0f, 24f, 0f),  new Vector2(0.24f, 0.48f), matBlack, matChrome);
@@ -2278,9 +2348,19 @@ namespace KenyaStreetSim.Editor
             cockpitRig.localPosition = new Vector3(0f, cabEyeY - 0.54f, cabFrontZ);
 
             CreateBox("ModDashDeck", cockpitRig, new Vector3(0f, 0f, 0.12f), new Vector3(halfW * 1.72f, 0.34f, 0.46f), matInterior, false);
-            CreateBox("ModDashHood", cockpitRig, new Vector3(0.42f, 0.28f, 0.08f), new Vector3(0.56f, 0.20f, 0.28f), matBlack, false);
-            var modSpeedTmp = CreateWorldSignText("ModDashSpeed", cockpitRig, "00 km/h | G:N", new Vector3(0.42f, 0.32f, -0.07f), new Vector2(0.48f, 0.07f), 0.38f, Palette.UiAccentGreen, Quaternion.identity, noWrap: true);
-            var modStatusTmp = CreateWorldSignText("ModDashStatus", cockpitRig, $"{plateNum}\nKENYA GPS", new Vector3(0.42f, 0.24f, -0.07f), new Vector2(0.48f, 0.08f), 0.24f, Palette.UiAccentAmber, Quaternion.identity, noWrap: false);
+            CreateBox("ModDashHood", cockpitRig, new Vector3(0.42f, 0.28f, 0.08f), new Vector3(0.56f, 0.22f, 0.28f), matBlack, false);
+            var modSpeedTmp = CreateWorldSignText("ModDashSpeed", cockpitRig, "00 km/h | G:N", new Vector3(0.42f, 0.36f, -0.07f), new Vector2(0.48f, 0.06f), 0.34f, Palette.UiAccentGreen, Quaternion.identity, noWrap: true);
+            var modStatusTmp = CreateWorldSignText("ModDashStatus", cockpitRig, $"{plateNum} • KENYA GPS", new Vector3(0.42f, 0.31f, -0.07f), new Vector2(0.48f, 0.05f), 0.22f, Palette.UiAccentAmber, Quaternion.identity, noWrap: true);
+
+            // Real Analog Speedo/RPM Needles + Visible Front Nose Cowl + Sweeping 3D Wipers + Animated Left Curb Passenger Door!
+            var matModAccent = isCoach
+                ? GetMat("EnaSkirtRedGloss", Palette.EnaSkirtRed, 0.72f, 0.10f)
+                : GetMat("IsuzuDoorBlue", Palette.Hex("#1A5296"), 0.65f, 0.15f);
+            KenyaVehicleFeaturesBuilder.AttachRealDashWipersAndDoor(
+                root, body, cockpitRig, new Vector3(0.42f, 0.20f, -0.075f),
+                cockpitRig, new Vector3(0.10f, 0.22f, 0.38f), 0.44f, 0.58f,
+                halfW: halfW, halfL: halfL, isCoach: isCoach, isPoliceLC79: false,
+                matBlack, matChrome, matModAccent, matClearGlass);
 
             var steerPivot = new GameObject("SteeringWheelPivot").transform;
             steerPivot.SetParent(cockpitRig, false);

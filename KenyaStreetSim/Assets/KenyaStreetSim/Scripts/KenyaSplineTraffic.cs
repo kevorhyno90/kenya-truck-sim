@@ -17,18 +17,29 @@ namespace KenyaStreetSim
         public float startNormalizedProgress;
         public float laneOffsetMeters = 3.4f;
 
+        [Header("Town-Weighted Local Circulation")]
+        [Tooltip("When true, vehicle circulates briskly within a major Kenyan town segment rather than entire rural highway")]
+        public bool limitToSubRange;
+        [Range(0f, 1f)] public float rangeMinNorm = 0f;
+        [Range(0f, 1f)] public float rangeMaxNorm = 1f;
+
         [Header("Driving")]
         public float cruiseSpeed = 14.5f;
         public float vehicleHalfLength = 2.6f;
-        public float safeStopDistance = 8.5f;
+        public float safeStopDistance = 7.5f;
         public float wheelRadius = 0.36f;
         public Transform[] wheelVisuals;
 
         private Vector3[] pathPoints;
         private float[] cumulativeDist;
         private float totalLength;
+        private float minDist;
+        private float maxDist;
         private float currentDist;
         private float currentSpeed;
+        private float stuckTimer;
+        private float lateralBypassOffset;
+        private bool bypassing;
 
         private void Start()
         {
@@ -51,8 +62,20 @@ namespace KenyaStreetSim
                 return;
             }
 
-            currentDist = Mathf.Repeat(startNormalizedProgress, 1f) * totalLength;
-            currentSpeed = cruiseSpeed * 0.75f;
+            if (limitToSubRange && rangeMaxNorm > rangeMinNorm + 0.02f)
+            {
+                minDist = Mathf.Clamp01(rangeMinNorm) * totalLength;
+                maxDist = Mathf.Clamp01(rangeMaxNorm) * totalLength;
+                currentDist = Mathf.Lerp(minDist, maxDist, Mathf.Repeat(startNormalizedProgress, 1f));
+            }
+            else
+            {
+                minDist = 0f;
+                maxDist = totalLength;
+                currentDist = Mathf.Repeat(startNormalizedProgress, 1f) * totalLength;
+            }
+
+            currentSpeed = cruiseSpeed * 0.85f;
             EvaluatePose(currentDist, out Vector3 p, out Quaternion rot);
             transform.SetPositionAndRotation(p, rot);
         }
@@ -88,31 +111,70 @@ namespace KenyaStreetSim
             if (pathPoints == null || totalLength < 10f) return;
 
             float targetSpeed = cruiseSpeed;
+            bool redLightStop = (highwayIndex == 0 && ShouldStopForNairobiLight());
+            float obstacleDist = float.MaxValue;
+            bool obstacleAhead = !bypassing && CheckObstacleAhead(out obstacleDist);
 
-            // Check obstacle ahead (player bus, other AI cars, pedestrians)
-            if (CheckObstacleAhead(out float obstacleDist))
+            if (obstacleAhead)
             {
-                float ratio = Mathf.InverseLerp(safeStopDistance * 0.45f, safeStopDistance * 2.0f, obstacleDist);
+                float ratio = Mathf.InverseLerp(safeStopDistance * 0.35f, safeStopDistance * 1.7f, obstacleDist);
                 targetSpeed = cruiseSpeed * ratio;
-                if (obstacleDist < safeStopDistance * 0.60f) targetSpeed = 0f;
+                if (obstacleDist < safeStopDistance * 0.50f) targetSpeed = 0f;
             }
 
-            // Obey Nairobi CBD intersection traffic light when on Highway 0
-            if (highwayIndex == 0 && ShouldStopForNairobiLight())
+            if (redLightStop)
             {
                 targetSpeed = 0f;
             }
 
-            float accelRate = targetSpeed < currentSpeed ? 14f : 6f;
+            // Anti-Traffic-Jam Deadlock Recovery: vehicles NEVER sit frozen blocking Kenyan highways!
+            if (!redLightStop && targetSpeed < 2.2f)
+            {
+                stuckTimer += Time.deltaTime;
+                if (stuckTimer > 2.6f)
+                {
+                    bypassing = true;
+                    targetSpeed = Mathf.Max(6.5f, cruiseSpeed * 0.65f);
+                }
+                if (stuckTimer > 6.5f)
+                {
+                    // Cleanly skip past deadlock pocket so zero traffic jams ever accumulate
+                    currentDist += 38f;
+                    stuckTimer = 0f;
+                    bypassing = false;
+                }
+            }
+            else
+            {
+                stuckTimer = Mathf.MoveTowards(stuckTimer, 0f, Time.deltaTime * 1.6f);
+                if (bypassing && stuckTimer < 0.25f)
+                {
+                    bypassing = false;
+                }
+            }
+
+            float targetBypass = bypassing ? 2.85f : 0f;
+            lateralBypassOffset = Mathf.MoveTowards(lateralBypassOffset, targetBypass, Time.deltaTime * 2.4f);
+
+            float accelRate = targetSpeed < currentSpeed ? 14f : 7.5f;
             currentSpeed = Mathf.MoveTowards(currentSpeed, targetSpeed, accelRate * Time.deltaTime);
 
             currentDist += currentSpeed * Time.deltaTime;
-            if (currentDist >= totalLength)
+            float span = Mathf.Max(20f, maxDist - minDist);
+            if (currentDist >= maxDist)
             {
-                currentDist -= totalLength;
+                currentDist = minDist + Mathf.Repeat(currentDist - minDist, span);
+            }
+            else if (currentDist < minDist)
+            {
+                currentDist = minDist;
             }
 
             EvaluatePose(currentDist, out Vector3 pos, out Quaternion rot);
+            if (Mathf.Abs(lateralBypassOffset) > 0.02f)
+            {
+                pos += (rot * Vector3.right) * lateralBypassOffset;
+            }
             transform.position = pos;
             transform.rotation = Quaternion.Slerp(transform.rotation, rot, Time.deltaTime * 10f);
 
@@ -168,31 +230,55 @@ namespace KenyaStreetSim
             return false;
         }
 
+        private static readonly RaycastHit[] CastHits = new RaycastHit[12];
+
         private bool CheckObstacleAhead(out float nearestDist)
         {
             nearestDist = float.MaxValue;
             Vector3 fwd = transform.forward;
-            Vector3 origin = transform.position + Vector3.up * 1.05f + fwd * (vehicleHalfLength + 0.4f);
-            float checkRange = safeStopDistance * 2.0f;
+            Vector3 right = transform.right;
+            Vector3 origin = transform.position + Vector3.up * 1.05f + fwd * (vehicleHalfLength + 0.45f);
+            float checkRange = safeStopDistance * 1.75f;
 
-            if (Physics.BoxCast(
-                    origin,
-                    new Vector3(0.95f, 0.7f, 0.25f),
-                    fwd,
-                    out RaycastHit hit,
-                    transform.rotation,
-                    checkRange,
-                    ~0,
-                    QueryTriggerInteraction.Ignore))
+            int count = Physics.BoxCastNonAlloc(
+                origin,
+                new Vector3(0.85f, 0.65f, 0.25f),
+                fwd,
+                CastHits,
+                transform.rotation,
+                checkRange,
+                ~0,
+                QueryTriggerInteraction.Ignore);
+
+            bool found = false;
+            for (int i = 0; i < count; i++)
             {
-                if (!hit.transform.IsChildOf(transform))
+                var hit = CastHits[i];
+                if (hit.transform == null || hit.transform.IsChildOf(transform)) continue;
+
+                // Only yield to vehicles actually in our SAME lane & direction (never freeze for oncoming traffic or roadside scenery!)
+                var otherTraffic = hit.collider.GetComponentInParent<KenyaSplineTraffic>();
+                if (otherTraffic != null)
                 {
-                    nearestDist = hit.distance;
-                    return true;
+                    if (otherTraffic == this) continue;
+                    float align = Vector3.Dot(otherTraffic.transform.forward, fwd);
+                    if (align < 0.45f) continue; // Ignore oncoming opposite-lane vehicles!
+                    float lat = Mathf.Abs(Vector3.Dot(otherTraffic.transform.position - transform.position, right));
+                    if (lat > 2.35f) continue;   // Ignore adjacent lane!
+                    if (hit.distance < nearestDist) { nearestDist = hit.distance; found = true; }
+                    continue;
+                }
+
+                var playerVeh = hit.collider.GetComponentInParent<KenyaStreetVehicle>();
+                if (playerVeh != null)
+                {
+                    float lat = Mathf.Abs(Vector3.Dot(playerVeh.transform.position - transform.position, right));
+                    if (lat > 2.55f) continue;   // Player is in opposite lane or shoulder — keep flowing!
+                    if (hit.distance < nearestDist) { nearestDist = hit.distance; found = true; }
                 }
             }
 
-            return false;
+            return found;
         }
     }
 }

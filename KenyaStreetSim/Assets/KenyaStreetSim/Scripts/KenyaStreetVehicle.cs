@@ -513,7 +513,7 @@ namespace KenyaStreetSim
                 if (kb.aKey.isPressed || kb.leftArrowKey.isPressed) steer -= 1f;
                 handbrake = kb.spaceKey.isPressed;
                 horn = kb.hKey.wasPressedThisFrame;
-                reset = kb.rKey.wasPressedThisFrame;
+                reset = kb.backspaceKey.wasPressedThisFrame;
                 leftSig = kb.qKey.wasPressedThisFrame;
                 rightSig = kb.eKey.wasPressedThisFrame;
                 hazardSig = kb.zKey.wasPressedThisFrame;
@@ -524,7 +524,7 @@ namespace KenyaStreetSim
             steer = Input.GetAxis("Horizontal");
             handbrake = Input.GetKey(KeyCode.Space);
             horn = Input.GetKeyDown(KeyCode.H);
-            reset = Input.GetKeyDown(KeyCode.R);
+            reset = Input.GetKeyDown(KeyCode.Backspace);
             leftSig = Input.GetKeyDown(KeyCode.Q);
             rightSig = Input.GetKeyDown(KeyCode.E);
             hazardSig = Input.GetKeyDown(KeyCode.Z);

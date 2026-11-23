@@ -25,13 +25,16 @@ namespace KenyaStreetSim
         private GameObject pauseScreen;
         private GameObject endScreen;
 
-        // Title controls: 4 Selectable Game Modes + 5 Playable Kenyan Mod Vehicles
+        // Title controls: 4 Selectable Game Modes + 6 Playable Kenyan Mod Vehicles + 8 Kenyan Bus/Parcel Routes
         private TextMeshProUGUI titlePromptText;
         private TextMeshProUGUI modeDescText;
+        private TextMeshProUGUI routeTitleText;
+        private TextMeshProUGUI routeSubText;
         private Button[] modeSelectButtons;
         private Button[] vehicleSelectButtons;
 
         // Gameplay HUD widgets
+        private TextMeshProUGUI gpsGuideText;
         private TextMeshProUGUI stageLabelText;
         private TextMeshProUGUI nextStageDistText;
         private Image routeFillBar;
@@ -196,14 +199,21 @@ namespace KenyaStreetSim
                     string tod = KenyaTimeOfDay.Instance != null
                         ? KenyaTimeOfDay.Instance.CurrentPreset.ToString().ToUpperInvariant()
                         : "DAY";
-                    string beam = veh.HeadlightsOn ? "BEAMS ON" : "BEAMS OFF";
-                    lightsTodStatusText.text = $"{beam} [L]   •   {tod} [T]";
+                    string weather = (KenyaWeatherSystem.Instance != null && KenyaWeatherSystem.Instance.IsRaining) ? "RAIN" : "CLEAR";
+                    var doorSys = veh.GetComponent<KenyaVehicleDoorAndWipers>();
+                    string door = (doorSys != null && doorSys.DoorOpen) ? "OPEN[O]" : (veh.HeadlightsOn ? "BEAMS" : "LIGHTS");
+                    lightsTodStatusText.text = $"{door} • {weather}[R] • {tod}[T]";
                 }
                 if (vehicleBadgeText != null)
                     vehicleBadgeText.text = $"{veh.displayName}  •  [V] Switch";
             }
 
-            int totalStages = loop.stages != null ? loop.stages.Length : 16;
+            if (gpsGuideText != null && KenyaGpsRouteGuide.Instance != null)
+            {
+                gpsGuideText.text = KenyaGpsRouteGuide.Instance.CurrentInstruction;
+            }
+
+            int totalStages = loop.RouteTotalStops;
             if (stageLabelText != null)
             {
                 stageLabelText.text = $"{loop.ModeObjectiveNoun}  {loop.CompletedStageCount} / {totalStages}";
@@ -268,7 +278,7 @@ namespace KenyaStreetSim
             if (loop == null) return;
 
             targetKes = loop.TotalKesEarned;
-            int totalStages = loop.stages != null && loop.stages.Length > 0 ? loop.stages.Length : 4;
+            int totalStages = Mathf.Max(1, loop.RouteTotalStops);
             targetRouteFill = Mathf.Clamp01((float)loop.CompletedStageCount / totalStages);
 
             if (routeBarRoutine != null) StopCoroutine(routeBarRoutine);
@@ -505,9 +515,17 @@ namespace KenyaStreetSim
                 {
                     StreetGameLoop.GameMode.EnaCoachCareer => "ENA COACH CAREER: Pick up commuters across 16 Kenyan towns, obey traffic & earn KES fares!",
                     StreetGameLoop.GameMode.KenyaPolicePatrol => "KENYA POLICE PATROL: Drive KCP 380D Land Cruiser 79, activate [G] Flashing Lightbar & Siren, respond to 16 highway checkpoints!",
-                    StreetGameLoop.GameMode.IsuzuCargoHaul => "ISUZU CARGO HAUL: Transport Kenyan freight between regional depots in the Real 3D Kenyan Isuzu FRR & Isuzu TX Lorry!",
+                    StreetGameLoop.GameMode.IsuzuCargoHaul => "ISUZU CARGO HAUL: Transport Kenyan freight & FRR Parcels between regional depots in the Real 3D Kenyan Isuzu FRR & TX Lorry!",
                     _ => "FREE ROAM KENYA: Open-world drive across all 16 Kenyan towns & 8 highways with ZERO safety penalties — switch vehicles anytime [V]!"
                 };
+            }
+            if (routeTitleText != null && loop != null)
+            {
+                var r = loop.ActiveRoute;
+                string badge = r.kind == KenyaRouteCatalog.RouteKind.FrrParcelCargo ? "FRR PARCEL ROUTE"
+                             : (r.kind == KenyaRouteCatalog.RouteKind.GrandKenyaTour ? "16-TOWN TOUR" : "KENYA BUS ROUTE");
+                routeTitleText.text = $"{badge}:  {r.shortName}   ({r.stopHubIndices.Length} STOPS  •  +KES {r.bonusKes:N0})";
+                if (routeSubText != null) routeSubText.text = r.highwaySummary;
             }
         }
 
@@ -579,14 +597,14 @@ namespace KenyaStreetSim
             StretchRect(subTmp.rectTransform, 20f, 12f, -20f, -96f);
 
             // Row 1: 4 Selectable Game Modes Panel
-            var modeCard = CreateBorderedAnchoredPanel("GameModeSelector", tr, new Vector2(0.5f, 0.35f), new Vector2(1180f, 114f), Palette.Hex("#161D28"), Palette.UiPanelBorder, 2f);
-            var modeHeader = CreateText("ModeHeader", modeCard, "SELECT GAME MODE", 15f, FontStyles.Bold, Palette.UiAccentAmber, TextAlignmentOptions.Left);
-            SetBox(modeHeader.rectTransform, 18f, -8f, 300f, 20f, new Vector2(0f, 1f));
+            var modeCard = CreateBorderedAnchoredPanel("GameModeSelector", tr, new Vector2(0.5f, 0.395f), new Vector2(1180f, 96f), Palette.Hex("#161D28"), Palette.UiPanelBorder, 2f);
+            var modeHeader = CreateText("ModeHeader", modeCard, "SELECT GAME MODE", 14.5f, FontStyles.Bold, Palette.UiAccentAmber, TextAlignmentOptions.Left);
+            SetBox(modeHeader.rectTransform, 18f, -6f, 300f, 18f, new Vector2(0f, 1f));
 
-            modeDescText = CreateText("ModeDesc", modeCard, "", 14.5f, FontStyles.Normal, Palette.UiTextMuted, TextAlignmentOptions.Right);
+            modeDescText = CreateText("ModeDesc", modeCard, "", 14f, FontStyles.Normal, Palette.UiTextMuted, TextAlignmentOptions.Right);
             modeDescText.textWrappingMode = TextWrappingModes.NoWrap;
             modeDescText.overflowMode = TextOverflowModes.Truncate;
-            SetBox(modeDescText.rectTransform, -18f, -8f, 860f, 20f, new Vector2(1f, 1f));
+            SetBox(modeDescText.rectTransform, -18f, -6f, 860f, 18f, new Vector2(1f, 1f));
 
             string[] modeLabels = { "ENA COACH CAREER", "KENYA POLICE PATROL", "ISUZU CARGO HAUL", "FREE ROAM KENYA" };
             modeSelectButtons = new Button[modeLabels.Length];
@@ -594,19 +612,19 @@ namespace KenyaStreetSim
             {
                 int capturedMode = m;
                 float xPos = -426f + m * 284f;
-                modeSelectButtons[m] = CreateButton($"ModeBtn_{m}", modeCard, modeLabels[m], new Vector2(xPos, -12f), new Vector2(268f, 52f), Palette.UiButtonNormal, Palette.UiTextPrimary, () =>
+                modeSelectButtons[m] = CreateButton($"ModeBtn_{m}", modeCard, modeLabels[m], new Vector2(xPos, -10f), new Vector2(268f, 46f), Palette.UiButtonNormal, Palette.UiTextPrimary, () =>
                 {
                     StreetGameLoop.Instance?.SelectGameMode((StreetGameLoop.GameMode)capturedMode, autoSelectRecommendedVehicle: true);
                     RefreshVehicleSelectorVisuals();
                 });
                 var lbl = modeSelectButtons[m].GetComponentInChildren<TextMeshProUGUI>();
-                if (lbl != null) lbl.fontSize = 17.5f;
+                if (lbl != null) lbl.fontSize = 17f;
             }
 
             // Row 2: Dynamic Selectable Real 3D Kenyan + ETS2 Mod Vehicles Garage
-            var fleetRow = CreateBorderedAnchoredPanel("FleetSelector", tr, new Vector2(0.5f, 0.21f), new Vector2(1380f, 92f), Palette.Hex("#161D28"), Palette.UiPanelBorder, 2f);
-            var fleetHeader = CreateText("FleetHeader", fleetRow, "SELECT VEHICLE / ETS2 MOD  (OR PRESS [V] ANYTIME IN-GAME)", 14.5f, FontStyles.Bold, Palette.UiAccentAmber, TextAlignmentOptions.Left);
-            SetBox(fleetHeader.rectTransform, 18f, -6f, 680f, 18f, new Vector2(0f, 1f));
+            var fleetRow = CreateBorderedAnchoredPanel("FleetSelector", tr, new Vector2(0.5f, 0.285f), new Vector2(1380f, 84f), Palette.Hex("#161D28"), Palette.UiPanelBorder, 2f);
+            var fleetHeader = CreateText("FleetHeader", fleetRow, "SELECT VEHICLE / ETS2 MOD  (OR PRESS [V] ANYTIME IN-GAME)", 14f, FontStyles.Bold, Palette.UiAccentAmber, TextAlignmentOptions.Left);
+            SetBox(fleetHeader.rectTransform, 18f, -5f, 680f, 18f, new Vector2(0f, 1f));
 
             var loopRef = FindAnyObjectByType<StreetGameLoop>();
             int fleetCount = (loopRef != null && loopRef.fleet != null && loopRef.fleet.Length > 0) ? loopRef.fleet.Length : 6;
@@ -633,7 +651,7 @@ namespace KenyaStreetSim
                 }
 
                 float xPos = startX + v * (btnW + gap);
-                vehicleSelectButtons[v] = CreateButton($"SelectVehBtn_{v}", fleetRow, labelText, new Vector2(xPos, -10f), new Vector2(btnW, 48f), Palette.UiButtonNormal, Palette.UiTextPrimary, () =>
+                vehicleSelectButtons[v] = CreateButton($"SelectVehBtn_{v}", fleetRow, labelText, new Vector2(xPos, -9f), new Vector2(btnW, 44f), Palette.UiButtonNormal, Palette.UiTextPrimary, () =>
                 {
                     StreetGameLoop.Instance?.SelectVehicleIndex(capturedVeh);
                     RefreshVehicleSelectorVisuals();
@@ -646,6 +664,34 @@ namespace KenyaStreetSim
                     lbl.overflowMode = TextOverflowModes.Truncate;
                 }
             }
+
+            // Row 3: Selectable Kenyan Bus & FRR Parcel Route Strip (also clickable anytime in [M] Map!)
+            var routeCard = CreateBorderedAnchoredPanel("RouteSelectorCard", tr, new Vector2(0.5f, 0.185f), new Vector2(1180f, 68f), Palette.Hex("#161D28"), Palette.Hex("#14E8FF"), 2f);
+            CreateButton("PrevRouteBtn", routeCard, "◄ PREV ROUTE", new Vector2(-478f, 0f), new Vector2(180f, 44f), Palette.UiButtonNormal, Palette.UiTextPrimary, () =>
+            {
+                if (StreetGameLoop.Instance != null)
+                {
+                    StreetGameLoop.Instance.SelectRoute(StreetGameLoop.Instance.ActiveRouteIndex - 1);
+                    RefreshVehicleSelectorVisuals();
+                }
+            }).GetComponentInChildren<TextMeshProUGUI>().fontSize = 15.5f;
+
+            CreateButton("NextRouteBtn", routeCard, "NEXT ROUTE ►", new Vector2(478f, 0f), new Vector2(180f, 44f), Palette.UiButtonNormal, Palette.UiTextPrimary, () =>
+            {
+                if (StreetGameLoop.Instance != null)
+                {
+                    StreetGameLoop.Instance.SelectRoute(StreetGameLoop.Instance.ActiveRouteIndex + 1);
+                    RefreshVehicleSelectorVisuals();
+                }
+            }).GetComponentInChildren<TextMeshProUGUI>().fontSize = 15.5f;
+
+            routeTitleText = CreateText("RouteTitleText", routeCard, "KENYA BUS ROUTE: NAIROBI – KISII – MIGORI  (5 STOPS)", 17.5f, FontStyles.Bold, Palette.Hex("#14E8FF"), TextAlignmentOptions.Center);
+            routeTitleText.textWrappingMode = TextWrappingModes.NoWrap;
+            SetBox(routeTitleText.rectTransform, 0f, -10f, 760f, 24f, new Vector2(0.5f, 1f));
+
+            routeSubText = CreateText("RouteSubText", routeCard, "CBD → B3 Narok → Bomet → Kisii → A1 Migori/Sirare  •  Guided 3D GPS & PAX/PARCEL Map Pins", 13.5f, FontStyles.Normal, Palette.UiTextMuted, TextAlignmentOptions.Center);
+            routeSubText.textWrappingMode = TextWrappingModes.NoWrap;
+            SetBox(routeSubText.rectTransform, 0f, 10f, 760f, 20f, new Vector2(0.5f, 0f));
 
             // Start button & pulsing prompt cleanly bottom-anchored (immune to any aspect ratio!)
             var startBtn = CreateButton("StartDriveBtn", tr, "START DRIVING", Vector2.zero, new Vector2(360f, 58f), Palette.UiAccentRed, Palette.UiTextPrimary, () =>
@@ -714,8 +760,9 @@ namespace KenyaStreetSim
             leftSignalIcon = CreateText("LeftSigIcon", botRight, "◄", 24f, FontStyles.Bold, Palette.WithAlpha(Palette.UiTextMuted, 0.28f), TextAlignmentOptions.Left);
             SetBox(leftSignalIcon.rectTransform, 16f, -10f, 36f, 28f, new Vector2(0f, 1f));
 
-            lightsTodStatusText = CreateText("LightsTodStatus", botRight, "BEAMS OFF [L]  •  DAY [T]", 14.5f, FontStyles.Normal, Palette.UiTextMuted, TextAlignmentOptions.Center);
-            SetBox(lightsTodStatusText.rectTransform, 0f, -13f, 224f, 24f, new Vector2(0.5f, 1f));
+            lightsTodStatusText = CreateText("LightsTodStatus", botRight, "LIGHTS • CLEAR[R] • DAY[T]", 12.5f, FontStyles.Normal, Palette.UiTextMuted, TextAlignmentOptions.Center);
+            lightsTodStatusText.textWrappingMode = TextWrappingModes.NoWrap;
+            SetBox(lightsTodStatusText.rectTransform, 0f, -14f, 232f, 22f, new Vector2(0.5f, 1f));
 
             rightSignalIcon = CreateText("RightSigIcon", botRight, "►", 24f, FontStyles.Bold, Palette.WithAlpha(Palette.UiTextMuted, 0.28f), TextAlignmentOptions.Right);
             SetBox(rightSignalIcon.rectTransform, -16f, -10f, 36f, 28f, new Vector2(1f, 1f));
@@ -733,10 +780,17 @@ namespace KenyaStreetSim
             StretchRect(gearValueText.rectTransform, 0f, 0f, 0f, 0f);
 
             // Bottom-Left: Single-Line Compact Controls Pill
-            var botLeft = CreateBorderedCornerPanel("ControlsPill", gr, new Vector2(0f, 0f), new Vector2(0f, 0f), new Vector2(28f, 26f), new Vector2(1140f, 44f), panelFill, Palette.UiPanelBorder, 1.5f);
-            var ctrlTxt = CreateText("ControlsTxt", botLeft, "WASD Drive  •  M Kenya Map  •  V Switch Mod  •  G Police Siren  •  Q/E/Z Signals  •  L Beams  •  T Time  •  C Cockpit  •  H Horn  •  ESC", 15f, FontStyles.Normal, Palette.UiTextMuted, TextAlignmentOptions.Center);
+            var botLeft = CreateBorderedCornerPanel("ControlsPill", gr, new Vector2(0f, 0f), new Vector2(0f, 0f), new Vector2(28f, 26f), new Vector2(1280f, 44f), panelFill, Palette.UiPanelBorder, 1.5f);
+            var ctrlTxt = CreateText("ControlsTxt", botLeft, "WASD Drive  •  M Routes/Map  •  O Door  •  R Rain  •  K Wipers  •  C Cam/Front  •  V Switch  •  G Siren  •  H Horn  •  L Beams  •  T Time  •  ESC", 14.5f, FontStyles.Normal, Palette.UiTextMuted, TextAlignmentOptions.Center);
             ctrlTxt.textWrappingMode = TextWrappingModes.NoWrap;
             StretchRect(ctrlTxt.rectTransform, 14f, 4f, -14f, -4f);
+
+            // Top-Center: Live Turn-by-Turn Guided GPS Banner (cleanly nestled between top-left & top-right cards!)
+            var gpsBar = CreateBorderedCornerPanel("GpsGuidanceBar", gr, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(44f, -24f), new Vector2(820f, 48f), panelFill, Palette.Hex("#14E8FF"), 2f);
+            gpsGuideText = CreateText("GpsGuideTxt", gpsBar, "↑ STRAIGHT → NAIROBI CBD  •  PAX PICKUP", 16f, FontStyles.Bold, Palette.Hex("#E8FBFF"), TextAlignmentOptions.Center);
+            gpsGuideText.textWrappingMode = TextWrappingModes.NoWrap;
+            gpsGuideText.overflowMode = TextOverflowModes.Truncate;
+            StretchRect(gpsGuideText.rectTransform, 16f, 4f, -16f, -4f);
 
             // Center-Bottom: Bus Stage Boarding Progress Panel
             var boardRt = CreateBorderedAnchoredPanel("BoardingPanel", gr, new Vector2(0.5f, 0.16f), new Vector2(560f, 88f), panelFill, Palette.UiAccentAmber, 2.5f);
@@ -748,13 +802,13 @@ namespace KenyaStreetSim
             boardingFillBar = CreateProgressBar("BoardingBar", boardRt, 26f, -52f, 504f, 18f, Palette.UiAccentGreen);
             boardingPanel.SetActive(false);
 
-            // Top-Center Toast
-            toastText = CreateText("ToastText", gr, "", 22f, FontStyles.Bold, Palette.UiTextPrimary, TextAlignmentOptions.Center);
+            // Top-Center Toast (below GPS Guidance Bar so zero overlap!)
+            toastText = CreateText("ToastText", gr, "", 21f, FontStyles.Bold, Palette.UiTextPrimary, TextAlignmentOptions.Center);
             var trt = toastText.rectTransform;
-            trt.anchorMin = new Vector2(0.5f, 0.89f);
-            trt.anchorMax = new Vector2(0.5f, 0.89f);
-            trt.sizeDelta = new Vector2(720f, 38f);
-            trt.anchoredPosition = Vector2.zero;
+            trt.anchorMin = new Vector2(0.5f, 0.895f);
+            trt.anchorMax = new Vector2(0.5f, 0.895f);
+            trt.sizeDelta = new Vector2(820f, 36f);
+            trt.anchoredPosition = new Vector2(40f, 0f);
             toastText.gameObject.SetActive(false);
         }
 

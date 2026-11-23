@@ -14,7 +14,7 @@ namespace KenyaStreetSim
     /// </summary>
     public class KenyaStreetCamera : MonoBehaviour
     {
-        public enum CameraMode { ChaseOrbit, CockpitRHD, DashcamBumper, AxleStreet }
+        public enum CameraMode { ChaseOrbit, CockpitRHD, FrontShowcase, DashcamBumper, AxleStreet }
 
         [Header("Chase Rig")]
         public float chaseDistance = 14.6f;
@@ -71,7 +71,7 @@ namespace KenyaStreetSim
 
         public void CycleMode()
         {
-            CurrentMode = (CameraMode)(((int)CurrentMode + 1) % 4);
+            CurrentMode = (CameraMode)(((int)CurrentMode + 1) % 5);
             orbitYawOffset = 0f;
             KenyaStreetAudio.Instance?.PlayUiClick();
             if (StreetGameLoop.Instance != null && StreetGameLoop.Instance.hud != null)
@@ -79,7 +79,8 @@ namespace KenyaStreetSim
                 string label = CurrentMode switch
                 {
                     CameraMode.ChaseOrbit => "Chase Orbit Camera",
-                    CameraMode.CockpitRHD => "RHD Driver Cockpit (ETS2 View)",
+                    CameraMode.CockpitRHD => "RHD Driver Cockpit (Dash, Wipers & Bus Front)",
+                    CameraMode.FrontShowcase => "Bus Front Moving Showcase Cam",
                     CameraMode.DashcamBumper => "Highway Dashcam View",
                     _ => "Wheel & Street View"
                 };
@@ -116,6 +117,9 @@ namespace KenyaStreetSim
                     break;
                 case CameraMode.CockpitRHD:
                     UpdateAnchorCamera(targetVehicle.cockpitCameraAnchor, 85f);
+                    break;
+                case CameraMode.FrontShowcase:
+                    UpdateFrontShowcaseCamera(instant: true);
                     break;
                 case CameraMode.DashcamBumper:
                     UpdateAnchorCamera(targetVehicle.bumperCameraAnchor, 64f);
@@ -162,6 +166,9 @@ namespace KenyaStreetSim
                     break;
                 case CameraMode.CockpitRHD:
                     UpdateAnchorCamera(targetVehicle.cockpitCameraAnchor, 85f);
+                    break;
+                case CameraMode.FrontShowcase:
+                    UpdateFrontShowcaseCamera(instant: false);
                     break;
                 case CameraMode.DashcamBumper:
                     UpdateAnchorCamera(targetVehicle.bumperCameraAnchor, 64f);
@@ -244,6 +251,32 @@ namespace KenyaStreetSim
                 float targetFov = Mathf.Lerp(54f, 64f, Mathf.Clamp01(targetVehicle.SpeedKmh / 78f));
                 cam.fieldOfView = Mathf.Lerp(cam.fieldOfView, targetFov, Time.deltaTime * 5f);
             }
+        }
+
+        private void UpdateFrontShowcaseCamera(bool instant)
+        {
+            // Rides ahead of the bus at a clean left-road angle clear of sidewalk trees so you see the FRONT of the bus
+            // (ENA Coach face, headlights, sweeping wipers, spinning wheels & open left passenger door!) as it drives!
+            Transform t = targetVehicle.transform;
+            float fwdDist = targetVehicle.isCoach ? 12.2f : 8.6f;
+            float sideOff = targetVehicle.isCoach ? -2.35f : -1.85f;
+            float height = targetVehicle.isCoach ? 2.28f : 1.85f;
+            Vector3 desiredPos = t.position + t.forward * fwdDist + t.right * sideOff + Vector3.up * height;
+            desiredPos.y = Mathf.Max(1.3f, desiredPos.y);
+
+            Vector3 lookTarget = t.position + t.forward * (targetVehicle.isCoach ? 2.6f : 1.1f) + Vector3.up * (targetVehicle.isCoach ? 1.85f : 1.25f);
+            Quaternion desiredLook = Quaternion.LookRotation(lookTarget - desiredPos, Vector3.up);
+
+            if (instant)
+            {
+                transform.SetPositionAndRotation(desiredPos, desiredLook);
+            }
+            else
+            {
+                transform.position = Vector3.Lerp(transform.position, desiredPos, 1f - Mathf.Exp(-positionSmooth * Time.deltaTime));
+                transform.rotation = Quaternion.Slerp(transform.rotation, desiredLook, 1f - Mathf.Exp(-rotationSmooth * Time.deltaTime));
+            }
+            if (cam != null) cam.fieldOfView = 52f;
         }
 
         private void UpdateAnchorCamera(Transform anchor, float fov)
