@@ -1247,7 +1247,15 @@ namespace KenyaStreetSim.Editor
                         if (h == 0 && fwd && progress < 0.48f) progress = 0.62f; // clear player start in Nairobi CBD
 
                         KenyaSplineTraffic ai;
-                        if (realTrafficCatalog.Count > 0 && (seed % 4 != 3))
+                        if (realTrafficDropPrefabs != null && realTrafficDropPrefabs.Count > 0 && (seed % 3 == 2))
+                        {
+                            var dropPrefab = realTrafficDropPrefabs[(seed++) % realTrafficDropPrefabs.Count];
+                            float estLen = EstimateRealVehicleLength(dropPrefab.name);
+                            ai = CreateHighDetailKenyanTrafficVehicle(
+                                root, $"RuralBlender_H{h}_{(fwd ? "F" : "R")}_{k}_{dropPrefab.name}",
+                                dropPrefab, estLen, 0f, false, seed, matTire, matRim, matGlass, matHeadlight, matTail);
+                        }
+                        else if (realTrafficCatalog.Count > 0 && (seed % 4 != 3))
                         {
                             var entry = realTrafficCatalog[seed % realTrafficCatalog.Count];
                             ai = CreateHighDetailKenyanTrafficVehicle(
@@ -1295,7 +1303,7 @@ namespace KenyaStreetSim.Editor
                         if (cl.highwayIdx == 0 && fwd && localProg < 0.45f) localProg = 0.52f + k * 0.16f;
 
                         KenyaSplineTraffic ai;
-                        if (realTrafficDropPrefabs != null && realTrafficDropPrefabs.Count > 0 && (seed % 2 == 0))
+                        if (realTrafficDropPrefabs != null && realTrafficDropPrefabs.Count > 0)
                         {
                             var dropPrefab = realTrafficDropPrefabs[(seed++) % realTrafficDropPrefabs.Count];
                             float estLen = EstimateRealVehicleLength(dropPrefab.name);
@@ -1337,9 +1345,13 @@ namespace KenyaStreetSim.Editor
         {
             string l = modelName.ToLowerInvariant();
             if (l.Contains("bus") || l.Contains("coach") || l.Contains("scania") || l.Contains("yutong") || l.Contains("marcopolo")) return 11.8f;
-            if (l.Contains("truck") || l.Contains("lorry") || l.Contains("isuzu") || l.Contains("actros") || l.Contains("fh") || l.Contains("canter")) return 7.8f;
-            if (l.Contains("matatu") || l.Contains("hiace") || l.Contains("van") || l.Contains("pickup") || l.Contains("hilux") || l.Contains("cruiser") || l.Contains("prado") || l.Contains("suv")) return 5.05f;
-            return 4.55f;
+            if (l.Contains("canter")) return 6.45f;
+            if (l.Contains("truck") || l.Contains("lorry") || l.Contains("isuzu") || l.Contains("actros") || l.Contains("fh")) return 7.8f;
+            if (l.Contains("matatu") || l.Contains("hiace") || l.Contains("van")) return 5.05f;
+            if (l.Contains("hilux") || l.Contains("pickup")) return 5.06f;
+            if (l.Contains("prado") || l.Contains("cruiser") || l.Contains("suv")) return 4.82f;
+            if (l.Contains("probox") || l.Contains("wagon")) return 4.28f;
+            return 4.48f;
         }
 
         /// <summary>
@@ -1547,7 +1559,16 @@ namespace KenyaStreetSim.Editor
             modelPivot.localPosition = new Vector3(-relCenter.x, yShift, -relCenter.z);
             Bounds aligned = MeasureRenderers(modelPivot);
 
-            Color[] suvPaints = { Palette.Hex("#ECEFF4"), Palette.Hex("#181C24"), Palette.Hex("#8E9AA8"), Palette.Hex("#1A3564"), Palette.Hex("#7A1E24") };
+            Color[] suvPaints =
+            {
+                Palette.Hex("#ECEFF4"), // Pearl White
+                Palette.Hex("#181C24"), // Obsidian Black
+                Palette.Hex("#A8B2BE"), // Metallic Silver
+                Palette.Hex("#1A3564"), // Highland Navy
+                Palette.Hex("#6E161E"), // Wine Maroon
+                Palette.Hex("#204A36"), // Rift Forest Green
+                Palette.Hex("#4B3A2C"), // Metallic Bronze
+            };
             Color chosenPaint = suvPaints[colorSeed % suvPaints.Length];
             var matPaint = GetMat($"RealSuvPaint_{ColorUtility.ToHtmlStringRGB(chosenPaint)}", chosenPaint, 0.88f, 0.42f);
             var matChrome = GetMat("EnaChrome", Palette.EnaChrome, 0.96f, 0.94f);
@@ -1569,6 +1590,7 @@ namespace KenyaStreetSim.Editor
                     wheelList.Add(pivot);
                 }
             }
+            bool isBlenderOwnedDrop = modelPrefab.name.StartsWith("Kenya_", System.StringComparison.OrdinalIgnoreCase);
             foreach (var r in inst.GetComponentsInChildren<Renderer>(true))
             {
                 if (!r.gameObject.activeInHierarchy) continue;
@@ -1597,6 +1619,26 @@ namespace KenyaStreetSim.Editor
                         else if (mn.Contains("black") || mn.Contains("plastic") || mn.Contains("grille") || mn.Contains("interior") || mn.Contains("carbon")) mats[i] = matBlackTrim;
                         else mats[i] = matPaint;
                         changed = true;
+                    }
+                    if (changed) r.sharedMaterials = mats;
+                }
+                else if (isBlenderOwnedDrop && (colorSeed % 3 != 0))
+                {
+                    // Give cloned Blender sedans/wagons/SUVs/pickups authentic Kenyan fleet metallic paint diversity
+                    // while preserving iconic Matatu PSV (PearlWhite/Yellow/Teal) and Canter (CanterBlue/CargoWhite) liveries!
+                    var mats = r.sharedMaterials;
+                    bool changed = false;
+                    for (int i = 0; i < mats.Length; i++)
+                    {
+                        var m = mats[i];
+                        if (m == null) continue;
+                        string mn = m.name;
+                        if (mn.StartsWith("Paint_Silver") || mn.StartsWith("Paint_MidnightNavy") ||
+                            mn.StartsWith("Paint_WineMaroon") || mn.StartsWith("Paint_Gunmetal"))
+                        {
+                            mats[i] = matPaint;
+                            changed = true;
+                        }
                     }
                     if (changed) r.sharedMaterials = mats;
                 }

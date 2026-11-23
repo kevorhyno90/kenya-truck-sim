@@ -7,9 +7,17 @@ You own **100%** of your Unity 6 C# codebase, 16-town Kenyan highway network, ga
 ## 1. Already 100% Owned & Commercial-Safe
 - **All C# Runtime & Editor Code** (`Assets/KenyaStreetSim/Scripts/` & `Editor/`)
 - **16-Town Kenya Connected Highway Map, 8 Corridors, 3 Roundabouts, 4 Police Roadblocks**
+- **100%-Owned Blender 5.3 Studio Kenyan Traffic Fleet (6 Original `.glb` Vehicles + Master `.blend`):**
+  - Editable Blender 5.3 Showroom: `BlenderStudio/Kenya_Owned_Commercial_Traffic_Pack.blend` (reproducible via `tools/blender_build_kenya_vehicles.py`)
+  - `ImportedModels/RealTraffic/Kenya_Matatu_14Seater_PSV.glb` (14-Seater PSV Matatu w/ inset recessed windows, yellow PSV belt, route destination box & bullbar)
+  - `ImportedModels/RealTraffic/Kenya_Probox_Wagon.glb` (Everyday Kenyan Station Wagon w/ roof rails & 5-spoke alloy rims)
+  - `ImportedModels/RealTraffic/Kenya_Prado_Highland_SUV.glb` (Executive 4x4 Highland SUV w/ vertical chrome grille, fender flares, running boards & rear spare cover)
+  - `ImportedModels/RealTraffic/Kenya_Hilux_DoubleCab_Pickup.glb` (Double-Cab 4x4 Pickup w/ chrome sports rollbar, fender flares & cargo liner)
+  - `ImportedModels/RealTraffic/Kenya_Saloon_Taxi_Sedan.glb` (3-Box Highway Saloon Sedan w/ recessed windows & 5-spoke alloys)
+  - `ImportedModels/RealTraffic/Kenya_Canter_Commercial_Truck.glb` (Cab-Over Commercial Cargo Truck w/ wind deflector, slatted grille, solid mirror brackets & Kenyan safety stripes)
 - **Original Sculpted 3D Vehicles (Owned by You):**
   - `KenyaPoliceLC79MeshFactory` (Playable Patrol Land Cruiser 79)
-  - `KenyaOwnedTrafficMeshFactory` (Saloon/Wagon, Highland 4x4 SUV, Double-Cab Pickup, 14-Seater PSV Matatu, Savanna Express Coach, Canter Truck & smooth lathed tires/rims)
+  - `KenyaOwnedTrafficMeshFactory` (Backup sculpted traffic meshes)
 - **CC0 2K PBR Textures & 3 African Highland Panoramic Skyboxes** (`Textures/CC0_PBR/` — Poly Haven CC0)
 - **Real Field-Recorded Audio** (`Assets/KenyaStreetSim/Audio/` — Public Domain / CC0 / CC BY 4.0; keep `AUDIO_CREDITS.txt` included in your in-game Credits screen!)
 
