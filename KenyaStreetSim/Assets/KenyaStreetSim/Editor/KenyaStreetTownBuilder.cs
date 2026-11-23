@@ -33,7 +33,15 @@ namespace KenyaStreetSim.Editor
         private const string MarcopoloExpressAssetPath = "Assets/KenyaStreetSim/ImportedModels/Fleet/Marcopolo_G7_1200_Express.glb";
         private const string YutongEts2AssetPath = "Assets/KenyaStreetSim/ImportedModels/Fleet/Yutong_ZK6888H_ETS2.glb";
         private const string RangeRoverAssetPath = "Assets/KenyaStreetSim/ImportedModels/Fleet/RangeRover_Sport_2018.fbx";
-        private const string RealCoachHornAssetPath = "Assets/KenyaStreetSim/Audio/CoachAirHorn_Real.ogg";
+        private const string RealCoachHornAssetPath = "Assets/KenyaStreetSim/Audio/Horn_CoachBus_Real.ogg";
+        private const string FallbackCoachHornAssetPath = "Assets/KenyaStreetSim/Audio/CoachAirHorn_Real.ogg";
+        private const string RealCarHornAssetPath = "Assets/KenyaStreetSim/Audio/Horn_Car_Real.ogg";
+        private const string RealCoachEngineAssetPath = "Assets/KenyaStreetSim/Audio/Engine_CoachBus_Real.ogg";
+        private const string RealTruckEngineAssetPath = "Assets/KenyaStreetSim/Audio/Engine_IsuzuTruck_Real.ogg";
+        private const string RealV8EngineAssetPath = "Assets/KenyaStreetSim/Audio/Engine_V8Diesel_Real.ogg";
+        private const string RealRainWindowAssetPath = "Assets/KenyaStreetSim/Audio/Rain_RealWindow_PD.ogg";
+        private const string RealPoliceSirenAssetPath = "Assets/KenyaStreetSim/Audio/PoliceSiren_Real.ogg";
+        private const string RealBusDoorAssetPath = "Assets/KenyaStreetSim/Audio/BusDoor_Pneumatic_Real.ogg";
         private const string ImportedVehiclesFolder = "Assets/KenyaStreetSim/ImportedModels/Vehicles";
         private const string ImportedPeopleFolder = "Assets/KenyaStreetSim/ImportedModels/People";
 
@@ -189,11 +197,18 @@ namespace KenyaStreetSim.Editor
                 fleetList[fi].gameObject.SetActive(false);
             }
 
-            // 9. Runtime Systems: Real Vehicle Audio, Dynamic Rain/Clouds Weather, 3D GPS Guide, Time of Day, HUD, Interactive Map, Game Loop
+            // 9. Runtime Systems: Real Field-Recorded Audio, Photorealistic Rain/Clouds, 3D GPS Guide, Time of Day, HUD, Map, Game Loop
             var sysRoot = new GameObject("KenyaStreetSystems");
             var audioSys = sysRoot.AddComponent<KenyaStreetAudio>();
-            var realHornClip = AssetDatabase.LoadAssetAtPath<AudioClip>(RealCoachHornAssetPath);
-            if (realHornClip != null) audioSys.realCoachHornClip = realHornClip;
+            audioSys.realCoachEngineClip = AssetDatabase.LoadAssetAtPath<AudioClip>(RealCoachEngineAssetPath);
+            audioSys.realTruckEngineClip = AssetDatabase.LoadAssetAtPath<AudioClip>(RealTruckEngineAssetPath);
+            audioSys.realLandCruiserEngineClip = AssetDatabase.LoadAssetAtPath<AudioClip>(RealV8EngineAssetPath);
+            audioSys.realRainWindowClip = AssetDatabase.LoadAssetAtPath<AudioClip>(RealRainWindowAssetPath);
+            audioSys.realPoliceSirenClip = AssetDatabase.LoadAssetAtPath<AudioClip>(RealPoliceSirenAssetPath);
+            audioSys.realBusDoorClip = AssetDatabase.LoadAssetAtPath<AudioClip>(RealBusDoorAssetPath);
+            audioSys.realCoachHornClip = AssetDatabase.LoadAssetAtPath<AudioClip>(RealCoachHornAssetPath)
+                                      ?? AssetDatabase.LoadAssetAtPath<AudioClip>(FallbackCoachHornAssetPath);
+            audioSys.realCarHornClip = AssetDatabase.LoadAssetAtPath<AudioClip>(RealCarHornAssetPath);
 
             var weatherSys = sysRoot.AddComponent<KenyaWeatherSystem>();
             if (matCache.TryGetValue("KenyaHighwayTarmac", out var tarmacMat))
@@ -2070,14 +2085,14 @@ namespace KenyaStreetSim.Editor
                 cockpitCam.localRotation = Quaternion.Euler(9.0f, 0f, 0f);
                 ctrl.cockpitCameraAnchor = cockpitCam;
 
-                // Sleek compact Live 3D Dashboard Telemetry Strip tucked cleanly on center dash beside the analog cluster!
+                // Sleek compact Live 3D Dashboard Telemetry Strip tucked cleanly on top-left windshield dash (ZERO overlap with Scania center screen!)
                 var dashPod = new GameObject("ScaniaLiveDashTelemetry").transform;
                 dashPod.SetParent(body, false);
-                dashPod.localPosition = new Vector3(-0.08f, 1.79f, 6.72f);
-                dashPod.localRotation = Quaternion.Euler(14f, -12f, 0f);
-                CreateBox("DashPodBezel", dashPod, Vector3.zero, new Vector3(0.38f, 0.11f, 0.025f), matBlack, false);
-                var dashSpeedTmp = CreateWorldSignText("DashSpeedTxt", dashPod, "00 km/h | G:N", new Vector3(0f, 0.024f, -0.018f), new Vector2(0.36f, 0.055f), 0.34f, Palette.UiAccentGreen, Quaternion.identity, noWrap: true);
-                var dashStatusTmp = CreateWorldSignText("DashStatusTxt", dashPod, "ENA GPS OK\nNAIROBI CBD", new Vector3(0f, -0.025f, -0.018f), new Vector2(0.36f, 0.055f), 0.22f, Palette.UiAccentAmber, Quaternion.identity, noWrap: false);
+                dashPod.localPosition = new Vector3(-0.94f, 1.88f, 6.72f);
+                dashPod.localRotation = Quaternion.Euler(10f, 16f, 0f);
+                CreateBox("DashPodBezel", dashPod, Vector3.zero, new Vector3(0.32f, 0.10f, 0.022f), matBlack, false);
+                var dashSpeedTmp = CreateWorldSignText("DashSpeedTxt", dashPod, "00 km/h | G:N", new Vector3(0f, 0.022f, -0.016f), new Vector2(0.30f, 0.050f), 0.28f, Palette.UiAccentGreen, Quaternion.identity, noWrap: true);
+                var dashStatusTmp = CreateWorldSignText("DashStatusTxt", dashPod, "ENA GPS OK\nNAIROBI CBD", new Vector3(0f, -0.022f, -0.016f), new Vector2(0.30f, 0.050f), 0.19f, Palette.UiAccentAmber, Quaternion.identity, noWrap: false);
 
                 // Real 3D Analog Speedo/RPM Cluster (centered cleanly through upper steering wheel!) + Dual Animated 3D Windshield Wipers + Animated Left Pneumatic Passenger Door!
                 var matEnaDoorAccent = GetMat("EnaSkirtRedGloss", Palette.EnaSkirtRed, 0.72f, 0.10f);
@@ -2229,6 +2244,7 @@ namespace KenyaStreetSim.Editor
             ctrl.displayName = displayName;
             ctrl.plateNumber = plateNum;
             ctrl.isCoach = isCoach;
+            ctrl.jobRole = isCoach ? KenyaStreetVehicle.VehicleJobRole.BusPassenger : KenyaStreetVehicle.VehicleJobRole.CargoParcel;
             ctrl.motorTorque = motorTorque;
             ctrl.brakeTorque = motorTorque * 1.9f;
             ctrl.maxSpeedKmh = maxSpeedKmh;
@@ -2337,55 +2353,46 @@ namespace KenyaStreetSim.Editor
             ctrl.leftIndicatorRenderers = new[] { indFL.GetComponent<Renderer>(), indRL.GetComponent<Renderer>() };
             ctrl.rightIndicatorRenderers = new[] { indFR.GetComponent<Renderer>(), indRR.GetComponent<Renderer>() };
 
-            // Clean ETS2-style [C] RHD Cockpit Overlay Rig (ONLY visible in [C] Cockpit Mode so real 3D exteriors stay 100% pristine!)
-            // Placed cleanly just ahead of opaque imported windshields so pressing [C] ALWAYS delivers a crystal-clear unobstructed
-            // highway view + RHD Dashboard + live Telemetry + spinning Steering Wheel + BOTH working live Left & Right Side Mirrors!
+            // Full ETS2-grade Realistic RHD Cab Cockpit Overlay Rig (ONLY visible in [C] Cockpit Mode!)
+            // Framed squarely in front of the driver's eyes so 100% of the smooth sculpted leather Steering Wheel,
+            // 512x512 textured Speedo/RPM gauges, Center GPS Touchscreen, AC vents, Gear Shifter, A-Pillars,
+            // Dual Sweeping 3D Wipers & BOTH Working Live Side Mirrors look genuinely real on EVERY vehicle!
             float cabEyeY = isCoach ? 2.42f : 2.22f;
-            float camZ = halfL + 0.16f;
-            float cabFrontZ = camZ + 0.64f;
+            float camZ = halfL + 0.18f;
+            float cabFrontZ = camZ + 0.72f;
             var cockpitRig = new GameObject("ModCockpitDashboardRig").transform;
             cockpitRig.SetParent(body, false);
-            cockpitRig.localPosition = new Vector3(0f, cabEyeY - 0.54f, cabFrontZ);
+            cockpitRig.localPosition = new Vector3(0f, cabEyeY - 0.24f, cabFrontZ);
 
-            CreateBox("ModDashDeck", cockpitRig, new Vector3(0f, 0f, 0.12f), new Vector3(halfW * 1.72f, 0.34f, 0.46f), matInterior, false);
-            CreateBox("ModDashHood", cockpitRig, new Vector3(0.42f, 0.28f, 0.08f), new Vector3(0.56f, 0.22f, 0.28f), matBlack, false);
-            var modSpeedTmp = CreateWorldSignText("ModDashSpeed", cockpitRig, "00 km/h | G:N", new Vector3(0.42f, 0.36f, -0.07f), new Vector2(0.48f, 0.06f), 0.34f, Palette.UiAccentGreen, Quaternion.identity, noWrap: true);
-            var modStatusTmp = CreateWorldSignText("ModDashStatus", cockpitRig, $"{plateNum} • KENYA GPS", new Vector3(0.42f, 0.31f, -0.07f), new Vector2(0.48f, 0.05f), 0.22f, Palette.UiAccentAmber, Quaternion.identity, noWrap: true);
-
-            // Real Analog Speedo/RPM Needles + Visible Front Nose Cowl + Sweeping 3D Wipers + Animated Left Curb Passenger Door!
+            string brandBadge = displayName.IndexOf("Isuzu", System.StringComparison.OrdinalIgnoreCase) >= 0 ? "ISUZU"
+                              : displayName.IndexOf("Yutong", System.StringComparison.OrdinalIgnoreCase) >= 0 ? "YUTONG"
+                              : displayName.IndexOf("Volvo", System.StringComparison.OrdinalIgnoreCase) >= 0 ? "VOLVO"
+                              : "KENYA";
             var matModAccent = isCoach
                 ? GetMat("EnaSkirtRedGloss", Palette.EnaSkirtRed, 0.72f, 0.10f)
                 : GetMat("IsuzuDoorBlue", Palette.Hex("#1A5296"), 0.65f, 0.15f);
-            KenyaVehicleFeaturesBuilder.AttachRealDashWipersAndDoor(
-                root, body, cockpitRig, new Vector3(0.42f, 0.20f, -0.075f),
-                cockpitRig, new Vector3(0.10f, 0.22f, 0.38f), 0.44f, 0.58f,
-                halfW: halfW, halfL: halfL, isCoach: isCoach, isPoliceLC79: false,
-                matBlack, matChrome, matModAccent, matClearGlass);
 
-            var steerPivot = new GameObject("SteeringWheelPivot").transform;
-            steerPivot.SetParent(cockpitRig, false);
-            steerPivot.localPosition = new Vector3(0.42f, 0.11f, -0.22f);
-            steerPivot.localRotation = Quaternion.Euler(64f, 0f, 0f);
-            for (int seg = 0; seg < 12; seg++)
-            {
-                float a = seg * 30f * Mathf.Deg2Rad;
-                var rimSeg = CreateBox($"SteerRim_{seg}", steerPivot, new Vector3(Mathf.Cos(a) * 0.20f, 0f, Mathf.Sin(a) * 0.20f), new Vector3(0.034f, 0.034f, 0.11f), matBlack, false);
-                rimSeg.transform.localRotation = Quaternion.Euler(0f, -seg * 30f, 0f);
-            }
-            CreateCylinder("SteerHub", steerPivot, Vector3.zero, new Vector3(0.13f, 0.032f, 0.13f), matBlack);
-            CreateBox("SteerSpokeH", steerPivot, Vector3.zero, new Vector3(0.38f, 0.026f, 0.038f), matChrome, false);
-            CreateBox("SteerSpokeV", steerPivot, new Vector3(0f, 0f, -0.09f), new Vector3(0.038f, 0.026f, 0.18f), matChrome, false);
+            KenyaVehicleFeaturesBuilder.BuildFullRealisticCabCockpit(
+                root, body, cockpitRig,
+                driverX: 0.42f, halfW: halfW, halfL: halfL,
+                isCoach: isCoach, isPoliceLC79: false,
+                brandName: brandBadge, plateNum: plateNum,
+                matInterior: matInterior, matBlack: matBlack, matChrome: matChrome,
+                matBodyAccent: matModAccent, matClearGlass: matClearGlass,
+                out Transform steerPivot, out TextMeshPro modSpeedTmp, out TextMeshPro modStatusTmp,
+                buildOuterPillars: true);
+
             ctrl.steeringWheelVisual = steerPivot;
             ctrl.steeringWheelSpinAxis = Vector3.up;
 
-            // BOTH Working Live Left & Right Side Mirrors angled cleanly toward the RHD driver's eyes!
+            // BOTH Working Live Left & Right Side Mirrors positioned cleanly beside the cab A-pillars!
             var modMirL = BuildLiveSideMirrorHousing(cockpitRig, "ModMirrorL",
-                new Vector3(-halfW * 0.56f, 0.54f, 0.34f),
-                new Vector3(-halfW * 0.78f, 0.54f, 0.16f),
+                new Vector3(-halfW * 0.62f, 0.26f, 0.34f),
+                new Vector3(-halfW * 0.80f, 0.26f, 0.18f),
                 new Vector3(0f, -32f, 0f), new Vector2(0.24f, 0.42f), matBlack, matChrome);
             var modMirR = BuildLiveSideMirrorHousing(cockpitRig, "ModMirrorR",
-                new Vector3( halfW * 0.94f, 0.54f, 0.24f),
-                new Vector3( halfW * 0.80f, 0.54f, 0.12f),
+                new Vector3( halfW * 0.94f, 0.26f, 0.22f),
+                new Vector3( halfW * 0.80f, 0.26f, 0.12f),
                 new Vector3(0f,  26f, 0f), new Vector2(0.24f, 0.42f), matBlack, matChrome);
 
             var camL = new GameObject("ModMirrorCamL").transform;
@@ -2410,7 +2417,7 @@ namespace KenyaStreetSim.Editor
             var cockpitCam = new GameObject("CockpitCameraAnchor").transform;
             cockpitCam.SetParent(root.transform, false);
             cockpitCam.localPosition = new Vector3(0.42f, cabEyeY, camZ);
-            cockpitCam.localRotation = Quaternion.Euler(7.5f, 0f, 0f);
+            cockpitCam.localRotation = Quaternion.Euler(8.5f, 0f, 0f);
             ctrl.cockpitCameraAnchor = cockpitCam;
 
             var dashCam = new GameObject("DashcamAnchor").transform;

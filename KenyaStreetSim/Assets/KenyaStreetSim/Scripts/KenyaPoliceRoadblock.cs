@@ -83,8 +83,19 @@ namespace KenyaStreetSim
                 case CheckState.IdleWaiting:
                     if (dist < 28f)
                     {
-                        state = CheckState.PromptSlowDown;
-                        loop.hud?.ShowToast($"{checkpointName} — SLOW DOWN FOR ROUTINE WALK-AROUND CHECK");
+                        // Fellow Kenya Police Unit (KCP 380D): Salute immediately & raise boom barrier!
+                        if (veh.jobRole == KenyaStreetVehicle.VehicleJobRole.PolicePatrol)
+                        {
+                            state = CheckState.ClearedWaveThrough;
+                            waveTimer = 0f;
+                            KenyaStreetAudio.Instance?.PlayPickupBlip();
+                            loop.hud?.ShowToast($"{checkpointName} — POLICE UNIT ON DUTY, SALUTE! BARRIER OPEN");
+                        }
+                        else
+                        {
+                            state = CheckState.PromptSlowDown;
+                            loop.hud?.ShowToast($"{checkpointName} — SLOW DOWN FOR ROUTINE WALK-AROUND CHECK");
+                        }
                     }
                     break;
 

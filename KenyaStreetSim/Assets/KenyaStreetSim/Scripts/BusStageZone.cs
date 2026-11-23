@@ -101,21 +101,28 @@ namespace KenyaStreetSim
 
             if (PlayerInside && vehicle.SpeedKmh <= 12f)
             {
-                // When passenger door opens (auto-opened at stage or via [O]), waiting 3D passengers walk right into the bus!
-                var doorSys = vehicle.GetComponent<KenyaVehicleDoorAndWipers>();
-                if (doorSys != null && doorSys.DoorOpen && waitingCommuters != null)
+                // STRICT VEHICLE JOB SEPARATION:
+                // ONLY Buses board waiting 3D passengers! Kenya Police Patrol secures checkpoints (ZERO passengers),
+                // and Isuzu FRR / TX Lorries load/deliver parcel cargo (ZERO passengers)!
+                if (vehicle.jobRole == KenyaStreetVehicle.VehicleJobRole.BusPassenger)
                 {
-                    Vector3 doorWorld = doorSys.GetDoorWorldPoint();
-                    for (int i = 0; i < waitingCommuters.Length; i++)
+                    var doorSys = vehicle.GetComponent<KenyaVehicleDoorAndWipers>();
+                    if (doorSys != null && doorSys.DoorOpen && waitingCommuters != null)
                     {
-                        if (waitingCommuters[i] != null && waitingCommuters[i].gameObject.activeSelf)
+                        Vector3 doorWorld = doorSys.GetDoorWorldPoint();
+                        for (int i = 0; i < waitingCommuters.Length; i++)
                         {
-                            waitingCommuters[i].BeginBoardingToDoor(doorWorld);
+                            if (waitingCommuters[i] != null && waitingCommuters[i].gameObject.activeSelf)
+                            {
+                                waitingCommuters[i].BeginBoardingToDoor(doorWorld);
+                            }
                         }
                     }
                 }
 
-                float holdDur = Mathf.Max(2.4f, requiredHoldSeconds);
+                float holdDur = vehicle.jobRole == KenyaStreetVehicle.VehicleJobRole.BusPassenger
+                    ? Mathf.Max(2.4f, requiredHoldSeconds)
+                    : 1.6f;
                 BoardingProgress = Mathf.Clamp01(BoardingProgress + Time.deltaTime / holdDur);
                 if (BoardingProgress >= 1f)
                 {
@@ -136,7 +143,11 @@ namespace KenyaStreetSim
             BoardingProgress = 1f;
             UpdateVisualTint();
 
-            if (waitingCommuters != null)
+            var activeVeh = StreetGameLoop.Instance != null ? StreetGameLoop.Instance.ActiveVehicle : null;
+            bool isPassengerBus = activeVeh == null || activeVeh.jobRole == KenyaStreetVehicle.VehicleJobRole.BusPassenger;
+
+            // ONLY celebrate/board commuters when an actual passenger Bus arrives (never a Police Land Cruiser or Cargo Lorry!)
+            if (isPassengerBus && waitingCommuters != null)
             {
                 for (int i = 0; i < waitingCommuters.Length; i++)
                 {

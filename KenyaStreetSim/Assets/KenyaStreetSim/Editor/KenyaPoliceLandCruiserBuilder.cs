@@ -51,6 +51,7 @@ namespace KenyaStreetSim.Editor
             ctrl.displayName = "Kenya Police LC79 (KCP 380D)";
             ctrl.plateNumber = "KCP 380D";
             ctrl.isCoach = false;
+            ctrl.jobRole = KenyaStreetVehicle.VehicleJobRole.PolicePatrol;
             ctrl.motorTorque = 2450f;
             ctrl.reverseTorque = 1500f;
             ctrl.brakeTorque = 4600f;
@@ -317,39 +318,30 @@ namespace KenyaStreetSim.Editor
             ctrl.rightIndicatorRenderers = new[] { indFR.GetComponent<Renderer>(), indRR.GetComponent<Renderer>() };
 
             // =========================================================================
-            // 7. RIGHT-HAND DRIVE (RHD) LAND CRUISER 79 COCKPIT + LIVE SIDE MIRRORS!
+            // 7. REALISTIC RIGHT-HAND DRIVE (RHD) LAND CRUISER 79 COCKPIT + VHF RADIO + LIVE SIDE MIRRORS!
             // =========================================================================
             var cockpit = new GameObject("RhdCockpitInterior").transform;
             cockpit.SetParent(body, false);
-            Box("RhdDashMain", cockpit, new Vector3(0f, 1.32f, 0.94f), new Vector3(1.66f, 0.34f, 0.44f), matInterior);
-            Box("DashBinnacle", cockpit, new Vector3(0.42f, 1.60f, 0.92f), new Vector3(0.56f, 0.20f, 0.28f), matBlack);
             Box("PassengerGrabBar", cockpit, new Vector3(-0.46f, 1.44f, 0.72f), new Vector3(0.44f, 0.05f, 0.05f), matSteelBlack);
-            Box("DriverSeatBack", cockpit, new Vector3(0.44f, 1.30f, 0.12f), new Vector3(0.48f, 0.68f, 0.12f), matVinylSeat);
-            Box("PassengerSeatBack", cockpit, new Vector3(-0.44f, 1.30f, 0.12f), new Vector3(0.48f, 0.68f, 0.12f), matVinylSeat);
+            Box("DriverSeatBack", cockpit, new Vector3(0.44f, 1.30f, 0.04f), new Vector3(0.48f, 0.68f, 0.12f), matVinylSeat);
+            Box("PassengerSeatBack", cockpit, new Vector3(-0.44f, 1.30f, 0.04f), new Vector3(0.48f, 0.68f, 0.12f), matVinylSeat);
 
-            var lcSpeedTmp = WorldText("LcDashSpeed", cockpit, "00 km/h | G:N", new Vector3(0.42f, 1.67f, 0.76f), new Vector2(0.48f, 0.06f), 0.34f, Palette.UiAccentGreen, Quaternion.identity);
-            var lcStatusTmp = WorldText("LcDashStatus", cockpit, "KENYA POLICE • KCP 380D [G]", new Vector3(0.42f, 1.62f, 0.76f), new Vector2(0.48f, 0.05f), 0.22f, Palette.UiAccentAmber, Quaternion.identity);
+            // Properly framed Toyota LC79 RHD Dashboard + Smooth Sculpted Torus Steering Wheel + Police VHF Radio + Real Textured Gauges!
+            var lcDashHost = new GameObject("LcRealisticDashHost").transform;
+            lcDashHost.SetParent(cockpit, false);
+            lcDashHost.localPosition = new Vector3(0f, 1.50f, 0.90f);
 
-            // Real Analog Speedo & RPM Needles + Dual 3D Windshield Wipers + Swinging Left Passenger Door!
-            KenyaVehicleFeaturesBuilder.AttachRealDashWipersAndDoor(
-                root, body, cockpit, new Vector3(0.42f, 1.51f, 0.76f),
-                body, new Vector3(0.0f, 1.53f, 1.24f), 0.36f, 0.48f,
-                halfW: 0.92f, halfL: 2.50f, isCoach: false, isPoliceLC79: true,
-                matBlack, matChrome, matNavy, matClearGlass);
+            KenyaVehicleFeaturesBuilder.BuildFullRealisticCabCockpit(
+                root, body, lcDashHost,
+                driverX: 0.42f, halfW: 0.92f, halfL: 2.50f,
+                isCoach: false, isPoliceLC79: true,
+                brandName: "TOYOTA", plateNum: "KCP 380D",
+                matInterior: matInterior, matBlack: matBlack, matChrome: matChrome,
+                matBodyAccent: matNavy, matClearGlass: matClearGlass,
+                out Transform steerPivot, out TextMeshPro lcSpeedTmp, out TextMeshPro lcStatusTmp,
+                buildOuterPillars: false, // LC79 already has its own sculpted real cab A-pillars & roof!
+                externalWiperParent: body, externalWiperPos: new Vector3(0f, 1.53f, 1.26f));
 
-            // Hollow 3-Spoke RHD Land Cruiser Steering Wheel on the RIGHT (X = +0.42)!
-            var steerPivot = new GameObject("SteeringWheelPivot").transform;
-            steerPivot.SetParent(cockpit, false);
-            steerPivot.localPosition = new Vector3(0.42f, 1.37f, 0.60f);
-            steerPivot.localRotation = Quaternion.Euler(66f, 0f, 0f);
-            for (int seg = 0; seg < 12; seg++)
-            {
-                float a = seg * 30f * Mathf.Deg2Rad;
-                Box($"SteerRim_{seg}", steerPivot, new Vector3(Mathf.Cos(a) * 0.19f, 0f, Mathf.Sin(a) * 0.19f), new Vector3(0.032f, 0.032f, 0.11f), matBlack, Quaternion.Euler(0f, -seg * 30f, 0f));
-            }
-            Cylinder("SteerHub", steerPivot, Vector3.zero, new Vector3(0.13f, 0.03f, 0.13f), matBlack);
-            Box("SteerSpokeH", steerPivot, Vector3.zero, new Vector3(0.36f, 0.025f, 0.035f), matChrome);
-            Box("SteerSpokeV", steerPivot, new Vector3(0f, 0f, -0.09f), new Vector3(0.035f, 0.025f, 0.18f), matChrome);
             ctrl.steeringWheelVisual = steerPivot;
             ctrl.steeringWheelSpinAxis = Vector3.up;
 
@@ -375,8 +367,8 @@ namespace KenyaStreetSim.Editor
 
             var cockpitCam = new GameObject("CockpitCameraAnchor").transform;
             cockpitCam.SetParent(root.transform, false);
-            cockpitCam.localPosition = new Vector3(0.40f, 1.72f, 0.22f);
-            cockpitCam.localRotation = Quaternion.Euler(7.5f, 0f, 0f);
+            cockpitCam.localPosition = new Vector3(0.42f, 1.72f, 0.24f);
+            cockpitCam.localRotation = Quaternion.Euler(8.5f, 0f, 0f);
             ctrl.cockpitCameraAnchor = cockpitCam;
 
             var dashCam = new GameObject("DashcamAnchor").transform;

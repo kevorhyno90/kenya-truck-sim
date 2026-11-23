@@ -24,10 +24,28 @@ namespace KenyaStreetSim
             public bool isLeft;
         }
 
+        public enum VehicleJobRole
+        {
+            BusPassenger,
+            PolicePatrol,
+            CargoParcel
+        }
+
         [Header("Vehicle Identity")]
         public string displayName = "ENA Coach KDK 057M";
         public string plateNumber = "KDK 057M";
         public bool isCoach = true;
+        public VehicleJobRole jobRole = VehicleJobRole.BusPassenger;
+
+        public bool IsPoliceSirenActive
+        {
+            get
+            {
+                if (policeEmergency == null) policeEmergency = GetComponent<KenyaPoliceEmergencySystem>();
+                return policeEmergency != null && policeEmergency.SirenActive;
+            }
+        }
+        private KenyaPoliceEmergencySystem policeEmergency;
 
         [Header("Powertrain & Handling")]
         public float motorTorque = 2400f;
@@ -85,6 +103,14 @@ namespace KenyaStreetSim
             Rb.interpolation = RigidbodyInterpolation.Interpolate;
             Rb.collisionDetectionMode = CollisionDetectionMode.Continuous;
             lightMpb = new MaterialPropertyBlock();
+            policeEmergency = GetComponent<KenyaPoliceEmergencySystem>();
+            // Ensure each vehicle strictly knows its real Kenyan job role!
+            if (plateNumber == "KCP 380D" || (displayName != null && displayName.IndexOf("Police", System.StringComparison.OrdinalIgnoreCase) >= 0))
+                jobRole = VehicleJobRole.PolicePatrol;
+            else if (isCoach)
+                jobRole = VehicleJobRole.BusPassenger;
+            else
+                jobRole = VehicleJobRole.CargoParcel;
             SetHeadlights(false);
         }
 

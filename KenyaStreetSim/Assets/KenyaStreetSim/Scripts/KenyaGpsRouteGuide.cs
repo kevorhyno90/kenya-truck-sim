@@ -112,13 +112,13 @@ namespace KenyaStreetSim
             Vector3 stagePos = stage.transform.position;
             DistanceToNextStop = Vector3.Distance(vehPos, stagePos);
 
-            // Determine point type label based on mode / vehicle (Passenger Pickup vs FRR Parcel Depot vs Police Patrol)
-            bool isCargo = loop.ActiveMode == StreetGameLoop.GameMode.IsuzuCargoHaul
-                           || (!loop.ActiveVehicle.isCoach && loop.ActiveVehicle.plateNumber != "KCP 380D")
-                           || KenyaRouteCatalog.GetRoute(loop.ActiveRouteIndex).kind == KenyaRouteCatalog.RouteKind.FrrParcelCargo;
-            ActiveStopPointType = loop.ActiveMode == StreetGameLoop.GameMode.KenyaPolicePatrol
-                ? "POLICE CHECKPOINT"
-                : (isCargo ? "FRR PARCEL DEPOT" : "PASSENGER PICKUP");
+            // Strictly reflect the active vehicle's real Kenyan job role (Police Patrol / FRR Parcel / Bus Passenger)
+            ActiveStopPointType = loop.ActiveJobRole switch
+            {
+                KenyaStreetVehicle.VehicleJobRole.PolicePatrol => "POLICE CHECKPOINT",
+                KenyaStreetVehicle.VehicleJobRole.CargoParcel => "FRR PARCEL DEPOT",
+                _ => "PASSENGER PICKUP"
+            };
 
             // Find closest route spline point ahead toward active stage
             int nearIdx = FindClosestPointIndex(vehPos);

@@ -41,20 +41,21 @@ namespace KenyaStreetSim
             _ => "FREE ROAM KENYA"
         };
 
-        public string ModeObjectiveNoun => ActiveMode switch
+        public KenyaStreetVehicle.VehicleJobRole ActiveJobRole =>
+            ActiveVehicle != null ? ActiveVehicle.jobRole : KenyaStreetVehicle.VehicleJobRole.BusPassenger;
+
+        public string ModeObjectiveNoun => ActiveJobRole switch
         {
-            GameMode.EnaCoachCareer => "STAGES",
-            GameMode.KenyaPolicePatrol => "PATROLS",
-            GameMode.IsuzuCargoHaul => "DELIVERIES",
-            _ => "VISITED"
+            KenyaStreetVehicle.VehicleJobRole.PolicePatrol => "PATROLS",
+            KenyaStreetVehicle.VehicleJobRole.CargoParcel => "DELIVERIES",
+            _ => "STAGES"
         };
 
-        public string ModeCounterNoun => ActiveMode switch
+        public string ModeCounterNoun => ActiveJobRole switch
         {
-            GameMode.EnaCoachCareer => "BOARDED",
-            GameMode.KenyaPolicePatrol => "SECURED",
-            GameMode.IsuzuCargoHaul => "TONNES",
-            _ => "TOWNS"
+            KenyaStreetVehicle.VehicleJobRole.PolicePatrol => "SECURED",
+            KenyaStreetVehicle.VehicleJobRole.CargoParcel => "PARCELS",
+            _ => "BOARDED"
         };
 
         public int ActiveRouteIndex { get; private set; }
@@ -461,7 +462,8 @@ namespace KenyaStreetSim
 
             CompletedStageCount++;
             TotalKesEarned += stage.rewardKes;
-            PassengersBoarded += stage.passengerCount;
+            // Police Patrol increments secured checkpoints (+1); Bus boards passengers (+N); Isuzu delivers parcels (+N)
+            PassengersBoarded += (ActiveJobRole == KenyaStreetVehicle.VehicleJobRole.PolicePatrol) ? 1 : stage.passengerCount;
 
             if (KenyaStreetAudio.Instance != null)
             {

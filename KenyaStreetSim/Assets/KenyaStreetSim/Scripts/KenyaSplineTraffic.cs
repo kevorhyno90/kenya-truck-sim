@@ -39,6 +39,7 @@ namespace KenyaStreetSim
         private float currentSpeed;
         private float stuckTimer;
         private float lateralBypassOffset;
+        private float sirenPullOverOffset;
         private bool bypassing;
 
         private void Start()
@@ -112,13 +113,24 @@ namespace KenyaStreetSim
 
             float targetSpeed = cruiseSpeed;
             bool redLightStop = (highwayIndex == 0 && ShouldStopForNairobiLight());
-            float obstacleDist = float.MaxValue;
-            bool obstacleAhead = !bypassing && CheckObstacleAhead(out obstacleDist);
 
-            if (obstacleAhead)
+            // 1. STRICT PLAYER ROAD RESPECT & POLICE SIREN YIELD (AI cars NEVER push/ram/shove the player!)
+            bool yieldingToPlayer = CheckPlayerRespect(out float playerSpeedCap, out float desiredSirenPullOver, out bool hardHaltForPlayer);
+            if (yieldingToPlayer)
+            {
+                targetSpeed = Mathf.Min(targetSpeed, playerSpeedCap);
+                bypassing = false;
+                stuckTimer = 0f;
+            }
+            sirenPullOverOffset = Mathf.MoveTowards(sirenPullOverOffset, desiredSirenPullOver, Time.deltaTime * 2.2f);
+
+            // 2. AI-vs-AI same-lane spacing + anti-jam deadlock breaker (ONLY when not yielding to player!)
+            float obstacleDist = float.MaxValue;
+            bool aiAhead = !yieldingToPlayer && !bypassing && CheckAiObstacleAhead(out obstacleDist);
+            if (aiAhead)
             {
                 float ratio = Mathf.InverseLerp(safeStopDistance * 0.35f, safeStopDistance * 1.7f, obstacleDist);
-                targetSpeed = cruiseSpeed * ratio;
+                targetSpeed = Mathf.Min(targetSpeed, cruiseSpeed * ratio);
                 if (obstacleDist < safeStopDistance * 0.50f) targetSpeed = 0f;
             }
 
@@ -127,18 +139,17 @@ namespace KenyaStreetSim
                 targetSpeed = 0f;
             }
 
-            // Anti-Traffic-Jam Deadlock Recovery: vehicles NEVER sit frozen blocking Kenyan highways!
-            if (!redLightStop && targetSpeed < 2.2f)
+            // Anti-Traffic-Jam Deadlock Recovery for AI-vs-AI ONLY (never bypasses through the player!)
+            if (!redLightStop && !yieldingToPlayer && targetSpeed < 2.2f)
             {
                 stuckTimer += Time.deltaTime;
-                if (stuckTimer > 2.6f)
+                if (stuckTimer > 3.2f)
                 {
                     bypassing = true;
                     targetSpeed = Mathf.Max(6.5f, cruiseSpeed * 0.65f);
                 }
-                if (stuckTimer > 6.5f)
+                if (stuckTimer > 7.5f)
                 {
-                    // Cleanly skip past deadlock pocket so zero traffic jams ever accumulate
                     currentDist += 38f;
                     stuckTimer = 0f;
                     bypassing = false;
@@ -156,25 +167,36 @@ namespace KenyaStreetSim
             float targetBypass = bypassing ? 2.85f : 0f;
             lateralBypassOffset = Mathf.MoveTowards(lateralBypassOffset, targetBypass, Time.deltaTime * 2.4f);
 
-            float accelRate = targetSpeed < currentSpeed ? 14f : 7.5f;
-            currentSpeed = Mathf.MoveTowards(currentSpeed, targetSpeed, accelRate * Time.deltaTime);
+            float accelRate = targetSpeed < currentSpeed ? 22f : 7.0f;
+            currentSpeed = hardHaltForPlayer ? 0f : Mathf.MoveTowards(currentSpeed, targetSpeed, accelRate * Time.deltaTime);
 
-            currentDist += currentSpeed * Time.deltaTime;
+            float nextDist = currentDist + currentSpeed * Time.deltaTime;
             float span = Mathf.Max(20f, maxDist - minDist);
-            if (currentDist >= maxDist)
+            if (nextDist >= maxDist)
             {
-                currentDist = minDist + Mathf.Repeat(currentDist - minDist, span);
+                nextDist = minDist + Mathf.Repeat(nextDist - minDist, span);
             }
-            else if (currentDist < minDist)
+            else if (nextDist < minDist)
             {
-                currentDist = minDist;
+                nextDist = minDist;
             }
 
-            EvaluatePose(currentDist, out Vector3 pos, out Quaternion rot);
-            if (Mathf.Abs(lateralBypassOffset) > 0.02f)
+            EvaluatePose(nextDist, out Vector3 pos, out Quaternion rot);
+            // Kenya LHT: siren pull-over moves gently LEFT (-right), AI-vs-AI overtake moves gently RIGHT (+right)
+            float netLateral = lateralBypassOffset - sirenPullOverOffset;
+            if (Mathf.Abs(netLateral) > 0.02f)
             {
-                pos += (rot * Vector3.right) * lateralBypassOffset;
+                pos += (rot * Vector3.right) * netLateral;
             }
+
+            // ZERO-PUSH SAFETY SHIELD: never step transform into the player's physical vehicle envelope!
+            if (WouldOverlapPlayer(pos))
+            {
+                currentSpeed = 0f;
+                return;
+            }
+
+            currentDist = nextDist;
             transform.position = pos;
             transform.rotation = Quaternion.Slerp(transform.rotation, rot, Time.deltaTime * 10f);
 
@@ -232,7 +254,76 @@ namespace KenyaStreetSim
 
         private static readonly RaycastHit[] CastHits = new RaycastHit[12];
 
-        private bool CheckObstacleAhead(out float nearestDist)
+        private bool CheckPlayerRespect(out float speedCap, out float pullOverMeters, out bool hardHalt)
+        {
+            speedCap = cruiseSpeed;
+            pullOverMeters = 0f;
+            hardHalt = false;
+
+            var loop = StreetGameLoop.Instance;
+            if (loop == null || loop.ActiveVehicle == null) return false;
+            var player = loop.ActiveVehicle;
+
+            Vector3 toPlayer = player.transform.position - transform.position;
+            toPlayer.y = 0f;
+            float distSqr = toPlayer.sqrMagnitude;
+            if (distSqr > 60f * 60f) return false;
+
+            float dist = Mathf.Sqrt(distSqr);
+            bool yielding = false;
+
+            // 1. Respect Kenya Police Emergency Siren ([G]): pull calmly onto left shoulder & slow down!
+            if (player.IsPoliceSirenActive && dist < 52f)
+            {
+                pullOverMeters = 1.85f;
+                speedCap = Mathf.Min(speedCap, 2.5f);
+                yielding = true;
+            }
+
+            // 2. Respect Player Vehicle Lane Space: brake well in advance and NEVER shove/ram player!
+            Vector3 local = transform.InverseTransformPoint(player.transform.position);
+            float pHalfL = player.isCoach ? 7.4f : (player.jobRole == KenyaStreetVehicle.VehicleJobRole.PolicePatrol ? 2.8f : 4.4f);
+            float pHalfW = player.isCoach ? 1.55f : 1.35f;
+            float gapAhead = local.z - (vehicleHalfLength + pHalfL);
+            float latAbs = Mathf.Abs(local.x);
+
+            // If player is ahead in or encroaching into our lane, slow smoothly and stop respectfully 4.5m back!
+            if (gapAhead > -2.5f && gapAhead < 22f && latAbs < pHalfW + 1.85f)
+            {
+                yielding = true;
+                if (gapAhead <= 4.5f)
+                {
+                    speedCap = 0f;
+                    hardHalt = true;
+                }
+                else
+                {
+                    float ratio = Mathf.InverseLerp(4.5f, 22f, gapAhead);
+                    speedCap = Mathf.Min(speedCap, cruiseSpeed * ratio);
+                }
+            }
+            return yielding;
+        }
+
+        private bool WouldOverlapPlayer(Vector3 candidatePos)
+        {
+            var loop = StreetGameLoop.Instance;
+            if (loop == null || loop.ActiveVehicle == null) return false;
+            var player = loop.ActiveVehicle;
+
+            Vector3 delta = candidatePos - player.transform.position;
+            delta.y = 0f;
+            float pHalfL = player.isCoach ? 7.4f : (player.jobRole == KenyaStreetVehicle.VehicleJobRole.PolicePatrol ? 2.8f : 4.4f);
+            float pHalfW = player.isCoach ? 1.55f : 1.35f;
+
+            // Project candidate offset into player's local frame (accurate for angled turns & long buses!)
+            float alongPlayer = Mathf.Abs(Vector3.Dot(delta, player.transform.forward));
+            float acrossPlayer = Mathf.Abs(Vector3.Dot(delta, player.transform.right));
+
+            return alongPlayer < (pHalfL + vehicleHalfLength + 1.1f) && acrossPlayer < (pHalfW + 1.35f);
+        }
+
+        private bool CheckAiObstacleAhead(out float nearestDist)
         {
             nearestDist = float.MaxValue;
             Vector3 fwd = transform.forward;
@@ -256,7 +347,6 @@ namespace KenyaStreetSim
                 var hit = CastHits[i];
                 if (hit.transform == null || hit.transform.IsChildOf(transform)) continue;
 
-                // Only yield to vehicles actually in our SAME lane & direction (never freeze for oncoming traffic or roadside scenery!)
                 var otherTraffic = hit.collider.GetComponentInParent<KenyaSplineTraffic>();
                 if (otherTraffic != null)
                 {
@@ -264,16 +354,7 @@ namespace KenyaStreetSim
                     float align = Vector3.Dot(otherTraffic.transform.forward, fwd);
                     if (align < 0.45f) continue; // Ignore oncoming opposite-lane vehicles!
                     float lat = Mathf.Abs(Vector3.Dot(otherTraffic.transform.position - transform.position, right));
-                    if (lat > 2.35f) continue;   // Ignore adjacent lane!
-                    if (hit.distance < nearestDist) { nearestDist = hit.distance; found = true; }
-                    continue;
-                }
-
-                var playerVeh = hit.collider.GetComponentInParent<KenyaStreetVehicle>();
-                if (playerVeh != null)
-                {
-                    float lat = Mathf.Abs(Vector3.Dot(playerVeh.transform.position - transform.position, right));
-                    if (lat > 2.55f) continue;   // Player is in opposite lane or shoulder — keep flowing!
+                    if (lat > 2.35f) continue;
                     if (hit.distance < nearestDist) { nearestDist = hit.distance; found = true; }
                 }
             }

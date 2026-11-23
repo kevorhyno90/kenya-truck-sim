@@ -234,12 +234,11 @@ namespace KenyaStreetSim
             {
                 float dist = Vector3.Distance(veh.transform.position, activeStage.transform.position);
                 string distStr = dist >= 950f ? $"{dist / 1000f:0.2} km" : $"{Mathf.RoundToInt(dist)}m";
-                string prefix = loop.ActiveMode switch
+                string prefix = loop.ActiveJobRole switch
                 {
-                    StreetGameLoop.GameMode.KenyaPolicePatrol => "DISPATCH",
-                    StreetGameLoop.GameMode.IsuzuCargoHaul => "DELIVERY",
-                    StreetGameLoop.GameMode.FreeRoamKenya => "WAYPOINT",
-                    _ => "NEXT"
+                    KenyaStreetVehicle.VehicleJobRole.PolicePatrol => "PATROL DISPATCH",
+                    KenyaStreetVehicle.VehicleJobRole.CargoParcel => "FRR PARCEL DEPOT",
+                    _ => "NEXT STAGE"
                 };
                 if (nextStageDistText != null)
                 {
@@ -253,12 +252,11 @@ namespace KenyaStreetSim
                     if (boardingFillBar != null) boardingFillBar.fillAmount = activeStage.BoardingProgress;
                     if (boardingLabelText != null)
                     {
-                        string actionVerb = loop.ActiveMode switch
+                        string actionVerb = loop.ActiveJobRole switch
                         {
-                            StreetGameLoop.GameMode.KenyaPolicePatrol => "SECURING POLICE CHECKPOINT",
-                            StreetGameLoop.GameMode.IsuzuCargoHaul => "UNLOADING KENYA FREIGHT",
-                            StreetGameLoop.GameMode.FreeRoamKenya => "CHECKING IN AT HUB",
-                            _ => "BOARDING PASSENGERS"
+                            KenyaStreetVehicle.VehicleJobRole.PolicePatrol => "SECURING KENYA POLICE PATROL",
+                            KenyaStreetVehicle.VehicleJobRole.CargoParcel => "LOADING / UNLOADING FRR PARCELS",
+                            _ => "BOARDING PASSENGERS [O] DOOR"
                         };
                         boardingLabelText.text = veh.SpeedKmh > 12f
                             ? $"SLOW DOWN AT {activeStage.stageName.ToUpperInvariant()}"
@@ -289,8 +287,21 @@ namespace KenyaStreetSim
                 StartCoroutine(PopRectRoutine(kesBadgeRect));
             }
 
-            SpawnFloatingText($"+KES {stage.rewardKes:N0}   +{stage.passengerCount} PAX", Palette.UiAccentAmber);
-            TriggerMilestoneMoment($"STAGE COMPLETE!", $"{stage.stageName}  •  +KES {stage.rewardKes:N0}", Palette.UiAccentAmber);
+            if (loop.ActiveJobRole == KenyaStreetVehicle.VehicleJobRole.PolicePatrol)
+            {
+                SpawnFloatingText($"+KES {stage.rewardKes:N0}   •   PATROL SECURED", Palette.Hex("#4CA6FF"));
+                TriggerMilestoneMoment("POLICE PATROL CLEARED!", $"{stage.stageName}  •  TOWN SECURED", Palette.Hex("#4CA6FF"));
+            }
+            else if (loop.ActiveJobRole == KenyaStreetVehicle.VehicleJobRole.CargoParcel)
+            {
+                SpawnFloatingText($"+KES {stage.rewardKes:N0}   •   +{stage.passengerCount} PARCELS", Palette.Hex("#FF9E1B"));
+                TriggerMilestoneMoment("FRR PARCEL DELIVERED!", $"{stage.stageName}  •  +KES {stage.rewardKes:N0}", Palette.Hex("#FF9E1B"));
+            }
+            else
+            {
+                SpawnFloatingText($"+KES {stage.rewardKes:N0}   •   +{stage.passengerCount} PAX", Palette.UiAccentAmber);
+                TriggerMilestoneMoment("BUS STAGE COMPLETE!", $"{stage.stageName}  •  +KES {stage.rewardKes:N0}", Palette.UiAccentAmber);
+            }
         }
 
         private void HandleSafetyPenalty(int penalty, string reason)

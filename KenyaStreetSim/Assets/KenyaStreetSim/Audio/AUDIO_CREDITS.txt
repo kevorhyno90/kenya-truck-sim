@@ -1,0 +1,8 @@
+KenyaStreetSim Real Recorded Audio Credits (Wikimedia Commons):
+- Rain_RealWindow_PD.ogg: Public Domain (Wikimedia Commons: File:Rain_against_the_window.ogg)
+- Engine_V8Diesel_Real.ogg: CC0 Public Domain (Wikimedia Commons: File:Detroit62.ogg)
+- PoliceSiren_Real.ogg: Public Domain (Wikimedia Commons: File:American_police_siren_i.ogg)
+- Engine_CoachBus_Real.ogg: CC BY 4.0 - Work With Sounds (Wikimedia Commons: File:WWS_CityBusMANSG220engine.ogg)
+- BusDoor_Pneumatic_Real.ogg: CC BY 4.0 - Work With Sounds (Wikimedia Commons: File:WWS_CityBusMANSG220dooropeningclosing.ogg)
+- Horn_CoachBus_Real.ogg: CC BY 4.0 - Work With Sounds (Wikimedia Commons: File:WWS_CityBusMANSG220horn.ogg)
+- Horn_Car_Real.ogg: CC BY 4.0 - Work With Sounds (Wikimedia Commons: File:WWS_CarPrinzNSU1200C8211horn.ogg)

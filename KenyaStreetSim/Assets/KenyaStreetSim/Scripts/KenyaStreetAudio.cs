@@ -19,8 +19,15 @@ namespace KenyaStreetSim
             PoliceLandCruiserV8
         }
 
-        [Header("Real Recorded Audio Assets")]
+        [Header("Real Field-Recorded Audio Assets (Wikimedia Commons CC0 / CC BY 4.0)")]
+        public AudioClip realCoachEngineClip;
+        public AudioClip realTruckEngineClip;
+        public AudioClip realLandCruiserEngineClip;
+        public AudioClip realRainWindowClip;
+        public AudioClip realPoliceSirenClip;
+        public AudioClip realBusDoorClip;
         public AudioClip realCoachHornClip;
+        public AudioClip realCarHornClip;
 
         [Header("Gain Layer (0..1)")]
         [Range(0f, 1f)] public float musicVolume = 0.75f;
@@ -31,8 +38,12 @@ namespace KenyaStreetSim
 
         private AudioSource ambientSource;
         private AudioSource engineSource;
+        private AudioLowPassFilter engineLowPass;
         private AudioSource sirenSource;
         private AudioSource rainSource;
+        private AudioLowPassFilter rainLowPass;
+        private AudioSource hornSource;
+        private AudioSource doorSource;
         private AudioSource sfxSource;
         private AudioSource uiSource;
 
@@ -92,18 +103,24 @@ namespace KenyaStreetSim
             ambientSource.Play();
 
             engineSource = CreateSource("EngineLoop", loop: true, spatial: false);
-            engineSource.clip = coachEngineClip;
-            engineSource.pitch = 0.85f;
+            engineSource.clip = realCoachEngineClip != null ? realCoachEngineClip : coachEngineClip;
+            engineSource.pitch = 0.90f;
+            engineLowPass = engineSource.gameObject.AddComponent<AudioLowPassFilter>();
+            engineLowPass.cutoffFrequency = 1450f;
             engineSource.Play();
 
             sirenSource = CreateSource("PoliceSirenLoop", loop: true, spatial: false);
-            sirenSource.clip = policeSirenClip;
+            sirenSource.clip = realPoliceSirenClip != null ? realPoliceSirenClip : policeSirenClip;
             sirenSource.volume = 0f;
 
             rainSource = CreateSource("RainLoop", loop: true, spatial: false);
-            rainSource.clip = rainLoopClip;
+            rainSource.clip = realRainWindowClip != null ? realRainWindowClip : rainLoopClip;
             rainSource.volume = 0f;
+            rainLowPass = rainSource.gameObject.AddComponent<AudioLowPassFilter>();
+            rainLowPass.cutoffFrequency = 1150f; // Cozy muffled cabin rain — pleasant & natural, ZERO harsh static!
 
+            hornSource = CreateSource("HornSource", loop: false, spatial: false);
+            doorSource = CreateSource("DoorSource", loop: false, spatial: false);
             sfxSource = CreateSource("SfxOneShot", loop: false, spatial: false);
             uiSource = CreateSource("UiOneShot", loop: false, spatial: false);
         }
@@ -142,7 +159,7 @@ namespace KenyaStreetSim
             float duck = isPausedDuck ? PauseDuckMultiplier : 1f;
             if (ambientSource != null)
             {
-                ambientSource.volume = 0.28f * musicVolume * duck;
+                ambientSource.volume = 0.06f * musicVolume * duck; // Subtle natural breeze, zero annoying drone
             }
             if (engineSource != null)
             {
@@ -151,12 +168,15 @@ namespace KenyaStreetSim
             }
             if (sirenSource != null)
             {
-                sirenSource.volume = sirenSource.isPlaying ? 0.36f * sfxVolume * duck : 0f;
+                sirenSource.volume = sirenSource.isPlaying ? 0.24f * sfxVolume * duck : 0f;
             }
             if (rainSource != null)
             {
-                rainSource.volume = currentRainIntensity * 0.44f * sfxVolume * duck;
+                // Gentle cozy cabin rain on glass — never loud or harsh!
+                rainSource.volume = currentRainIntensity * 0.16f * sfxVolume * duck;
             }
+            if (hornSource != null) hornSource.volume = 0.65f * sfxVolume * duck;
+            if (doorSource != null) doorSource.volume = 0.55f * sfxVolume * duck;
             if (sfxSource != null)
             {
                 sfxSource.volume = sfxVolume * duck;
@@ -173,9 +193,9 @@ namespace KenyaStreetSim
             if (engineSource == null) return;
             AudioClip target = profile switch
             {
-                EngineProfile.IsuzuCargoDiesel => isuzuEngineClip,
-                EngineProfile.PoliceLandCruiserV8 => landCruiserEngineClip,
-                _ => coachEngineClip
+                EngineProfile.IsuzuCargoDiesel => (realTruckEngineClip != null ? realTruckEngineClip : isuzuEngineClip),
+                EngineProfile.PoliceLandCruiserV8 => (realLandCruiserEngineClip != null ? realLandCruiserEngineClip : landCruiserEngineClip),
+                _ => (realCoachEngineClip != null ? realCoachEngineClip : coachEngineClip)
             };
             if (target != null && engineSource.clip != target)
             {
@@ -203,33 +223,53 @@ namespace KenyaStreetSim
 
         public void PlayDoorPneumatic(bool open)
         {
+            if (doorSource != null && realBusDoorClip != null)
+            {
+                CancelInvoke(nameof(StopDoorBurst));
+                doorSource.clip = realBusDoorClip;
+                doorSource.time = 0f;
+                doorSource.pitch = open ? 1.0f : 0.92f;
+                doorSource.Play();
+                Invoke(nameof(StopDoorBurst), 1.35f);
+                return;
+            }
             if (sfxSource == null) return;
             AudioClip clip = open ? doorOpenClip : doorCloseClip;
             if (clip == null) return;
             sfxSource.pitch = open ? 1.0f : 0.90f;
-            sfxSource.PlayOneShot(clip, 0.72f);
+            sfxSource.PlayOneShot(clip, 0.52f);
+        }
+
+        private void StopDoorBurst()
+        {
+            if (doorSource != null && doorSource.isPlaying) doorSource.Stop();
         }
 
         public void PlayWiperSwish()
         {
             if (sfxSource == null || wiperSwishClip == null) return;
-            sfxSource.pitch = Random.Range(0.94f, 1.06f);
-            sfxSource.PlayOneShot(wiperSwishClip, 0.28f);
+            sfxSource.pitch = Random.Range(0.95f, 1.05f);
+            sfxSource.PlayOneShot(wiperSwishClip, 0.14f);
         }
 
         public void UpdateEngine(float speedKmh, float throttleAbs, bool isRunning, float rpmNormalized = 0f)
         {
             if (engineSource == null) return;
-            float driveLoad = Mathf.Max(Mathf.Clamp01(speedKmh / 85f) * 0.6f, rpmNormalized * 0.85f);
+            float driveLoad = Mathf.Max(Mathf.Clamp01(speedKmh / 95f) * 0.65f, rpmNormalized * 0.75f);
+            // Smooth natural diesel pitch window (no harsh high-pitched synth whine!)
             float targetPitch = isRunning
-                ? Mathf.Lerp(0.70f, 1.82f, driveLoad * 0.78f + throttleAbs * 0.22f)
-                : 0.66f;
+                ? Mathf.Lerp(0.84f, 1.28f, driveLoad * 0.75f + throttleAbs * 0.25f)
+                : 0.80f;
             float targetFactor = isRunning
-                ? Mathf.Lerp(0.18f, 0.46f, driveLoad * 0.60f + throttleAbs * 0.40f)
-                : 0.08f;
+                ? Mathf.Lerp(0.16f, 0.34f, driveLoad * 0.55f + throttleAbs * 0.45f)
+                : 0.06f;
 
-            currentEnginePitch = Mathf.Lerp(currentEnginePitch, targetPitch, Time.unscaledDeltaTime * 7f);
-            currentEngineVolumeFactor = Mathf.Lerp(currentEngineVolumeFactor, targetFactor, Time.unscaledDeltaTime * 7f);
+            currentEnginePitch = Mathf.Lerp(currentEnginePitch, targetPitch, Time.unscaledDeltaTime * 6f);
+            currentEngineVolumeFactor = Mathf.Lerp(currentEngineVolumeFactor, targetFactor, Time.unscaledDeltaTime * 6f);
+            if (engineLowPass != null)
+            {
+                engineLowPass.cutoffFrequency = Mathf.Lerp(1150f, 3400f, driveLoad * 0.6f + throttleAbs * 0.4f);
+            }
             ApplyVolumes();
         }
 
@@ -296,19 +336,38 @@ namespace KenyaStreetSim
 
         public void PlayHornForProfile(EngineProfile profile)
         {
-            if (sfxSource == null || isHornPlaying) return;
+            if (isHornPlaying) return;
             AudioClip clip = profile switch
             {
                 EngineProfile.HeavyCoachDiesel => (realCoachHornClip != null ? realCoachHornClip : enaHornClip),
-                EngineProfile.PoliceLandCruiserV8 => policeHornClip,
-                _ => isuzuHornClip
+                EngineProfile.PoliceLandCruiserV8 => (realCarHornClip != null ? realCarHornClip : policeHornClip),
+                _ => (realCoachHornClip != null ? realCoachHornClip : isuzuHornClip)
             };
             if (clip == null) return;
-            sfxSource.pitch = 1f;
-            sfxSource.PlayOneShot(clip, 0.92f);
             isHornPlaying = true;
-            float cd = Mathf.Clamp(clip.length * 0.72f, 0.45f, 1.35f);
-            Invoke(nameof(ResetHornCooldown), cd);
+
+            if (hornSource != null)
+            {
+                CancelInvoke(nameof(StopHornBurst));
+                hornSource.clip = clip;
+                hornSource.time = 0f;
+                hornSource.pitch = profile == EngineProfile.IsuzuCargoDiesel ? 0.78f : 1.0f;
+                hornSource.Play();
+                float dur = Mathf.Min(clip.length, 0.78f);
+                Invoke(nameof(StopHornBurst), dur);
+                Invoke(nameof(ResetHornCooldown), dur + 0.12f);
+            }
+            else if (sfxSource != null)
+            {
+                sfxSource.pitch = 1f;
+                sfxSource.PlayOneShot(clip, 0.72f);
+                Invoke(nameof(ResetHornCooldown), 0.65f);
+            }
+        }
+
+        private void StopHornBurst()
+        {
+            if (hornSource != null && hornSource.isPlaying) hornSource.Stop();
         }
 
         private void ResetHornCooldown() => isHornPlaying = false;
@@ -363,6 +422,7 @@ namespace KenyaStreetSim
 
         private static AudioClip SynthesizeAmbientBed(int sr, float duration)
         {
+            // Pure gentle Kenyan breeze with ZERO harsh hum/drone!
             int n = Mathf.RoundToInt(sr * duration);
             var data = new float[n];
             var rng = new System.Random(104729);
@@ -371,13 +431,11 @@ namespace KenyaStreetSim
             {
                 float t = (float)i / sr;
                 float white = (float)(rng.NextDouble() * 2.0 - 1.0);
-                brown = Mathf.Clamp((brown + 0.025f * white) * 0.992f, -1f, 1f);
-                float swell = 0.72f + 0.28f * Mathf.Sin(2f * Mathf.PI * t / duration);
-                float warmPad = 0.10f * Mathf.Sin(2f * Mathf.PI * 110f * t)
-                              + 0.06f * Mathf.Sin(2f * Mathf.PI * 165f * t);
-                data[i] = Mathf.Clamp((brown * 0.68f + warmPad) * swell * 0.55f, -0.9f, 0.9f);
+                brown = Mathf.Clamp((brown + 0.015f * white) * 0.995f, -1f, 1f);
+                float swell = 0.78f + 0.22f * Mathf.Sin(2f * Mathf.PI * t / duration);
+                data[i] = Mathf.Clamp(brown * swell * 0.35f, -0.5f, 0.5f);
             }
-            ApplyFade(data, sr, 0.08f);
+            ApplyFade(data, sr, 0.12f);
             return CreateClip("KenyaStreetAmbient", data, sr);
         }
 

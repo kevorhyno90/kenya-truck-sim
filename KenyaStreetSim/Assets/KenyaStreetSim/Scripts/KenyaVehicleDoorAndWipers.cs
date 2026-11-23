@@ -98,9 +98,10 @@ namespace KenyaStreetSim
                     SetWipers(!WipersOn);
                 }
 
-                // Auto-open passenger door when stopped inside an active Bus Stage / Parcel Depot so 3D passengers walk right in!
+                // Auto-open passenger door at Bus Stages ONLY for Passenger Buses (Police car & Cargo trucks never pick up bus passengers!)
                 var stage = loop.ActiveStage;
-                bool stoppedAtStage = stage != null && stage.PlayerInside && vehicle != null && vehicle.SpeedKmh < 8f;
+                bool isPassengerBus = vehicle != null && vehicle.jobRole == KenyaStreetVehicle.VehicleJobRole.BusPassenger;
+                bool stoppedAtStage = isPassengerBus && stage != null && stage.PlayerInside && vehicle.SpeedKmh < 8f;
                 if (stoppedAtStage && !DoorOpen)
                 {
                     SetDoorOpen(true, silent: false);
