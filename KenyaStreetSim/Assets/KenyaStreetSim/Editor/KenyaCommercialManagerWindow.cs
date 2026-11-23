@@ -71,13 +71,35 @@ namespace KenyaStreetSim.Editor
 
             var btnRow1 = new VisualElement();
             btnRow1.style.flexDirection = FlexDirection.Row;
+            btnRow1.style.flexWrap = Wrap.Wrap;
             var openFolderBtn = CreateActionBtn("Open RealTraffic Folder", new Color(0.10f, 0.56f, 0.72f), () =>
             {
                 if (!Directory.Exists(RealTrafficFolder)) Directory.CreateDirectory(RealTrafficFolder);
                 EditorUtility.RevealInFinder(Path.GetFullPath(RealTrafficFolder));
             });
+            var openBlendBtn = CreateActionBtn("Open Blender Showroom (.blend)", new Color(0.86f, 0.45f, 0.08f), () =>
+            {
+                string blendPath = Path.GetFullPath("BlenderStudio/Kenya_Owned_Commercial_Traffic_Pack.blend");
+                if (File.Exists(blendPath))
+                {
+                    EditorUtility.OpenWithDefaultApp(blendPath);
+                    statusLabel.text = $"Opened in Blender: {blendPath}";
+                }
+                else
+                {
+                    statusLabel.text = $"Blender showroom not found yet at: {blendPath}";
+                }
+            });
+            var revealBlendBtn = CreateActionBtn("Reveal Blender Folder", new Color(0.32f, 0.36f, 0.46f), () =>
+            {
+                string blendPath = Path.GetFullPath("BlenderStudio/Kenya_Owned_Commercial_Traffic_Pack.blend");
+                string target = File.Exists(blendPath) ? blendPath : Path.GetFullPath("BlenderStudio");
+                if (File.Exists(target) || Directory.Exists(target)) EditorUtility.RevealInFinder(target);
+            });
             var refreshBtn = CreateActionBtn("Refresh Count", new Color(0.24f, 0.30f, 0.40f), RefreshCounts);
             btnRow1.Add(openFolderBtn);
+            btnRow1.Add(openBlendBtn);
+            btnRow1.Add(revealBlendBtn);
             btnRow1.Add(refreshBtn);
             trafficCard.Add(btnRow1);
 
