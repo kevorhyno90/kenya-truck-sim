@@ -87,6 +87,21 @@ namespace KenyaStreetSim
         public bool HazardsOn { get; private set; }
         public bool BlinkPhaseOn { get; private set; }
 
+        [Header("Diesel Fuel System")]
+        [Range(0f, 1f)] public float fuelNormalized = 0.88f;
+        public float fuelBurnPerKm = 0.045f; // Real highway burn across long Kenyan corridors -> refuel at Petrol Stations!
+        public float FuelPercent => Mathf.Round(Mathf.Clamp01(fuelNormalized) * 100f);
+
+        public void RefuelStep(float amount01)
+        {
+            fuelNormalized = Mathf.Clamp01(fuelNormalized + Mathf.Max(0f, amount01));
+        }
+
+        public void RefuelFull()
+        {
+            fuelNormalized = 1f;
+        }
+
         private float currentSteerAngle;
         private float lastCollisionTime = -10f;
         private float blinkTimer;
@@ -257,14 +272,23 @@ namespace KenyaStreetSim
                 if (KenyaNetworkData.FindNearestRoadPoint(transform.position, out Vector3 roadPt, out Vector3 roadFwd, out _))
                 {
                     Vector3 left = Vector3.Cross(roadFwd, Vector3.up).normalized;
-                    Vector3 spawnPos = roadPt + left * 3.4f + Vector3.up * 0.35f;
+                    Vector3 spawnPos = roadPt + left * 3.4f;
+                    spawnPos.y = KenyaNetworkData.GetElevationAt(spawnPos.x, spawnPos.z) + 0.35f;
                     ResetToPose(spawnPos, Quaternion.LookRotation(roadFwd, Vector3.up));
                 }
                 else
                 {
-                    Vector3 uprightPos = new Vector3(transform.position.x, 0.35f, transform.position.z);
+                    float groundY = KenyaNetworkData.GetElevationAt(transform.position.x, transform.position.z);
+                    Vector3 uprightPos = new Vector3(transform.position.x, groundY + 0.35f, transform.position.z);
                     ResetToPose(uprightPos, Quaternion.Euler(0f, transform.eulerAngles.y, 0f));
                 }
+            }
+
+            // Gentle realistic diesel burn while driving along Kenya's highways (refuel at major town Petrol Stations!)
+            if (SpeedKmh > 1.5f)
+            {
+                float kmStep = (SpeedKmh / 3600f) * Time.deltaTime;
+                fuelNormalized = Mathf.Max(0.05f, fuelNormalized - kmStep * fuelBurnPerKm);
             }
 
             IsBraking = handbrake || (accel < -0.1f && ForwardSpeedMs > 0.8f) || (accel > 0.1f && ForwardSpeedMs < -0.8f);

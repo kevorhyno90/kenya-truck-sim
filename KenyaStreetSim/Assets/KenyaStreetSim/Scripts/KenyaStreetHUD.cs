@@ -201,8 +201,8 @@ namespace KenyaStreetSim
                         : "DAY";
                     string weather = (KenyaWeatherSystem.Instance != null && KenyaWeatherSystem.Instance.IsRaining) ? "RAIN" : "CLEAR";
                     var doorSys = veh.GetComponent<KenyaVehicleDoorAndWipers>();
-                    string door = (doorSys != null && doorSys.DoorOpen) ? "OPEN[O]" : (veh.HeadlightsOn ? "BEAMS" : "LIGHTS");
-                    lightsTodStatusText.text = $"{door} • {weather}[R] • {tod}[T]";
+                    string door = (doorSys != null && doorSys.DoorOpen) ? "DOOR" : (veh.HeadlightsOn ? "BEAMS" : "FUEL");
+                    lightsTodStatusText.text = $"{door} {veh.FuelPercent:0}% • {weather}[R] • {tod}[T]";
                 }
                 if (vehicleBadgeText != null)
                     vehicleBadgeText.text = $"{veh.displayName}  •  [V] Switch";

@@ -95,9 +95,12 @@ namespace KenyaStreetSim
                 else if (i == n - 1) fwd = (centerLine[n - 1] - centerLine[n - 2]).normalized;
                 else fwd = (centerLine[i + 1] - centerLine[i - 1]).normalized;
 
-                // Kenya Left-Hand Traffic: offset to the LEFT of travel direction
-                Vector3 left = Vector3.Cross(fwd, Vector3.up).normalized;
-                pathPoints[i] = centerLine[i] + left * laneOffsetMeters;
+                // Kenya Left-Hand Traffic: offset to the LEFT of travel direction & hug exact 3D highway slope elevation!
+                Vector3 fwdFlat = new Vector3(fwd.x, 0f, fwd.z).normalized;
+                Vector3 left = Vector3.Cross(fwdFlat, Vector3.up).normalized;
+                Vector3 pt = centerLine[i] + left * laneOffsetMeters;
+                pt.y = KenyaNetworkData.GetElevationAt(pt.x, pt.z);
+                pathPoints[i] = pt;
 
                 if (i > 0)
                 {
@@ -228,9 +231,10 @@ namespace KenyaStreetSim
             float segLen = Mathf.Max(0.001f, cumulativeDist[hi] - cumulativeDist[lo]);
             float u = Mathf.Clamp01((dist - cumulativeDist[lo]) / segLen);
             pos = Vector3.Lerp(pathPoints[lo], pathPoints[hi], u);
+            pos.y = KenyaNetworkData.GetElevationAt(pos.x, pos.z);
 
+            // Preserve smooth 3D uphill/downhill highway slope pitch on Mai Mahiu, Salgaa, Timboroa & Sondu!
             Vector3 dir = pathPoints[hi] - pathPoints[lo];
-            dir.y = 0f;
             rot = dir.sqrMagnitude > 0.0001f ? Quaternion.LookRotation(dir.normalized, Vector3.up) : transform.rotation;
         }
 

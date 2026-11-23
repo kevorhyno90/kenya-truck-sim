@@ -4,7 +4,7 @@ using UnityEngine;
 namespace KenyaStreetSim
 {
     /// <summary>
-    /// Authentic Kenyan Bus & Isuzu FRR Parcel Routes Catalog across all 16 Kenyan towns & 8 highways.
+    /// Authentic National Kenya Bus & Parcel Routes Catalog across all 41 Kenyan Towns & 15 Highways.
     /// Drives selectable route progression, [M] Map highlighted route overlays, Passenger/Parcel pins,
     /// and 3D Turn-by-Turn GPS highway guidance.
     /// </summary>
@@ -35,89 +35,89 @@ namespace KenyaStreetSim
             {
                 id = 0,
                 shortName = "NAIROBI – KISII – MIGORI",
-                fullTitle = "ENA Coach South-Nyanza Express",
-                highwaySummary = "CBD → B3 Narok → Bomet → Kisii → A1 Migori/Sirare",
+                fullTitle = "B3/A1 South Rift & Gusii Express",
+                highwaySummary = "Nairobi → Mai Mahiu → Narok → Bomet → Kaplong → Sotik → Chebilat → Keroka → Kisii → Suneka → Rongo → Awendo → Migori",
                 kind = RouteKind.BusPassenger,
-                stopHubIndices = new[] { 0, 1, 2, 3, 4 },
-                highwayIndices = new[] { 0, 1, 2 },
-                bonusKes = 4500
+                stopHubIndices = new[] { 0, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13 },
+                highwayIndices = new[] { 0, 7, 1 },
+                bonusKes = 6200
             },
             new RouteDef
             {
                 id = 1,
-                shortName = "NAIROBI – NAKURU – KISUMU",
-                fullTitle = "Rift Valley & Lake Victoria Bus Express",
-                highwaySummary = "CBD → A104 Naivasha → Nakuru → B1 Kericho → Kisumu",
+                shortName = "MIGORI – HOMA BAY – KISUMU",
+                fullTitle = "A1/C20/C19 Lake Victoria Basin Shuttle",
+                highwaySummary = "Migori → Awendo → Rongo → Rodi Kopany → Homa Bay → Kendu Bay → Katito → Ahero → Kisumu",
                 kind = RouteKind.BusPassenger,
-                stopHubIndices = new[] { 0, 5, 6, 7, 8 },
-                highwayIndices = new[] { 0, 3, 4 },
-                bonusKes = 5200
+                stopHubIndices = new[] { 13, 12, 11, 14, 17, 18, 21, 22, 23 },
+                highwayIndices = new[] { 1, 2, 4 },
+                bonusKes = 5400
             },
             new RouteDef
             {
                 id = 2,
-                shortName = "NAIROBI – ELDORET – KAKAMEGA",
-                fullTitle = "North-Rift & Western Bus Express",
-                highwaySummary = "CBD → A104 Naivasha → Nakuru → Eldoret → C39 Kakamega",
+                shortName = "KISII – SONDU – KISUMU – KITALE",
+                fullTitle = "A1 Nyanza to Western & Trans-Nzoia Express",
+                highwaySummary = "Kisii → Oyugis → Sondu → Katito → Ahero → Kisumu → Vihiga → Kakamega → Webuye → Kiminini → Kitale",
                 kind = RouteKind.BusPassenger,
-                stopHubIndices = new[] { 0, 5, 6, 9, 10 },
-                highwayIndices = new[] { 0, 3, 5 },
-                bonusKes = 5800
+                stopHubIndices = new[] { 9, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28 },
+                highwayIndices = new[] { 4, 5 },
+                bonusKes = 6800
             },
             new RouteDef
             {
                 id = 3,
-                shortName = "NAIROBI – MOMBASA – MALINDI",
-                fullTitle = "Mombasa Road & Coastal Bus Express",
-                highwaySummary = "CBD → A109 Mtito Andei → Voi/Tsavo → Mombasa → B8 Malindi",
+                shortName = "NAIROBI – ELDORET – MALABA",
+                fullTitle = "A104 Great Rift & Uganda Border Corridor",
+                highwaySummary = "Nairobi → Naivasha → Nakuru → Salgaa/Total → Eldoret → Webuye → Bungoma → Malaba (Uganda)",
                 kind = RouteKind.BusPassenger,
-                stopHubIndices = new[] { 0, 12, 13, 14, 15 },
-                highwayIndices = new[] { 0, 7 },
-                bonusKes = 6500
+                stopHubIndices = new[] { 0, 31, 32, 33, 35, 26, 29, 30 },
+                highwayIndices = new[] { 0, 12, 13, 6 },
+                bonusKes = 7400
             },
             new RouteDef
             {
                 id = 4,
-                shortName = "KISUMU – HOMA BAY – MIGORI",
-                fullTitle = "Lake Victoria South Bus Circuit",
-                highwaySummary = "Kisumu → C19 Homa Bay → Kisii → A1 Migori/Sirare",
+                shortName = "NAIROBI – KERICHO – KISUMU",
+                fullTitle = "A104/B1 Tea Highlands & Lake Express",
+                highwaySummary = "Nairobi → Mai Mahiu → Naivasha → Nakuru → Total → Kericho → Ahero → Kisumu → Bungoma",
                 kind = RouteKind.BusPassenger,
-                stopHubIndices = new[] { 8, 11, 3, 4 },
-                highwayIndices = new[] { 6, 2 },
-                bonusKes = 4200
+                stopHubIndices = new[] { 0, 2, 31, 32, 33, 34, 22, 23, 29 },
+                highwayIndices = new[] { 0, 7, 9, 12, 10, 11, 4, 6 },
+                bonusKes = 6600
             },
             new RouteDef
             {
                 id = 5,
-                shortName = "FRR PARCEL: NAIROBI – ELDORET",
-                fullTitle = "Isuzu FRR Rift Parcel Courier Run",
-                highwaySummary = "Nairobi Parcel Hub → Naivasha → Nakuru → Eldoret Depot",
-                kind = RouteKind.FrrParcelCargo,
-                stopHubIndices = new[] { 0, 5, 6, 9 },
-                highwayIndices = new[] { 0, 3, 5 },
-                bonusKes = 6000
+                shortName = "THIKA – NAIROBI – MOMBASA – MALINDI",
+                fullTitle = "A2/A109/B8 Superhighway to Indian Ocean",
+                highwaySummary = "Thika → Nairobi → Mtito Andei → Voi/Tsavo → Mombasa → Kilifi → Malindi",
+                kind = RouteKind.BusPassenger,
+                stopHubIndices = new[] { 1, 0, 36, 37, 38, 39, 40 },
+                highwayIndices = new[] { 0, 14 },
+                bonusKes = 7800
             },
             new RouteDef
             {
                 id = 6,
-                shortName = "FRR PARCEL: NAIROBI – MOMBASA",
-                fullTitle = "Isuzu FRR Coast Freight & Parcel Run",
-                highwaySummary = "Nairobi Parcel Hub → Mtito Andei → Voi → Mombasa Port Depot",
+                shortName = "PARCEL: NAIROBI – ELDORET – MALABA",
+                fullTitle = "Savanna Parcel Northern Corridor Haul",
+                highwaySummary = "Nairobi Depot → Naivasha → Nakuru → Salgaa/Total → Eldoret → Bungoma → Malaba",
                 kind = RouteKind.FrrParcelCargo,
-                stopHubIndices = new[] { 0, 12, 13, 14 },
-                highwayIndices = new[] { 0, 7 },
-                bonusKes = 7200
+                stopHubIndices = new[] { 0, 31, 32, 33, 35, 29, 30 },
+                highwayIndices = new[] { 0, 12, 13, 6 },
+                bonusKes = 7600
             },
             new RouteDef
             {
                 id = 7,
-                shortName = "ALL-KENYA 16-TOWN TOUR",
-                fullTitle = "Grand Republic of Kenya 16-Town Highway Tour",
-                highwaySummary = "All 16 Kenyan Towns & 8 Highways",
-                kind = RouteKind.GrandKenyaTour,
-                stopHubIndices = new[] { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15 },
-                highwayIndices = new[] { 0, 1, 2, 3, 4, 5, 6, 7 },
-                bonusKes = 15000
+                shortName = "PARCEL: NAIROBI – MOMBASA – KILIFI",
+                fullTitle = "Savanna Parcel Coast Port Express",
+                highwaySummary = "Nairobi Depot → Mtito Andei → Voi/Tsavo → Mombasa Port → Kilifi → Malindi",
+                kind = RouteKind.FrrParcelCargo,
+                stopHubIndices = new[] { 0, 36, 37, 38, 39, 40 },
+                highwayIndices = new[] { 0, 14 },
+                bonusKes = 8200
             }
         };
 
@@ -147,13 +147,10 @@ namespace KenyaStreetSim
             return false;
         }
 
-        /// <summary>
-        /// Samples an ordered world-space polyline along the selected route's highways for 3D GPS guidance!
-        /// </summary>
         public static List<Vector3> BuildOrderedRoutePoints(int routeIndex, float stepMeters = 10f)
         {
             var r = GetRoute(routeIndex);
-            var pts = new List<Vector3>(256);
+            var pts = new List<Vector3>(512);
             for (int i = 0; i < r.highwayIndices.Length; i++)
             {
                 int h = r.highwayIndices[i];

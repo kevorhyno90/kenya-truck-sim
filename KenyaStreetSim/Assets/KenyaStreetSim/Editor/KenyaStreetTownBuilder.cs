@@ -28,6 +28,7 @@ namespace KenyaStreetSim.Editor
         private const string SkyMatPath = "Assets/KenyaStreetSim/Materials/KenyaSky.mat";
         private const string OwnedCoachAssetPath = "Assets/KenyaStreetSim/ImportedModels/OwnedFleet/Savanna_Express_Coach_2026.glb";
         private const string OwnedLorryAssetPath = "Assets/KenyaStreetSim/ImportedModels/OwnedFleet/Savanna_Parcel_Lorry_FRR.glb";
+        private const string OwnedSemiTrailerAssetPath = "Assets/KenyaStreetSim/ImportedModels/OwnedFleet/Kenya_SemiTrailer_Transit.glb";
         private const string ScaniaBusAssetPath = "Assets/KenyaStreetSim/ImportedModels/ScaniaTouring2026/Scania_Touring_2026.glb";
         private const string IsuzuFrrAssetPath = "Assets/KenyaStreetSim/ImportedModels/Fleet/Isuzu_FRR_Kenyan.glb";
         private const string IsuzuTxAssetPath = "Assets/KenyaStreetSim/ImportedModels/Fleet/Isuzu_TX_Lorry.glb";
@@ -129,18 +130,26 @@ namespace KenyaStreetSim.Editor
             // 5. Highway Acacia Savanna, Kericho/Kakamega Highlands & Coastal/Lakeside Palm Trees along corridors
             BuildHighwayBiomeFoliage(worldRoot.transform);
 
-            // 6. Town-Weighted Anti-Jam Passing Traffic (More Diverse Cars in Major Towns, Lighter Rural Highways!)
+            // 5b. 4 International Airports + Overhead Passing Jets, 10 Roadside Markets, Kericho/Chebilat Tea Plantations,
+            //     Narok & Tsavo Animated Wildlife Crossings, and Climbing-Lane Escarpment Signage!
+            KenyaWorldFeaturesBuilder.BuildAllKenyaWorldFeatures(
+                worldRoot.transform,
+                GetMat("KenyaHighwayTarmac", Palette.Hex("#888C94"), 0.24f, 0f, null, texTarmacAlb, texTarmacNrm, new Vector2(1.4f, 1.4f), 1.35f),
+                GetMat("RoadLineWhite", Palette.RoadLineWhite, 0.15f),
+                GetMat("GantrySteel", Palette.LampPostMetal, 0.55f, 0.78f));
+
+            // 6. Town-Weighted Anti-Jam Passing Traffic + Heavy 16.5m Semi-Trailers (Kisumu, Nakuru-Eldoret-Malaba & Mombasa Rd!)
             int trafficCount = BuildFullKenyaSplineTraffic(worldRoot.transform);
 
-            // 6b. 4 Authentic Kenyan Police Highway Roadblocks (Officer Walks Around Vehicle & Waves You Through!)
+            // 6b. 5 MAJOR Kenyan Police Highway Roadblocks ONLY (Mai Mahiu, Salgaa/Total, Ahero, Mtito Andei, Webuye!)
             int roadblockCount = KenyaPoliceRoadblockBuilder.BuildAllRoadblocks(worldRoot.transform);
 
             // 7. Real 3D Animated Sidewalk & Zebra Pedestrians in Nairobi CBD + Regional Towns
             BuildNairobiPedestrians(worldRoot.transform, nairobiLight);
 
-            // 8. Full 5-Vehicle Playable Kenyan Fleet (All Selectable on Title Screen & via [V], All with [C] Cockpit Dashboard & Live Mirrors!)
+            // 8. Full Playable Kenyan Fleet (All Selectable on Title Screen & via [V], Grounded to exact 3D Nairobi Elevation!)
             var fleetRoot = new GameObject("PlayerFleet");
-            Vector3 startPos = new Vector3(-3.5f, 0.32f, -24f);
+            Vector3 startPos = new Vector3(-3.6f, KenyaNetworkData.GetElevationAt(-3.6f, -24f) + 0.35f, -24f);
             var matSharedTire = GetMat("TireRubberPBR", Color.white, 0.22f, 0f, null, texTireAlb, texTireNrm, new Vector2(1f, 3f), 1.3f);
             var matSharedRim = GetMat("WheelRimAlcoa", Palette.WheelRimAlloy, 0.92f, 0.92f);
             var matSharedHead = GetMat("HeadlightWarm", Palette.HeadlightWarm, 0.85f, 0f, Palette.HeadlightWarm * 1.6f);
@@ -287,7 +296,9 @@ namespace KenyaStreetSim.Editor
             int defaultMatCount = CountDefaultMaterials();
             int housesOnRoad = AuditHousesOnRoad(worldRoot.transform);
             int pedCount = Object.FindObjectsByType<KenyaPedestrianAI>().Length;
-            return $"Built 16-Town Kenya ENA Coach Map ({ScenePath}) | Towns={KenyaNetworkData.Hubs.Length} | Highways={KenyaNetworkData.Highways.Length} | Roundabouts={KenyaNetworkData.Roundabouts.Length} | Roadblocks={roadblockCount} | Vehicles={trafficCount} (3D={importedVehiclePrefabs.Count}) | People={pedCount} (3D={importedPeoplePrefabs.Count}) | Renderers={meshCount} | HousesOnRoad={housesOnRoad} | DefaultMaterials={defaultMatCount} | SpeedBumps=0";
+            string summary = $"Built 41-Town National Kenya Highway Map ({ScenePath}) | Towns={KenyaNetworkData.Hubs.Length} | Highways={KenyaNetworkData.Highways.Length} | Roundabouts={KenyaNetworkData.Roundabouts.Length} | Roadblocks={roadblockCount} | Vehicles={trafficCount} (3D={importedVehiclePrefabs.Count}) | People={pedCount} (3D={importedPeoplePrefabs.Count}) | Renderers={meshCount} | HousesOnRoad={housesOnRoad} | DefaultMaterials={defaultMatCount} | SpeedBumps=0";
+            Debug.Log(summary);
+            return summary;
         }
 
         private static void DiscoverImportedModels()
@@ -320,7 +331,7 @@ namespace KenyaStreetSim.Editor
             int violations = 0;
             foreach (var t in worldRoot.GetComponentsInChildren<Transform>(true))
             {
-                if (!t.name.StartsWith("Shop_") && !t.name.StartsWith("RubisStation_")) continue;
+                if (!t.name.StartsWith("Shop_") && !t.name.StartsWith("RubisStation_") && !t.name.StartsWith("PetrolStation_")) continue;
                 var mainBlock = t.Find("MainBlock") ?? t.Find("ShopBuilding");
                 if (mainBlock == null) continue;
                 var ls = mainBlock.lossyScale;
@@ -607,8 +618,9 @@ namespace KenyaStreetSim.Editor
         {
             var camGo = new GameObject("Main Camera");
             camGo.tag = "MainCamera";
-            camGo.transform.position = new Vector3(-9f, 4.8f, -34f);
-            camGo.transform.LookAt(new Vector3(-2f, 2.4f, 25f));
+            float nbiY = KenyaNetworkData.GetElevationAt(-3.6f, -24f);
+            camGo.transform.position = new Vector3(-9.5f, nbiY + 4.8f, -38f);
+            camGo.transform.LookAt(new Vector3(-2f, nbiY + 2.4f, 25f));
 
             var cam = camGo.AddComponent<Camera>();
             cam.allowHDR = true;
@@ -641,26 +653,24 @@ namespace KenyaStreetSim.Editor
             var matLakeWater = GetMat("LakeVictoriaWater", Palette.Hex("#1E6EA1"), 0.92f, 0.12f);
             var matOceanWater = GetMat("IndianOceanWater", Palette.Hex("#1289A7"), 0.94f, 0.15f);
 
-            // 1. Full 2780m x 1600m Multi-Biome Kenyan Terrain (Eldoret N -> Sirare S, Lake Victoria W -> Malindi E)
-            var terrainGo = CreateCustomMesh("FullKenyaTerrainHills", parent, Vector3.zero, Quaternion.identity, Vector3.one, KenyaSculptedMeshFactory.RiftValleyTerrainMesh, matTerrain, withMeshCollider: false);
+            // 1. Full 3840m x 2460m 3D-Elevation Multi-Biome National Kenya Terrain (Sori/Migori/Kisumu/Malaba/Kitale -> Nairobi -> Mombasa/Malindi)
+            var terrainGo = CreateCustomMesh("FullKenyaTerrainHills", parent, Vector3.zero, Quaternion.identity, Vector3.one, KenyaSculptedMeshFactory.RiftValleyTerrainMesh, matTerrain, withMeshCollider: true);
             terrainGo.isStatic = true;
 
-            // Safety flat physics floor well below highways so no vehicle can ever fall out of world
-            CreateBox("KenyaPhysicsSubfloor", parent, new Vector3(-170f, -0.45f, 280f), new Vector3(2900f, 0.4f, 1720f), matTerrain, withCollider: true);
+            // Deep safety physics floor well below lowest coastal water level so no vehicle can ever fall out of world
+            CreateBox("KenyaPhysicsSubfloor", parent, new Vector3(-360f, -4.2f, 570f), new Vector3(4100f, 0.5f, 2700f), matTerrain, withCollider: true);
 
-            // Lush Emerald Tea & Rainforest Belts around Kericho, Bomet & Kakamega highlands!
-            CreateBox("KerichoTeaBeltNorth", parent, new Vector3(-680f, -0.22f, 675f), new Vector3(380f, 0.12f, 130f), matTeaHills, false);
-            CreateBox("BometTeaBeltSouth", parent, new Vector3(-860f, -0.22f, 115f), new Vector3(260f, 0.12f, 110f), matTeaHills, false);
-            CreateBox("KakamegaRainforestBelt", parent, new Vector3(-780f, -0.22f, 895f), new Vector3(310f, 0.12f, 130f), matTeaHills, false);
+            // Shimmering Lake Victoria (Sori -> Homa Bay -> Kendu Bay -> Kisumu), Lake Naivasha, Lake Nakuru & Indian Ocean (Mombasa -> Kilifi -> Malindi)!
+            CreateBox("LakeVictoriaWaterPlane",  parent, new Vector3(-2120f, 0.35f,  340f), new Vector3(520f, 0.2f, 1320f), matLakeWater, false);
+            CreateBox("WinamGulfWaterPlane",     parent, new Vector3(-1690f, 0.32f,  660f), new Vector3(260f, 0.2f,  230f), matLakeWater, false);
+            float naivY = KenyaNetworkData.GetElevationAt(-150f, 435f) - 0.22f;
+            float nakuY = KenyaNetworkData.GetElevationAt(-345f, 585f) - 0.22f;
+            CreateBox("LakeNaivashaWaterPlane",  parent, new Vector3( -150f, naivY,  435f), new Vector3(110f, 0.2f,   82f), matLakeWater, false);
+            CreateBox("LakeNakuruWaterPlane",    parent, new Vector3( -345f, nakuY,  585f), new Vector3(115f, 0.2f,   85f), matLakeWater, false);
+            CreateBox("IndianOceanMombasaPlane", parent, new Vector3( 1265f, 0.28f, -385f), new Vector3(520f, 0.2f,  460f), matOceanWater, false);
+            CreateBox("IndianOceanMalindiPlane", parent, new Vector3( 1435f, 0.28f,   35f), new Vector3(340f, 0.2f,  680f), matOceanWater, false);
 
-            // Shimmering Lake Victoria (Kisumu + Homa Bay), Lake Naivasha, Lake Nakuru, and Indian Ocean (Mombasa -> Malindi)!
-            CreateBox("LakeVictoriaWaterPlane", parent, new Vector3(-1400f, -0.28f, 520f), new Vector3(360f, 0.2f, 480f), matLakeWater, false);
-            CreateBox("LakeNaivashaWaterPlane", parent, new Vector3(-165f, -0.26f, 345f), new Vector3(92f, 0.2f, 74f), matLakeWater, false);
-            CreateBox("LakeNakuruWaterPlane", parent, new Vector3(-235f, -0.26f, 415f), new Vector3(110f, 0.2f, 80f), matLakeWater, false);
-            CreateBox("IndianOceanMombasaPlane", parent, new Vector3(950f, -0.28f, -320f), new Vector3(440f, 0.2f, 340f), matOceanWater, false);
-            CreateBox("IndianOceanMalindiPlane", parent, new Vector3(1140f, -0.28f, 10f), new Vector3(320f, 0.2f, 540f), matOceanWater, false);
-
-            // 2. Smooth Catmull-Rom Extruded PBR Highways & Roundabouts (ZERO speed bumps!)
+            // 2. Smooth 3D Catmull-Rom Extruded Variable-Width PBR Highways (2-Lane, 3-Lane Climbing & 6-Lane City!) + 10 Roundabouts!
             KenyaRoadSplineBuilder.BuildAllHighwayAndRoundaboutGeometry(
                 parent, matTarmac, matMurramShoulder, matWhiteLine, matYellowLine, matCurb, matGrass);
         }
@@ -680,29 +690,46 @@ namespace KenyaStreetSim.Editor
             var matBark = GetMat("AcaciaBarkPBR", Color.white, 0.10f, 0f, null, texBarkAlb, texBarkNrm, new Vector2(1f, 3f), 1.35f);
             var matLeaf = GetMat("AcaciaLeafAlpha", Color.white, 0.12f, 0f, null, texLeafCluster, null, Vector2.one, 1f, alphaClipDoubleSided: true);
 
-            // Interlocking Cabro sidewalks along Nairobi Haile Selassie Avenue (Z = -52..126)
-            for (int side = -1; side <= 1; side += 2)
+            // Elevation-following Interlocking Cabro sidewalks flanking Nairobi's 6-Lane Uhuru / Haile Selassie Boulevard (halfW = 10.8m!)
+            const float cbdCurbX = 11.10f;
+            const float cbdWalkX = 13.75f;
+            for (int seg = 0; seg < 8; seg++)
             {
-                CreateBox($"NairobiCurb_{side}", cbd, new Vector3(side * 7.22f, 0.08f, 37f), new Vector3(0.44f, 0.16f, 178f), matCurb, true);
-                CreateBox($"NairobiSidewalk_{side}", cbd, new Vector3(side * 9.85f, 0.08f, 37f), new Vector3(4.82f, 0.16f, 178f), matCabro, true);
+                float z0 = -52f + seg * 22.25f;
+                float z1 = z0 + 22.25f;
+                float zMid = (z0 + z1) * 0.5f;
+                float y0 = KenyaNetworkData.GetElevationAt(0f, z0);
+                float y1 = KenyaNetworkData.GetElevationAt(0f, z1);
+                float yMid = (y0 + y1) * 0.5f;
+                float pitch = -Mathf.Atan2(y1 - y0, z1 - z0) * Mathf.Rad2Deg;
+                float len = Mathf.Sqrt((z1 - z0) * (z1 - z0) + (y1 - y0) * (y1 - y0)) + 0.15f;
+
+                for (int side = -1; side <= 1; side += 2)
+                {
+                    var curb = CreateBox($"NairobiCurb_{seg}_{side}", cbd, new Vector3(side * cbdCurbX, yMid + 0.08f, zMid), new Vector3(0.46f, 0.24f, len), matCurb, true);
+                    curb.transform.rotation = Quaternion.Euler(pitch, 0f, 0f);
+                    var walk = CreateBox($"NairobiSidewalk_{seg}_{side}", cbd, new Vector3(side * cbdWalkX, yMid + 0.08f, zMid), new Vector3(4.85f, 0.24f, len), matCabro, true);
+                    walk.transform.rotation = Quaternion.Euler(pitch, 0f, 0f);
+                }
             }
 
-            // Zebra Crossing & Working 3-Color Traffic Light at Nairobi CBD Plaza (Z = 95)
-            for (float x = -5.4f; x <= 5.5f; x += 1.2f)
+            // Zebra Crossing & Working 3-Color Traffic Light spanning the 6-Lane Nairobi CBD Plaza (Z = 95)
+            float z95Y = KenyaNetworkData.GetElevationAt(0f, 95f);
+            for (float x = -9.6f; x <= 9.6f; x += 1.25f)
             {
-                CreateBox($"NairobiZebra_{x:0.0}", cbd, new Vector3(x, 0.018f, 95f), new Vector3(0.58f, 0.014f, 3.0f), matWhite, false);
+                CreateBox($"NairobiZebra_{x:0.0}", cbd, new Vector3(x, z95Y + 0.022f, 95f), new Vector3(0.58f, 0.016f, 3.2f), matWhite, false);
             }
 
             var lightGo = new GameObject("NairobiTrafficLight");
             lightGo.transform.SetParent(cbd, false);
-            lightGo.transform.position = new Vector3(0f, 0f, 95f);
+            lightGo.transform.position = new Vector3(0f, z95Y, 95f);
             var ctrl = lightGo.AddComponent<StreetTrafficLight>();
             ctrl.intersectionZ = 95f;
             var mainRed = new List<Renderer>();
             var mainYel = new List<Renderer>();
             var mainGrn = new List<Renderer>();
-            BuildTrafficGantry(lightGo.transform, new Vector3(-8.2f, 0.16f, 102f), 180f, matPole, matHousing, matLens, mainRed, mainYel, mainGrn);
-            BuildTrafficGantry(lightGo.transform, new Vector3( 8.2f, 0.16f,  88f),   0f, matPole, matHousing, matLens, mainRed, mainYel, mainGrn);
+            BuildTrafficGantry(lightGo.transform, new Vector3(-12.2f, KenyaNetworkData.GetElevationAt(-12.2f, 102f) + 0.16f, 102f), 180f, matPole, matHousing, matLens, mainRed, mainYel, mainGrn);
+            BuildTrafficGantry(lightGo.transform, new Vector3( 12.2f, KenyaNetworkData.GetElevationAt( 12.2f,  88f) + 0.16f,  88f),   0f, matPole, matHousing, matLens, mainRed, mainYel, mainGrn);
             ctrl.mainRedLenses = mainRed.ToArray();
             ctrl.mainYellowLenses = mainYel.ToArray();
             ctrl.mainGreenLenses = mainGrn.ToArray();
@@ -710,16 +737,17 @@ namespace KenyaStreetSim.Editor
             // Iconic KICC Tower (Cylindrical Kenyatta International Convention Centre + Helipad!) + Nairobi Glass Skyline
             BuildKiccAndNairobiSkyline(cbd);
 
-            // Nairobi Street Lamps & Branching Acacia Trees + KPLC Power Lines along Haile Selassie Ave
+            // Nairobi Street Lamps & Branching Acacia Trees + KPLC Power Lines flanking the 6-lane boulevard
             for (float z = -42f; z <= 118f; z += 26f)
             {
                 if (Mathf.Abs(z - 95f) < 12f) continue;
+                float zy = KenyaNetworkData.GetElevationAt(0f, z);
                 for (int side = -1; side <= 1; side += 2)
                 {
-                    if (side == -1 && Mathf.Abs(z - 55f) < 14f) continue;
+                    if (side == -1 && Mathf.Abs(z - 40f) < 14f) continue;
                     var lamp = new GameObject($"NairobiLamp_{z:0}_{side}").transform;
                     lamp.SetParent(cbd, false);
-                    lamp.position = new Vector3(side * 7.75f, 0.16f, z);
+                    lamp.position = new Vector3(side * 11.65f, zy + 0.16f, z);
                     lamp.rotation = Quaternion.Euler(0f, side < 0 ? 0f : 180f, 0f);
                     CreateCylinder("PostBase", lamp, new Vector3(0f, 0.55f, 0f), new Vector3(0.24f, 0.55f, 0.24f), matPole);
                     CreateCylinder("Post", lamp, new Vector3(0f, 3.8f, 0f), new Vector3(0.15f, 3.8f, 0.15f), matPole);
@@ -745,11 +773,12 @@ namespace KenyaStreetSim.Editor
 
                     // Branching Acacia tree in stone planter
                     float tz = z + 13f;
-                    if (tz < 118f && Mathf.Abs(tz - 95f) > 12f && !(side == -1 && Mathf.Abs(tz - 55f) < 14f))
+                    if (tz < 118f && Mathf.Abs(tz - 95f) > 12f && !(side == -1 && Mathf.Abs(tz - 40f) < 14f))
                     {
+                        float tzy = KenyaNetworkData.GetElevationAt(side * 13.9f, tz);
                         var tree = new GameObject($"NairobiAcacia_{tz:0}_{side}").transform;
                         tree.SetParent(cbd, false);
-                        tree.position = new Vector3(side * 9.8f, 0.16f, tz);
+                        tree.position = new Vector3(side * 13.9f, tzy + 0.16f, tz);
                         CreateBox("Planter", tree, new Vector3(0f, 0.22f, 0f), new Vector3(1.65f, 0.44f, 1.65f), matCurb, true);
                         CreateCustomMesh("Trunk", tree, new Vector3(0f, 0.40f, 0f), Quaternion.Euler(0f, tz * 13f, 0f), Vector3.one, KenyaSculptedMeshFactory.TreeTrunkMesh, matBark, false);
                         CreateCustomMesh("Crown", tree, new Vector3(0f, 0.40f, 0f), Quaternion.Euler(0f, tz * 13f, 0f), Vector3.one, KenyaSculptedMeshFactory.TreeFoliageMesh, matLeaf, false);
@@ -757,27 +786,41 @@ namespace KenyaStreetSim.Editor
                 }
             }
 
-            // KPLC Utility Poles & Sagging Power Cables along East side of Nairobi CBD
-            BuildKplcPowerStretch(cbd, new Vector3(11.3f, 0.16f, -45f), new Vector3(11.3f, 0.16f, 115f), 5);
+            // KPLC Utility Poles & Sagging Power Cables along East side of Nairobi CBD (grounded per pole!)
+            BuildKplcPowerStretch(cbd, new Vector3(15.6f, 0f, -45f), new Vector3(15.6f, 0f, 115f), 5);
 
-            // Lit Rubis Petrol Stations placed cleanly off the tarmac along major corridors (verified road-clear!)
-            TryPlaceRubisStation(parent, new Vector3(26f, 0.16f, 12f), 0f, "RUBIS NAIROBI", pointLights, glowRenderers);
-            TryPlaceRubisStation(parent, new Vector3(-820f, 0.16f, 224f), -75f, "RUBIS BOMET", pointLights, glowRenderers);
-            TryPlaceRubisStation(parent, new Vector3(-430f, 0.16f, 845f), -84f, "RUBIS ELDORET", pointLights, glowRenderers);
-            TryPlaceRubisStation(parent, new Vector3(295f, 0.16f, 88f), 130f, "RUBIS MTITO ANDEI", pointLights, glowRenderers);
-            TryPlaceRubisStation(parent, new Vector3(470f, 0.16f, -68f), 122f, "RUBIS VOI TSAVO", pointLights, glowRenderers);
+            // 18 MAJOR KENYAN TOWN REFUELLABLE PETROL STATIONS (TotalEnergies/TotalX, Shell/SavannaFuel, Rubis/Rubix!)
+            // Every big town along Kenya's highway corridors now has an interactive drive-in Petrol Station!
+            int[] fuelHubIndices = { 0, 1, 2, 3, 4, 9, 13, 17, 23, 25, 28, 29, 31, 32, 34, 35, 36, 37, 38, 40 };
+            for (int f = 0; f < fuelHubIndices.Length; f++)
+            {
+                int hIdx = fuelHubIndices[f];
+                var hub = KenyaNetworkData.Hubs[hIdx];
+                float arc = (hIdx == 0) ? -28f : 38f;
+                float side = (f % 2 == 0) ? 1f : -1f;
+                if (hIdx == 0) side = 1f;
+                if (KenyaNetworkData.SampleRoadAlongTown(hub.xz, hub.roadYawDeg, arc, out Vector3 rPt, out Vector3 rFwd))
+                {
+                    Vector3 rRight = Vector3.Cross(Vector3.up, rFwd).normalized;
+                    float yaw = Mathf.Atan2(rFwd.x, rFwd.z) * Mathf.Rad2Deg + (side < 0f ? 180f : 0f);
+                    Vector3 candPos = rPt + rRight * (side * 26.5f);
+                    candPos.y = KenyaNetworkData.GetElevationAt(candPos.x, candPos.z) + 0.08f;
+                    int brandKind = f % 3; // 0 = TotalEnergies/TotalX, 1 = Rubis/Rubix, 2 = Shell/SavannaFuel
+                    TryPlacePetrolStation(parent, candPos, yaw, hub.name.ToUpperInvariant(), brandKind, pointLights, glowRenderers);
+                }
+            }
 
             return ctrl;
         }
 
-        private static void TryPlaceRubisStation(Transform parent, Vector3 pos, float yawDeg, string label, List<Light> pointLights, List<Renderer> glowRenderers)
+        private static void TryPlacePetrolStation(Transform parent, Vector3 pos, float yawDeg, string townLabel, int brandKind, List<Light> pointLights, List<Renderer> glowRenderers)
         {
-            if (KenyaNetworkData.IsFootprintClearOfAllRoads(pos, 11f, 15f, yawDeg, minBufferFromTarmacEdge: 3.5f))
+            if (KenyaNetworkData.IsFootprintClearOfAllRoads(pos, 11.5f, 15.5f, yawDeg, minBufferFromTarmacEdge: 3.4f))
             {
-                BuildRubisPetrolStation(parent, pos, yawDeg, label, pointLights, glowRenderers);
+                pos.y = KenyaNetworkData.GetElevationAt(pos.x, pos.z) + 0.08f;
+                BuildKenyaPetrolStation(parent, pos, yawDeg, townLabel, brandKind, pointLights, glowRenderers);
                 return;
             }
-            // Push perpendicular away from nearest road so petrol station forecourt NEVER touches tarmac!
             if (KenyaNetworkData.FindNearestRoadPoint(pos, out Vector3 roadPt, out _, out _))
             {
                 Vector3 away = pos - roadPt;
@@ -787,9 +830,10 @@ namespace KenyaStreetSim.Editor
                 for (int step = 1; step <= 6; step++)
                 {
                     Vector3 cand = pos + away * (step * 4.5f);
-                    if (KenyaNetworkData.IsFootprintClearOfAllRoads(cand, 11f, 15f, yawDeg, minBufferFromTarmacEdge: 3.5f))
+                    if (KenyaNetworkData.IsFootprintClearOfAllRoads(cand, 11.5f, 15.5f, yawDeg, minBufferFromTarmacEdge: 3.4f))
                     {
-                        BuildRubisPetrolStation(parent, cand, yawDeg, label, pointLights, glowRenderers);
+                        cand.y = KenyaNetworkData.GetElevationAt(cand.x, cand.z) + 0.08f;
+                        BuildKenyaPetrolStation(parent, cand, yawDeg, townLabel, brandKind, pointLights, glowRenderers);
                         return;
                     }
                 }
@@ -805,26 +849,28 @@ namespace KenyaStreetSim.Editor
             var matGlassTower = GetMat("NairobiSkyscraperGlass", Color.white, 0.92f, 0.35f, null, texGlassAlb, texGlassNrm, new Vector2(5f, 14f), 1.0f);
             var matSteel = GetMat("SkyscraperTrim", Palette.TrimDark, 0.5f, 0.6f);
 
-            // Iconic KICC Cylindrical Tower + Revolving Restaurant Crown + Helipad overlooking Nairobi CBD!
+            // Iconic KICC Cylindrical Tower + Revolving Restaurant Crown + Helipad overlooking Nairobi CBD (grounded to 3D elevation!)
             var kicc = new GameObject("KICC_Tower_Nairobi").transform;
             kicc.SetParent(sky, false);
-            kicc.position = new Vector3(-36f, 0f, 65f);
+            float kiccY = KenyaNetworkData.GetElevationAt(-42f, 65f);
+            kicc.position = new Vector3(-42f, kiccY, 65f);
             CreateBox("KiccPodium", kicc, new Vector3(0f, 4.5f, 0f), new Vector3(24f, 9f, 24f), matKiccStone, false);
             CreateCylinder("KiccMainShaft", kicc, new Vector3(0f, 32f, 0f), new Vector3(14f, 26f, 14f), matKiccStone);
             CreateCylinder("KiccGlassBand", kicc, new Vector3(0f, 54f, 0f), new Vector3(16.5f, 2.2f, 16.5f), matGlassTower);
             CreateCylinder("KiccHelipadCrown", kicc, new Vector3(0f, 58.5f, 0f), new Vector3(18.5f, 1.4f, 18.5f), matKiccStone);
             CreateWorldSignText("KiccTitle", kicc, "KICC NAIROBI", new Vector3(8.5f, 58.6f, 0f), new Vector2(12f, 2.2f), 5.5f, Palette.UiAccentAmber, Quaternion.Euler(0f, -90f, 0f), noWrap: true);
 
-            // Britam / UAP-inspired sleek Nairobi skyline glass towers behind the shops
-            CreateBox("BritamStyleTower", sky, new Vector3(44f, 34f, 88f), new Vector3(15f, 68f, 15f), matGlassTower, false);
-            CreateBox("BritamSpire", sky, new Vector3(44f, 72f, 88f), new Vector3(5f, 14f, 5f), matSteel, false);
-            CreateBox("UapStyleTower", sky, new Vector3(-42f, 28f, 18f), new Vector3(16f, 56f, 14f), matGlassTower, false);
-            CreateBox("ImStyleTower", sky, new Vector3(42f, 23f, -22f), new Vector3(14f, 46f, 14f), matGlassTower, false);
+            // Britam / UAP-inspired sleek Nairobi skyline glass towers behind the 6-lane boulevard shops
+            float bY = KenyaNetworkData.GetElevationAt(48f, 88f);
+            CreateBox("BritamStyleTower", sky, new Vector3(48f, bY + 34f, 88f), new Vector3(15f, 68f, 15f), matGlassTower, false);
+            CreateBox("BritamSpire", sky, new Vector3(48f, bY + 72f, 88f), new Vector3(5f, 14f, 5f), matSteel, false);
+            CreateBox("UapStyleTower", sky, new Vector3(-48f, KenyaNetworkData.GetElevationAt(-48f, 18f) + 28f, 18f), new Vector3(16f, 56f, 14f), matGlassTower, false);
+            CreateBox("ImStyleTower", sky, new Vector3(48f, KenyaNetworkData.GetElevationAt(48f, -22f) + 23f, -22f), new Vector3(14f, 46f, 14f), matGlassTower, false);
         }
 
         private static BusStageZone[] BuildAllSixteenKenyaTownsAndStages(Transform parent, List<Light> pointLights, List<Renderer> glowRenderers)
         {
-            var townsRoot = new GameObject("Kenya_16_Towns_And_Stages").transform;
+            var townsRoot = new GameObject("Kenya_41_Towns_And_Stages").transform;
             townsRoot.SetParent(parent, false);
 
             var matTrim = GetMat("TrimDark", Palette.TrimDark, 0.25f, 0.1f, null, texPlasterAlb, texPlasterNrm, new Vector2(2f, 1f), 0.7f);
@@ -854,10 +900,13 @@ namespace KenyaStreetSim.Editor
                 var townGo = new GameObject($"Town_{h:00}_{hub.name}").transform;
                 townGo.SetParent(townsRoot, false);
 
-                // Curve-aligned commercial shops lining BOTH sides of every Kenyan town — mathematically guaranteed OFF the road!
-                int pairsPerTown = (h == 0) ? 7 : 5;
-                float arcStart = (h == 0) ? -92f : -44f;
-                float spacing = (h == 0) ? 21f : 22f;
+                // Tiered Kenyan Town Density: Major Cities (5-6 pairs, tall blocks), Regional Hubs (3 pairs), Transit Towns (2 pairs)!
+                int pairsPerTown = (h == 0) ? 6
+                    : (hub.tier == KenyaNetworkData.TownTier.MajorCity) ? 4
+                    : (hub.tier == KenyaNetworkData.TownTier.RegionalHub) ? 3
+                    : 2;
+                float spacing = (h == 0) ? 23f : 22f;
+                float arcStart = (h == 0) ? -72f : -(pairsPerTown - 1) * spacing * 0.5f;
 
                 for (int k = 0; k < pairsPerTown; k++)
                 {
@@ -865,7 +914,8 @@ namespace KenyaStreetSim.Editor
                     Vector3 roadPt, roadFwd;
                     if (h == 0)
                     {
-                        roadPt = new Vector3(0f, 0f, hub.xz.y + arcOffset);
+                        float ny = KenyaNetworkData.GetElevationAt(0f, hub.xz.y + arcOffset);
+                        roadPt = new Vector3(0f, ny, hub.xz.y + arcOffset);
                         roadFwd = Vector3.forward;
                     }
                     else
@@ -874,28 +924,29 @@ namespace KenyaStreetSim.Editor
                     }
                     Vector3 roadRight = Vector3.Cross(Vector3.up, roadFwd).normalized;
                     float curveYaw = Mathf.Atan2(roadFwd.x, roadFwd.z) * Mathf.Rad2Deg;
+                    float estHalfW = KenyaNetworkData.IsInsideMajorCityCorridor(new Vector2(roadPt.x, roadPt.z)) ? 10.8f : 8.5f;
 
                     for (int side = -1; side <= 1; side += 2)
                     {
                         if (h == 0 && side == 1 && Mathf.Abs(roadPt.z - 12f) < 26f) continue;
                         if (h == 0 && Mathf.Abs(roadPt.z - 95f) < 12f) continue;
-                        if (side == -1 && Mathf.Abs(arcOffset) < 14f) continue; // clear bay for ENA Coach Terminal shelter!
+                        if (side == -1 && Mathf.Abs(arcOffset) < 14f) continue; // clear bay for Terminal shelter!
 
-                        float wFront = 14.0f + (float)rng.NextDouble() * 4.2f;
-                        float depth = 11.2f;
-                        int stories = (h == 0) ? rng.Next(3, 5) : rng.Next(2, 4);
+                        float wFront = 13.5f + (float)rng.NextDouble() * 4.0f;
+                        float depth = 10.8f;
+                        int stories = (hub.tier == KenyaNetworkData.TownTier.MajorCity) ? rng.Next(3, 5)
+                                    : (hub.tier == KenyaNetworkData.TownTier.RegionalHub) ? rng.Next(2, 4)
+                                    : rng.Next(1, 3);
 
                         float shopYaw = curveYaw + (side < 0 ? 90f : -90f);
-                        float lateralOffset = 12.8f + depth * 0.5f;
+                        float lateralOffset = estHalfW + 5.8f + depth * 0.5f;
                         Vector3 lotPos = roadPt + roadRight * (side * lateralOffset);
-                        lotPos.y = 0.16f;
 
-                        // GUARANTEE ZERO HOUSES ON ROAD: test all 9 rotated footprint corners against ALL 8 highways & ALL 3 roundabouts!
+                        // GUARANTEE ZERO HOUSES ON ROAD: test all 9 rotated footprint corners against ALL 15 highways & ALL 10 roundabouts!
                         bool clear = false;
-                        for (int push = 0; push < 4; push++)
+                        for (int push = 0; push < 5; push++)
                         {
-                            Vector3 cand = roadPt + roadRight * (side * (lateralOffset + push * 2.8f));
-                            cand.y = 0.16f;
+                            Vector3 cand = roadPt + roadRight * (side * (lateralOffset + push * 3.0f));
                             if (KenyaNetworkData.IsFootprintClearOfAllRoads(cand, wFront * 0.5f + 0.5f, depth * 0.5f + 0.5f, shopYaw, minBufferFromTarmacEdge: 3.4f))
                             {
                                 lotPos = cand;
@@ -904,15 +955,16 @@ namespace KenyaStreetSim.Editor
                             }
                         }
                         if (!clear) continue;
+                        lotPos.y = KenyaNetworkData.GetElevationAt(lotPos.x, lotPos.z) + 0.08f;
 
                         // Curve-aligned individual cabro sidewalk apron right in front of this verified shop (never crosses tarmac!)
                         if (h > 0)
                         {
                             Vector3 apronPos = lotPos - roadRight * (side * (depth * 0.5f + 2.1f));
-                            apronPos.y = 0.08f;
+                            apronPos.y = KenyaNetworkData.GetElevationAt(apronPos.x, apronPos.z) + 0.04f;
                             if (KenyaNetworkData.IsFootprintClearOfAllRoads(apronPos, wFront * 0.48f, 1.8f, shopYaw, minBufferFromTarmacEdge: 0.35f))
                             {
-                                var apron = CreateBox($"Apron_{h}_{k}_{side}", townGo, apronPos, new Vector3(wFront + 1.2f, 0.16f, 3.8f), matCabro, true);
+                                var apron = CreateBox($"Apron_{h}_{k}_{side}", townGo, apronPos, new Vector3(wFront + 1.2f, 0.24f, 3.8f), matCabro, true);
                                 apron.transform.rotation = Quaternion.Euler(0f, shopYaw, 0f);
                             }
                         }
@@ -938,39 +990,42 @@ namespace KenyaStreetSim.Editor
                             facadeMat, awningMat, matTrim, matGlass, matShopGlass, matFrame, matRoofMabati, matSign,
                             rng.NextDouble() > 0.45 ? matTankBlk : matTankBlu, matRail,
                             shopTitle,
-                            hasWaterTank: rng.NextDouble() > 0.35);
+                            hasWaterTank: rng.NextDouble() > 0.40);
                     }
                 }
 
-                // Shaded ENA Coach Bus Stage Terminal aligned cleanly to the actual road curve at EVERY Kenyan town!
+                // Shaded Kenyan Coach Bus Stage Terminal grounded to 3D elevation & aligned to road width at EVERY town!
                 KenyaNetworkData.SampleRoadAlongTown(hub.xz, hub.roadYawDeg, 0f, out Vector3 stageRoadPt, out Vector3 stageRoadFwd);
                 if (h == 0)
                 {
-                    stageRoadPt = new Vector3(0f, 0f, hub.xz.y);
+                    stageRoadPt = new Vector3(0f, KenyaNetworkData.GetElevationAt(0f, hub.xz.y), hub.xz.y);
                     stageRoadFwd = Vector3.forward;
                 }
                 Vector3 stageRight = Vector3.Cross(Vector3.up, stageRoadFwd).normalized;
                 float stageYaw = Mathf.Atan2(stageRoadFwd.x, stageRoadFwd.z) * Mathf.Rad2Deg;
+                float stageRoadHalfW = KenyaNetworkData.IsInsideMajorCityCorridor(new Vector2(stageRoadPt.x, stageRoadPt.z)) ? 10.6f : 7.4f;
 
                 var stageGo = new GameObject($"BusStage_{h + 1:00}_{hub.name}");
                 stageGo.transform.SetParent(townGo, false);
-                stageGo.transform.position = stageRoadPt - stageRight * 4.2f;
+                Vector3 stageWorldPos = stageRoadPt - stageRight * (stageRoadHalfW - 2.6f);
+                stageWorldPos.y = KenyaNetworkData.GetElevationAt(stageWorldPos.x, stageWorldPos.z);
+                stageGo.transform.position = stageWorldPos;
                 stageGo.transform.rotation = Quaternion.Euler(0f, stageYaw, 0f);
 
                 var zone = stageGo.AddComponent<BusStageZone>();
                 zone.stageIndex = h;
-                zone.stageName = $"{hub.name} ENA Terminal";
+                zone.stageName = $"{hub.name} Coach Terminal";
                 zone.rewardKes = hub.fareKes;
                 zone.passengerCount = hub.passengers;
 
-                var padGo = CreateBox("StageFloorPad", stageGo.transform, new Vector3(0.4f, 0.022f, 0f), new Vector3(5.4f, 0.02f, 16.5f), matZone, false);
+                var padGo = CreateBox("StageFloorPad", stageGo.transform, new Vector3(0.4f, 0.03f, 0f), new Vector3(5.2f, 0.025f, 16.5f), matZone, false);
                 zone.floorPadRenderer = padGo.GetComponent<Renderer>();
 
                 var beaconGo = CreateBox("StageBeaconDiamond", stageGo.transform, new Vector3(0.4f, 6.2f, 0f), new Vector3(1.25f, 1.25f, 1.25f), matBeacon, false);
                 beaconGo.transform.localRotation = Quaternion.Euler(45f, 45f, 45f);
                 zone.beaconVisual = beaconGo.transform;
 
-                var shelter = new GameObject("EnaCoachShelter").transform;
+                var shelter = new GameObject("CoachStageShelter").transform;
                 shelter.SetParent(stageGo.transform, false);
                 shelter.localPosition = new Vector3(-5.8f, 0.16f, 0f);
                 CreateBox("BackWall", shelter, new Vector3(-1.1f, 1.45f, 0f), new Vector3(0.14f, 2.7f, 8.6f), matShelterFrame, true);
@@ -979,7 +1034,8 @@ namespace KenyaStreetSim.Editor
                 var roof = CreateBox("ShelterRoof", shelter, new Vector3(0f, 3.02f, 0f), new Vector3(2.95f, 0.20f, 9.2f), matShelterRoof, false);
                 roof.transform.localRotation = Quaternion.Euler(0f, 0f, -6f);
                 CreateBox("BenchSeat", shelter, new Vector3(-0.45f, 0.55f, 0f), new Vector3(0.65f, 0.14f, 6.0f), matBench, true);
-                CreateWorldSignText("StageSignText", shelter, $"ENA COACH TERMINAL\n{hub.name.ToUpperInvariant()}", new Vector3(1.10f, 2.74f, 0f), new Vector2(7.6f, 0.90f), 2.7f, Palette.EnaBodyWhite, Quaternion.Euler(0f, -90f, 0f));
+                string stageHeader = KenyaCommercialManagerWindow.UseCommercialSafeBrands ? "SAVANNA COACH STAGE" : "ENA COACH TERMINAL";
+                CreateWorldSignText("StageSignText", shelter, $"{stageHeader}\n{hub.name.ToUpperInvariant()}", new Vector3(1.10f, 2.74f, 0f), new Vector2(7.6f, 0.90f), 2.7f, Palette.EnaBodyWhite, Quaternion.Euler(0f, -90f, 0f));
 
                 // Confetti celebration burst
                 var psGo = new GameObject("ConfettiBurst");
@@ -1004,11 +1060,12 @@ namespace KenyaStreetSim.Editor
                 ps.GetComponent<ParticleSystemRenderer>().sharedMaterial = matParticle;
                 zone.confettiParticles = ps;
 
-                // 3 REAL 3D waiting commuters at EVERY Kenyan town's ENA Coach Terminal!
-                var commuters = new KenyaPedestrianAI[3];
-                for (int c = 0; c < 3; c++)
+                // Waiting commuters at every Kenyan town terminal (3 at Major/Regional hubs, 2 at compact Transit Towns!)
+                int commuterCount = hub.tier == KenyaNetworkData.TownTier.TransitTown ? 2 : 3;
+                var commuters = new KenyaPedestrianAI[commuterCount];
+                for (int c = 0; c < commuterCount; c++)
                 {
-                    Vector3 localPos = new Vector3(-4.4f, 0.16f, -2.4f + c * 2.3f);
+                    Vector3 localPos = new Vector3(-4.4f, 0.16f, -2.0f + c * 2.1f);
                     var ped = CreateArticulatedPedestrianLocal(stageGo.transform, $"Commuter_{h}_{c}", localPos, 90f, h * 5 + c);
                     ped.mode = KenyaPedestrianAI.BehaviorMode.BusStageWaiter;
                     ped.stageIndex = h;
@@ -1016,17 +1073,20 @@ namespace KenyaStreetSim.Editor
                 }
                 zone.waitingCommuters = commuters;
 
-                // Night glow lamp above each regional ENA Coach terminal
-                var plGo = new GameObject($"TerminalNightLight_{h}");
-                plGo.transform.SetParent(shelter, false);
-                plGo.transform.localPosition = new Vector3(1.2f, 4.2f, 0f);
-                var pl = plGo.AddComponent<Light>();
-                pl.type = LightType.Point;
-                pl.color = Palette.LampGlow;
-                pl.range = 24f;
-                pl.intensity = 0f;
-                pl.enabled = false;
-                pointLights.Add(pl);
+                // Night glow lamp above Major & Regional hubs (keeps URP real-time point-light budget crisp!)
+                if (hub.tier != KenyaNetworkData.TownTier.TransitTown)
+                {
+                    var plGo = new GameObject($"TerminalNightLight_{h}");
+                    plGo.transform.SetParent(shelter, false);
+                    plGo.transform.localPosition = new Vector3(1.2f, 4.2f, 0f);
+                    var pl = plGo.AddComponent<Light>();
+                    pl.type = LightType.Point;
+                    pl.color = Palette.LampGlow;
+                    pl.range = 24f;
+                    pl.intensity = 0f;
+                    pl.enabled = false;
+                    pointLights.Add(pl);
+                }
 
                 stages[h] = zone;
             }
@@ -1047,50 +1107,70 @@ namespace KenyaStreetSim.Editor
             var matIvory = GetMat("MombasaTusksIvory", Palette.Hex("#F5F1E6"), 0.45f, 0.08f);
             var matBlack = GetMat("KenyaFlagBlack", Palette.EnaStripeBlack, 0.35f);
 
-            // 1. Nairobi Interchange Roundabout Monument Spire (0, 160) & Kisii Junction Spire (-1160, 260)
+            // 1. All 10 Multi-Exit Roundabout Monument Spires (Grounded to Exact 3D Elevation!)
             foreach (var rb in KenyaNetworkData.Roundabouts)
             {
                 var mon = new GameObject($"Monument_{rb.name}").transform;
                 mon.SetParent(root, false);
-                mon.position = new Vector3(rb.center.x, 0.35f, rb.center.y);
+                float rbY = KenyaNetworkData.GetElevationAt(rb.center);
+                mon.position = new Vector3(rb.center.x, rbY + 0.35f, rb.center.y);
                 CreateBox("Pedestal", mon, new Vector3(0f, 1.0f, 0f), new Vector3(3.8f, 2.0f, 3.8f), matBlack, true);
                 CreateBox("RedBand", mon, new Vector3(0f, 3.4f, 0f), new Vector3(2.1f, 2.8f, 2.1f), matEnaRed, false);
                 CreateBox("GreenBand", mon, new Vector3(0f, 6.2f, 0f), new Vector3(1.5f, 2.8f, 1.5f), matKenhaGreen, false);
                 CreateSphere("TopGlobe", mon, new Vector3(0f, 8.3f, 0f), Vector3.one * 1.9f, matWhite);
             }
 
-            // 2. KeNHA Green Overhead Directional Highway Gantries across ALL 16-Town Kenyan Corridors!
+            // 2. KeNHA Green Overhead Directional Highway Gantries across ALL Major Kenyan Splits (Grounded & Wide-Span!)
             BuildKenhaGantry(root, new Vector3(0f, 0f, 122f), 0f,
-                "NAIROBI INTERCHANGE  (KEEP LEFT)\n◄ NAROK / KISII (B3)   |   ▲ NAIVASHA / NAKURU / ELDORET (A104)   |   ► VOI / MOMBASA (A109)", matSteel, matKenhaGreen, matWhite);
+                "NAIROBI INTERCHANGE  •  6-LANE EXPRESSWAY\n◄ MAI MAHIU / NAROK (B3)  |  ▲ THIKA (A2) / NAKURU (A104)  |  ► MOMBASA (A109)", matSteel, matKenhaGreen, matWhite, 12.2f);
 
-            BuildKenhaGantry(root, new Vector3(-280f, 0f, 168f), -90f,
-                "MAI MAHIU  •  GREAT RIFT VALLEY VIEWPOINT\nNAROK 30 KM   •   BOMET 60 KM   •   KISII 90 KM", matSteel, matKenhaGreen, matWhite);
+            BuildKenhaGantry(root, new Vector3(-240f, 0f, 170f), -90f,
+                "MAI MAHIU RIFT JUNCTION\n▲ NAIVASHA (C88)   |   ◄ NAROK / BOMET / KISII (B3)", matSteel, matKenhaGreen, matWhite, 10.2f);
 
-            BuildKenhaGantry(root, new Vector3(-218f, 0f, 492f), -50f,
-                "NAKURU RIFT ROUNDABOUT  (KEEP LEFT)\n▲ ELDORET / KAKAMEGA (A104/C39)   |   ◄ KERICHO / KISUMU (B1)", matSteel, matKenhaGreen, matWhite);
+            BuildKenhaGantry(root, new Vector3(-1045f, 0f, 244f), -82f,
+                "KAPLONG TEA JUNCTION\n▲ KERICHO / TOTAL (B1)   |   ◄ SOTIK / CHEBILAT / KISII (B3)", matSteel, matKenhaGreen, matWhite, 10.2f);
 
-            BuildKenhaGantry(root, new Vector3(-470f, 0f, 804f), -84f,
-                "ELDORET CITY  •  HOME OF CHAMPIONS\nKAKAMEGA RAINFOREST   •   KISUMU LAKESIDE (C39)", matSteel, matKenhaGreen, matWhite);
+            BuildKenhaGantry(root, new Vector3(-1335f, 0f, 225f), -98f,
+                "CHEBILAT JUNCTION  •  TEA BELT\n▲ SONDU (C25)   |   ◄ KEROKA / KISII (B3)", matSteel, matKenhaGreen, matWhite, 10.2f);
 
-            BuildKenhaGantry(root, new Vector3(-1098f, 0f, 253f), -78f,
-                "KISII JUNCTION ROUNDABOUT\n▲ HOMA BAY / KISUMU (C19)   |   ◄ MIGORI / SIRARE BORDER (A1)", matSteel, matKenhaGreen, matWhite);
+            BuildKenhaGantry(root, new Vector3(-1545f, 0f, 194f), -98f,
+                "KISII JUNCTION ROUNDABOUT\n▲ OYUGIS / SONDU / KISUMU (A1)   |   ◄ SUNEKA / RONGO / MIGORI (A1)", matSteel, matKenhaGreen, matWhite, 10.2f);
 
-            BuildKenhaGantry(root, new Vector3(-1160f, 0f, -182f), 180f,
-                "KENYA — TANZANIA BORDER  (SIRARE / ISEBANIA)\nKARIBU TANZANIA   •   ENA COACH EXPRESS TERMINUS", matSteel, matEnaRed, matWhite);
+            BuildKenhaGantry(root, new Vector3(-1640f, 0f, -20f), -172f,
+                "RONGO JUNCTION\n◄ AWENDO / MIGORI / SIRARE (A1)   |   ► RODI KOPANY / HOMA BAY / SORI (C20)", matSteel, matKenhaGreen, matWhite, 9.0f);
 
-            BuildKenhaGantry(root, new Vector3(-565f, 0f, 574f), -90f,
-                "KERICHO  •  TEA CAPITAL OF KENYA\nKISUMU LAKESIDE  •  LAKE VICTORIA AHEAD", matSteel, matKenhaGreen, matWhite);
+            BuildKenhaGantry(root, new Vector3(-1770f, 0f, 40f), -50f,
+                "RODI KOPANY JUNCTION\n▲ HOMA BAY / KENDU BAY / KATITO (C19)   |   ◄ NDHIWA / SORI (C18)", matSteel, matKenhaGreen, matWhite, 9.0f);
 
-            BuildKenhaGantry(root, new Vector3(360f, 0f, -28f), 124f,
-                "A109 MOMBASA ROAD  •  TSAVO CORRIDOR\nMTITO ANDEI  •  VOI  •  MOMBASA  •  MALINDI", matSteel, matKenhaGreen, matWhite);
+            BuildKenhaGantry(root, new Vector3(-1670f, 0f, -405f), 180f,
+                "KENYA — TANZANIA BORDER  (MIGORI / SIRARE)\nKARIBU TANZANIA   •   A1 INTERNATIONAL GATEWAY", matSteel, matEnaRed, matWhite, 9.0f);
 
-            BuildKenhaGantry(root, new Vector3(925f, 0f, -68f), 20f,
-                "B8 NORTH COAST HIGHWAY  •  INDIAN OCEAN\nKILIFI CREEK  •  MALINDI BEACH RESORT AHEAD", matSteel, matKenhaGreen, matWhite);
+            BuildKenhaGantry(root, new Vector3(-1380f, 0f, 755f), -45f,
+                "KISUMU LAKESIDE CITY  •  2 HIGHWAYS NORTH\n▲ VIHIGA / KAKAMEGA / KITALE (A1)   |   ◄ BUNGOMA / MALABA UGANDA (C33)", matSteel, matKenhaGreen, matWhite, 12.2f);
 
-            // 3. ICONIC MOMBASA TUSKS ARCH (Moi Avenue Twin Smoothly-Curved Crossed Ivory Tusks + Coastal Palms!)
+            BuildKenhaGantry(root, new Vector3(-1795f, 0f, 1390f), -62f,
+                "KENYA — UGANDA BORDER  (MALABA CUSTOMS)\nEAST AFRICA NORTHERN TRANSIT CORRIDOR (A104)", matSteel, matEnaRed, matWhite, 9.4f);
+
+            BuildKenhaGantry(root, new Vector3(-745f, 0f, 758f), -76f,
+                "TOTAL (MAU SUMMIT) CLIMBING SPLIT\n▲ TIMBOROA / ELDORET / MALABA (A104)   |   ◄ KERICHO / KISUMU (B1)", matSteel, matKenhaGreen, matWhite, 10.4f);
+
+            BuildKenhaGantry(root, new Vector3(-400f, 0f, 646f), -42f,
+                "NAKURU CITY  •  GREAT RIFT CAPITAL\nSALGAA CLIMBING LANE  •  TOTAL  •  ELDORET (A104)", matSteel, matKenhaGreen, matWhite, 12.2f);
+
+            BuildKenhaGantry(root, new Vector3(-905f, 0f, 1110f), -22f,
+                "ELDORET CITY  •  HOME OF CHAMPIONS\nWEBUYE  •  KITALE  •  BUNGOMA  •  UGANDA BORDER", matSteel, matKenhaGreen, matWhite, 12.2f);
+
+            BuildKenhaGantry(root, new Vector3(355f, 0f, -25f), 124f,
+                "A109 MOMBASA ROAD  •  TSAVO CORRIDOR\nMTITO ANDEI  •  VOI  •  MOMBASA  •  KILIFI  •  MALINDI", matSteel, matKenhaGreen, matWhite, 11.6f);
+
+            BuildKenhaGantry(root, new Vector3(1145f, 0f, -165f), 32f,
+                "B8 NORTH COAST HIGHWAY  •  INDIAN OCEAN\nKILIFI CREEK  •  MALINDI BEACH TERMINUS AHEAD", matSteel, matKenhaGreen, matWhite, 11.2f);
+
+            // 3. ICONIC MOMBASA TUSKS ARCH (Moi Avenue Twin Crossed Ivory Tusks at Mombasa Hub (965, -355), Grounded & Wide-Span!)
             var tusks = new GameObject("Mombasa_Iconic_Tusks_Arch").transform;
             tusks.SetParent(root, false);
-            tusks.position = new Vector3(676f, 0f, -214f);
+            float msaY = KenyaNetworkData.GetElevationAt(965f, -355f);
+            tusks.position = new Vector3(965f, msaY, -355f);
             tusks.rotation = Quaternion.Euler(0f, 116f, 0f);
 
             const int tuskSegs = 8;
@@ -1099,9 +1179,9 @@ namespace KenyaStreetSim.Editor
                 float zOff = pair * 1.15f;
                 for (int side = -1; side <= 1; side += 2)
                 {
-                    Vector2 p0 = new Vector2(side * 8.4f, 0.0f);
-                    Vector2 p1 = new Vector2(side * 7.0f, 7.2f);
-                    Vector2 p2 = new Vector2(-side * 1.3f, 12.0f);
+                    Vector2 p0 = new Vector2(side * 11.8f, 0.0f);
+                    Vector2 p1 = new Vector2(side * 9.2f, 8.2f);
+                    Vector2 p2 = new Vector2(-side * 1.5f, 13.5f);
 
                     for (int s = 0; s < tuskSegs; s++)
                     {
@@ -1113,28 +1193,27 @@ namespace KenyaStreetSim.Editor
                         Vector2 d = b - a;
                         float segLen = d.magnitude + 0.24f;
                         float angleDeg = Mathf.Atan2(d.y, d.x) * Mathf.Rad2Deg - 90f;
-                        float w = Mathf.Lerp(1.02f, 0.24f, (t0 + t1) * 0.5f);
+                        float w = Mathf.Lerp(1.12f, 0.26f, (t0 + t1) * 0.5f);
 
                         var seg = CreateBox($"Tusk_{pair}_{side}_{s}", tusks, new Vector3(mid.x, mid.y, zOff), new Vector3(w, segLen, w * 0.72f), matIvory, false);
                         seg.transform.localRotation = Quaternion.Euler(0f, 0f, angleDeg);
                     }
                 }
             }
-            // Crisp dark-slate Mombasa welcome plaque right below the crossed ivory tips
-            CreateBox("MombasaSignBacking", tusks, new Vector3(0f, 8.7f, -1.55f), new Vector3(9.4f, 1.25f, 0.14f), matBlack, false);
-            CreateWorldSignText("MombasaWelcomeText", tusks, "KARIBU MOMBASA  •  MOI AVENUE", new Vector3(0f, 8.7f, -1.66f), new Vector2(9.1f, 1.1f), 3.6f, Palette.UiAccentAmber, Quaternion.identity, noWrap: true);
+            CreateBox("MombasaSignBacking", tusks, new Vector3(0f, 9.8f, -1.55f), new Vector3(10.8f, 1.35f, 0.14f), matBlack, false);
+            CreateWorldSignText("MombasaWelcomeText", tusks, "KARIBU MOMBASA  •  MOI AVENUE", new Vector3(0f, 9.8f, -1.66f), new Vector2(10.4f, 1.2f), 3.8f, Palette.UiAccentAmber, Quaternion.identity, noWrap: true);
 
             // Lush Coastal Palm Boulevard flanking Mombasa Moi Avenue right beside the Iconic Tusks!
             var matPalmBark = GetMat("AcaciaBarkPBR", Color.white, 0.10f, 0f, null, texBarkAlb, texBarkNrm, new Vector2(1f, 3f), 1.35f);
             var matPalmLeaf = GetMat("AcaciaLeafAlpha", Color.white, 0.12f, 0f, null, texLeafCluster, null, Vector2.one, 1f, alphaClipDoubleSided: true);
-            float[] palmZs = { -20f, -9f, 11f, 24f, 52f };
+            float[] palmZs = { -22f, -10f, 12f, 26f, 52f };
             for (int pz = 0; pz < palmZs.Length; pz++)
             {
                 for (int side = -1; side <= 1; side += 2)
                 {
                     var pTr = new GameObject($"MombasaAvePalm_{pz}_{side}").transform;
                     pTr.SetParent(tusks, false);
-                    pTr.localPosition = new Vector3(side * 10.6f, -0.05f, palmZs[pz]);
+                    pTr.localPosition = new Vector3(side * 14.2f, -0.05f, palmZs[pz]);
                     pTr.localRotation = Quaternion.Euler(0f, (pz * 73 + side * 40) % 360, 0f);
                     float scl = 1.05f + (pz % 2) * 0.18f;
                     CreateCustomMesh("Trunk", pTr, Vector3.zero, Quaternion.identity, Vector3.one * scl, KenyaSculptedMeshFactory.PalmTrunkMesh, matPalmBark, false);
@@ -1142,26 +1221,34 @@ namespace KenyaStreetSim.Editor
                 }
             }
 
-            // 4. Kenyan Highway Billboards
-            BuildBillboard(root, new Vector3(13.5f, 0.16f, 26f), -16f, "SAFARICOM 5G  •  M-PESA\nTUWAWEZESHE KENYA", matSafeGreen, matSteel, matWhite);
-            BuildBillboard(root, new Vector3(-420f, 0.16f, 160f), -90f, "ENA COACH  EXPRESS\nNAIROBI • KISII • KISUMU • MOMBASA", matEnaRed, matSteel, matWhite);
+            // 4. Kenyan Highway Billboards (Grounded to 3D elevation & clear of 6-lane tarmac!)
+            string bbBrand = KenyaCommercialManagerWindow.UseCommercialSafeBrands
+                ? "SAFARITEL 5G  •  M-PAY\nCONNECTING ALL 41 KENYAN TOWNS"
+                : "SAFARICOM 5G  •  M-PESA\nTUWAWEZESHE KENYA";
+            string bbCoach = KenyaCommercialManagerWindow.UseCommercialSafeBrands
+                ? "SAVANNA EXPRESS COACH\nNAIROBI • KISII • KISUMU • MOMBASA"
+                : "ENA COACH  EXPRESS\nNAIROBI • KISII • KISUMU • MOMBASA";
+            BuildBillboard(root, new Vector3(16.8f, KenyaNetworkData.GetElevationAt(16.8f, 26f) + 0.16f, 26f), -16f, bbBrand, matSafeGreen, matSteel, matWhite);
+            BuildBillboard(root, new Vector3(-515f, KenyaNetworkData.GetElevationAt(-515f, 152f) + 0.16f, 152f), -90f, bbCoach, matEnaRed, matSteel, matWhite);
         }
 
-        private static void BuildKenhaGantry(Transform parent, Vector3 pos, float yawDeg, string text, Material matSteel, Material matBoard, Material matWhite)
+        private static void BuildKenhaGantry(Transform parent, Vector3 pos, float yawDeg, string text, Material matSteel, Material matBoard, Material matWhite, float legHalfSpan = 9.2f)
         {
+            pos.y = KenyaNetworkData.GetElevationAt(pos.x, pos.z);
             var tr = new GameObject($"KenhaGantry_{pos.x:0}_{pos.z:0}").transform;
             tr.SetParent(parent, false);
             tr.position = pos;
             tr.rotation = Quaternion.Euler(0f, yawDeg, 0f);
 
-            CreateCylinder("LegL", tr, new Vector3(-8.5f, 3.95f, 0f), new Vector3(0.36f, 3.95f, 0.36f), matSteel);
-            CreateCylinder("LegR", tr, new Vector3( 8.5f, 3.95f, 0f), new Vector3(0.36f, 3.95f, 0.36f), matSteel);
-            CreateBox("CrossTrussTop", tr, new Vector3(0f, 7.80f, 0f), new Vector3(17.6f, 0.36f, 0.42f), matSteel, false);
-            CreateBox("CrossTrussBot", tr, new Vector3(0f, 6.80f, 0f), new Vector3(17.6f, 0.28f, 0.42f), matSteel, false);
+            float span = legHalfSpan * 2f + 0.8f;
+            CreateCylinder("LegL", tr, new Vector3(-legHalfSpan, 4.15f, 0f), new Vector3(0.38f, 4.15f, 0.38f), matSteel);
+            CreateCylinder("LegR", tr, new Vector3( legHalfSpan, 4.15f, 0f), new Vector3(0.38f, 4.15f, 0.38f), matSteel);
+            CreateBox("CrossTrussTop", tr, new Vector3(0f, 8.10f, 0f), new Vector3(span, 0.36f, 0.42f), matSteel, false);
+            CreateBox("CrossTrussBot", tr, new Vector3(0f, 7.10f, 0f), new Vector3(span, 0.28f, 0.42f), matSteel, false);
 
-            CreateBox("SignFrame", tr, new Vector3(0f, 7.35f, -0.26f), new Vector3(13.4f, 2.35f, 0.14f), matWhite, false);
-            CreateBox("SignBoard", tr, new Vector3(0f, 7.35f, -0.30f), new Vector3(13.1f, 2.08f, 0.14f), matBoard, false);
-            CreateWorldSignText("SignText", tr, text, new Vector3(0f, 7.35f, -0.40f), new Vector2(12.6f, 1.95f), 3.6f, Palette.EnaBodyWhite, Quaternion.identity, noWrap: false);
+            CreateBox("SignFrame", tr, new Vector3(0f, 7.65f, -0.26f), new Vector3(14.8f, 2.45f, 0.14f), matWhite, false);
+            CreateBox("SignBoard", tr, new Vector3(0f, 7.65f, -0.30f), new Vector3(14.5f, 2.18f, 0.14f), matBoard, false);
+            CreateWorldSignText("SignText", tr, text, new Vector3(0f, 7.65f, -0.40f), new Vector2(14.0f, 2.02f), 3.4f, Palette.EnaBodyWhite, Quaternion.identity, noWrap: false);
         }
 
         private static void BuildHighwayBiomeFoliage(Transform parent)
@@ -1173,27 +1260,28 @@ namespace KenyaStreetSim.Editor
             var matLeaf = GetMat("AcaciaLeafAlpha", Color.white, 0.12f, 0f, null, texLeafCluster, null, Vector2.one, 1f, alphaClipDoubleSided: true);
             var rng = new System.Random(254777);
 
-            // Populate branching Kenyan Acacia & Coastal/Lakeside Palm trees smoothly along every highway corridor!
-            for (int h = 1; h < KenyaNetworkData.Highways.Length; h++)
+            // Populate branching Kenyan Acacia & Coastal/Lakeside Palm trees smoothly along all 15 highway corridors (grounded to 3D elevation!)
+            for (int h = 0; h < KenyaNetworkData.Highways.Length; h++)
             {
-                var pts = KenyaNetworkData.SampleHighway(KenyaNetworkData.Highways[h], 32f);
+                var pts = KenyaNetworkData.SampleHighway(KenyaNetworkData.Highways[h], 44f);
                 for (int i = 1; i < pts.Count - 1; i++)
                 {
                     Vector3 p = pts[i];
+                    if (h == 0 && p.z < 165f) continue; // Nairobi CBD has its own formal boulevard planters!
                     if (IsNearAnyHubOrRoundabout(new Vector2(p.x, p.z), 48f)) continue;
 
-                    Vector3 fwd = (pts[i + 1] - pts[i - 1]).normalized;
+                    Vector3 fwd = (pts[i + 1] - pts[i - 1]); fwd.y = 0f; fwd.Normalize();
                     Vector3 right = Vector3.Cross(Vector3.up, fwd).normalized;
 
-                    bool isPalmRegion = (p.x > 560f && p.z < 180f) || (p.x < -880f && p.z > 330f); // Mombasa/Malindi Coast or Lake Victoria Kisumu/Homa Bay!
+                    bool isPalmRegion = (p.x > 800f && p.z < 200f) || (p.x < -1420f && p.z > -260f && p.z < 920f); // Coast (Mombasa-Malindi) or Lake Victoria (Sori-Homa Bay-Kisumu)!
 
                     for (int side = -1; side <= 1; side += 2)
                     {
-                        if (rng.NextDouble() < 0.25) continue;
-                        float offset = 14.5f + (float)rng.NextDouble() * 16f;
+                        if (rng.NextDouble() < 0.32) continue;
+                        float offset = 16.5f + (float)rng.NextDouble() * 16f;
                         Vector3 treePos = p + right * (side * offset);
-                        if (KenyaNetworkData.DistanceToAnyTarmacEdge(new Vector2(treePos.x, treePos.z)) < 4.5f) continue;
-                        treePos.y = -0.05f;
+                        if (KenyaNetworkData.DistanceToAnyTarmacEdge(new Vector2(treePos.x, treePos.z)) < 5.0f) continue;
+                        treePos.y = KenyaNetworkData.GetElevationAt(treePos.x, treePos.z) - 0.08f;
                         float yaw = (float)(rng.NextDouble() * 360.0);
                         float scl = 0.95f + (float)rng.NextDouble() * 0.45f;
 
@@ -1240,10 +1328,11 @@ namespace KenyaStreetSim.Editor
             var matHeadlight = GetMat("HeadlightWarm", Palette.HeadlightWarm, 0.85f, 0f, Palette.HeadlightWarm * 2.6f);
             var matTail = GetMat("TaillightRed", Palette.TaillightRed, 0.65f, 0f, Palette.TaillightRed * 1.6f);
 
-            // Load the user's 100%-OWNED BLENDER 5.3 HERO COACH & PARCEL LORRY + highway traffic catalog!
+            // Load the user's 100%-OWNED BLENDER 5.3 HERO COACH, PARCEL LORRY & 16.5m SEMI-TRAILER TRANSIT TRUCK!
             var realTrafficCatalog = new List<(GameObject prefab, float targetLen, float extraYaw, bool remapFbxUrp)>();
             var ownedCoachPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(OwnedCoachAssetPath);
             var ownedLorryPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(OwnedLorryAssetPath);
+            var ownedSemiTrailerPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(OwnedSemiTrailerAssetPath);
             if (ownedCoachPrefab != null) realTrafficCatalog.Add((ownedCoachPrefab, 13.2f, 0f, false));
             if (ownedLorryPrefab != null) realTrafficCatalog.Add((ownedLorryPrefab, 8.35f, 0f, false));
 
@@ -1264,14 +1353,15 @@ namespace KenyaStreetSim.Editor
                 if (g7Prefab != null) realTrafficCatalog.Add((g7Prefab, 13.4f, 180f, false));
             }
 
-            // A) SPARSE SMOOTH RURAL INTER-TOWN HIGHWAY TRAFFIC (Reduced density outside major towns -> ZERO traffic jams!)
-            int[] ruralPerDir = { 1, 2, 1, 1, 1, 2, 1, 2 };
+            // A) INTER-TOWN HIGHWAY TRAFFIC ACROSS ALL 15 CORRIDORS + HEAVY 16.5m SEMI-TRAILERS ON TRANSIT CORRIDORS!
+            // Heavy Semi-Trailers ride prominently in Kisumu (H4, H5, H6, H11), Nakuru-Salgaa-Total-Eldoret-Malaba (H12, H13), and Mombasa Rd (H14)!
             int seed = 0;
             int totalSpawned = 0;
 
             for (int h = 0; h < KenyaNetworkData.Highways.Length; h++)
             {
-                int count = h < ruralPerDir.Length ? ruralPerDir[h] : 1;
+                var hDef = KenyaNetworkData.Highways[h];
+                int count = (h == 7 || h == 12 || h == 13 || h == 14) ? 2 : 1;
                 for (int dir = 0; dir < 2; dir++)
                 {
                     bool fwd = (dir == 0);
@@ -1280,8 +1370,16 @@ namespace KenyaStreetSim.Editor
                         float progress = (k + 0.42f) / count;
                         if (h == 0 && fwd && progress < 0.48f) progress = 0.62f; // clear player start in Nairobi CBD
 
+                        bool spawnHeavySemi = hDef.heavyTrailers && ownedSemiTrailerPrefab != null && (k == 0);
                         KenyaSplineTraffic ai;
-                        if (realTrafficDropPrefabs != null && realTrafficDropPrefabs.Count > 0 && (seed % 3 == 2))
+                        if (spawnHeavySemi)
+                        {
+                            // Heavy 16.5m Kenyan Semi-Trailer Transit Truck ("TRANS-AFRICA LOGISTICS — KDX 882T")!
+                            ai = CreateHighDetailKenyanTrafficVehicle(
+                                root, $"KenyaSemiTrailer_H{h}_{(fwd ? "F" : "R")}_{k}",
+                                ownedSemiTrailerPrefab, 16.5f, 0f, false, seed++, matTire, matRim, matGlass, matHeadlight, matTail);
+                        }
+                        else if (realTrafficDropPrefabs != null && realTrafficDropPrefabs.Count > 0 && (seed % 2 == 0))
                         {
                             var dropPrefab = realTrafficDropPrefabs[(seed++) % realTrafficDropPrefabs.Count];
                             float estLen = EstimateRealVehicleLength(dropPrefab.name);
@@ -1289,7 +1387,7 @@ namespace KenyaStreetSim.Editor
                                 root, $"RuralBlender_H{h}_{(fwd ? "F" : "R")}_{k}_{dropPrefab.name}",
                                 dropPrefab, estLen, 0f, false, seed, matTire, matRim, matGlass, matHeadlight, matTail);
                         }
-                        else if (realTrafficCatalog.Count > 0 && (seed % 4 != 3))
+                        else if (realTrafficCatalog.Count > 0)
                         {
                             var entry = realTrafficCatalog[seed % realTrafficCatalog.Count];
                             ai = CreateHighDetailKenyanTrafficVehicle(
@@ -1299,30 +1397,63 @@ namespace KenyaStreetSim.Editor
                         }
                         else
                         {
-                            // Authentic Kenyan 14-Seater PSV Matatu mixed onto rural corridors!
                             ai = CreateSplineTrafficVehicle(root, $"KenyaMatatuPSV_H{h}_{(fwd ? "F" : "R")}_{k}", 0, seed++, matTire, matRim, matGlass, matHeadlight, matTail);
                         }
 
                         ai.highwayIndex = h;
                         ai.forwardDirection = fwd;
                         ai.startNormalizedProgress = progress;
-                        ai.laneOffsetMeters = 3.45f;
-                        ai.cruiseSpeed = (h == 0 ? 11.5f : 15.8f) + (seed % 4) * 1.4f;
+                        // Heavy Semi-Trailers use the outer climbing lane on 3-lane escarpments & slow outer lane on 6-lane expressways!
+                        ai.laneOffsetMeters = hDef.roadClass == KenyaNetworkData.RoadClass.CityExpressway6Lane
+                            ? (spawnHeavySemi ? 7.2f : 3.8f)
+                            : (hDef.roadClass == KenyaNetworkData.RoadClass.Climbing3Lane
+                                ? (spawnHeavySemi ? 6.2f : 2.5f)
+                                : 3.45f);
+                        ai.cruiseSpeed = spawnHeavySemi ? 11.4f : ((h == 0 ? 12.0f : 15.8f) + (seed % 4) * 1.4f);
                         totalSpawned++;
                     }
                 }
             }
 
-            // B) LIVELY MAJOR-TOWN CITY CAR CLUSTERS — 100% REALISTIC SCULPTED OWNED VEHICLES + USER REALTRAFFIC DROPS!
-            // Zero cartoonish low-poly toy cars! Automatically spawns any commercial/Blender/Asset Store models dropped in
-            // ImportedModels/RealTraffic/ alongside our 100%-owned sculpted Kenyan Saloons, 4x4 SUVs, Double-Cab Pickups & 14-Seater Matatus!
-            (string townTag, int highwayIdx, float minN, float maxN, int perDir)[] majorTownClusters =
+            // A2) EXTRA HEAVY 16.5m SEMI-TRAILER TRANSIT CONVOYS specifically in KISUMU & NAKURU–SALGAA–ELDORET!
+            if (ownedSemiTrailerPrefab != null)
             {
-                ("NairobiCBD", 0, 0.08f, 0.94f, 3),
-                ("NakuruCity", 3, 0.62f, 0.96f, 2),
-                ("KisumuCity", 4, 0.60f, 0.95f, 2),
-                ("EldoretCity", 5, 0.28f, 0.62f, 2),
-                ("MombasaCity", 7, 0.56f, 0.84f, 3)
+                (string tag, int hIdx, bool fwd, float minN, float maxN, float startN, float lane)[] trailerConvoys =
+                {
+                    ("KisumuTrailer_A1",     4, true,  0.62f, 0.96f, 0.78f, 6.2f),
+                    ("KisumuTrailer_B1",    11, false, 0.08f, 0.65f, 0.25f, 3.45f),
+                    ("NakuruSalgaaTrailer", 12, true,  0.46f, 0.96f, 0.56f, 6.2f),
+                    ("TotalEldoretTrailer", 13, true,  0.06f, 0.56f, 0.28f, 6.2f),
+                    ("EldoretMalabaTrailer",13, false, 0.42f, 0.94f, 0.64f, 6.2f),
+                    ("MombasaPortTrailer",  14, false, 0.12f, 0.68f, 0.35f, 7.2f),
+                };
+                for (int t = 0; t < trailerConvoys.Length; t++)
+                {
+                    var tc = trailerConvoys[t];
+                    var ai = CreateHighDetailKenyanTrafficVehicle(
+                        root, $"HeavyTransit_{tc.tag}",
+                        ownedSemiTrailerPrefab, 16.5f, 0f, false, seed++, matTire, matRim, matGlass, matHeadlight, matTail);
+                    ai.highwayIndex = tc.hIdx;
+                    ai.forwardDirection = tc.fwd;
+                    ai.limitToSubRange = true;
+                    ai.rangeMinNorm = tc.minN;
+                    ai.rangeMaxNorm = tc.maxN;
+                    ai.startNormalizedProgress = tc.startN;
+                    ai.laneOffsetMeters = tc.lane;
+                    ai.cruiseSpeed = 10.6f + (t % 3) * 0.9f;
+                    totalSpawned++;
+                }
+            }
+
+            // B) LIVELY MAJOR-CITY TRAFFIC CLUSTERS (Nairobi 6-Lane, Kisumu, Nakuru, Eldoret, Mombasa & Kisii!)
+            (string townTag, int highwayIdx, float minN, float maxN, int perDir, float lane)[] majorTownClusters =
+            {
+                ("NairobiCBD",  0, 0.08f, 0.92f, 3, 5.4f),
+                ("KisumuCity",  4, 0.66f, 0.96f, 2, 5.0f),
+                ("NakuruCity", 12, 0.46f, 0.78f, 2, 5.0f),
+                ("EldoretCity",13, 0.24f, 0.58f, 2, 5.0f),
+                ("MombasaCity",14, 0.52f, 0.78f, 3, 5.4f),
+                ("KisiiTown",   7, 0.78f, 0.96f, 2, 4.4f)
             };
 
             for (int c = 0; c < majorTownClusters.Length; c++)
@@ -1353,7 +1484,6 @@ namespace KenyaStreetSim.Editor
                         }
                         else
                         {
-                            // 100%-owned sculpted Kenyan Saloon, Highland 4x4 SUV, Double-Cab Pickup, or 14-Seater PSV Matatu!
                             int ownedKind = (seed++) % 4;
                             ai = CreateOwnedSculptedTrafficVehicle(
                                 root, $"OwnedKenyaCar_{cl.townTag}_{(fwd ? "F" : "R")}_{k}",
@@ -1366,8 +1496,8 @@ namespace KenyaStreetSim.Editor
                         ai.rangeMinNorm = fwd ? cl.minN : (1f - cl.maxN);
                         ai.rangeMaxNorm = fwd ? cl.maxN : (1f - cl.minN);
                         ai.startNormalizedProgress = Mathf.Repeat(localProg, 1f);
-                        ai.laneOffsetMeters = 3.45f;
-                        ai.cruiseSpeed = 11.2f + (seed % 4) * 1.2f;
+                        ai.laneOffsetMeters = (k % 2 == 0) ? cl.lane : (cl.lane - 2.4f);
+                        ai.cruiseSpeed = 11.4f + (seed % 4) * 1.2f;
                         totalSpawned++;
                     }
                 }
@@ -1681,7 +1811,7 @@ namespace KenyaStreetSim.Editor
             var col = go.AddComponent<BoxCollider>();
             Vector3 sz = aligned.size;
             col.center = new Vector3(0f, sz.y * 0.5f, 0f);
-            col.size = new Vector3(Mathf.Clamp(sz.x, 1.85f, 2.75f), Mathf.Clamp(sz.y, 1.5f, 3.8f), Mathf.Clamp(sz.z, 4.4f, 13.8f));
+            col.size = new Vector3(Mathf.Clamp(sz.x, 1.85f, 2.75f), Mathf.Clamp(sz.y, 1.5f, 4.1f), Mathf.Clamp(sz.z, 4.4f, 17.2f));
 
             ai.vehicleHalfLength = col.size.z * 0.52f;
             ai.wheelRadius = targetLen > 6.5f ? 0.48f : 0.42f;
@@ -1844,49 +1974,81 @@ namespace KenyaStreetSim.Editor
             {
                 for (int side = -1; side <= 1; side += 2)
                 {
-                    float xWalk = side * (8.7f + (i % 2) * 1.1f);
-                    var ped = CreateArticulatedPedestrianLocal(root, $"NairobiWalker_{i}_{side}", new Vector3(xWalk, 0.16f, startZs[i]), 0f, seed++);
+                    float xWalk = side * (12.6f + (i % 2) * 1.1f);
+                    float yA = KenyaNetworkData.GetElevationAt(xWalk, startZs[i]) + 0.18f;
+                    float yB = KenyaNetworkData.GetElevationAt(xWalk, startZs[i] + 28f) + 0.18f;
+                    var ped = CreateArticulatedPedestrianLocal(root, $"NairobiWalker_{i}_{side}", new Vector3(xWalk, yA, startZs[i]), 0f, seed++);
                     ped.mode = KenyaPedestrianAI.BehaviorMode.SidewalkPatrol;
-                    ped.pointA = new Vector3(xWalk, 0.16f, startZs[i]);
-                    ped.pointB = new Vector3(xWalk, 0.16f, startZs[i] + 28f);
+                    ped.pointA = new Vector3(xWalk, yA, startZs[i]);
+                    ped.pointB = new Vector3(xWalk, yB, startZs[i] + 28f);
                     ped.walkSpeed = 1.35f + (seed % 3) * 0.18f;
                 }
             }
 
-            // 2 Zebra Crossers at Nairobi CBD Plaza light
-            var z1 = CreateArticulatedPedestrianLocal(root, "NairobiZebraCrosser_1", new Vector3(-8.2f, 0.16f, 95f), 90f, seed++);
+            // 2 Zebra Crossers spanning the 6-Lane Nairobi CBD Plaza light
+            float z95Y = KenyaNetworkData.GetElevationAt(0f, 95f) + 0.14f;
+            var z1 = CreateArticulatedPedestrianLocal(root, "NairobiZebraCrosser_1", new Vector3(-11.8f, z95Y, 95f), 90f, seed++);
             z1.mode = KenyaPedestrianAI.BehaviorMode.ZebraCrossing;
-            z1.pointA = new Vector3(-8.2f, 0.16f, 95f);
-            z1.pointB = new Vector3( 8.2f, 0.16f, 95f);
+            z1.pointA = new Vector3(-11.8f, z95Y, 95f);
+            z1.pointB = new Vector3( 11.8f, z95Y, 95f);
             z1.crossingLight = nairobiLight;
 
-            var z2 = CreateArticulatedPedestrianLocal(root, "NairobiZebraCrosser_2", new Vector3(8.2f, 0.16f, 96.4f), -90f, seed++);
+            var z2 = CreateArticulatedPedestrianLocal(root, "NairobiZebraCrosser_2", new Vector3(11.8f, z95Y, 96.4f), -90f, seed++);
             z2.mode = KenyaPedestrianAI.BehaviorMode.ZebraCrossing;
-            z2.pointA = new Vector3( 8.2f, 0.16f, 96.4f);
-            z2.pointB = new Vector3(-8.2f, 0.16f, 96.4f);
+            z2.pointA = new Vector3( 11.8f, z95Y, 96.4f);
+            z2.pointB = new Vector3(-11.8f, z95Y, 96.4f);
             z2.crossingLight = nairobiLight;
         }
 
-        private static void BuildRubisPetrolStation(Transform parent, Vector3 pos, float yawDeg, string label, List<Light> pointLights, List<Renderer> glowRenderers)
+        private static void BuildKenyaPetrolStation(Transform parent, Vector3 pos, float yawDeg, string townLabel, int brandKind, List<Light> pointLights, List<Renderer> glowRenderers)
         {
-            var root = new GameObject($"RubisStation_{label}").transform;
+            bool safe = KenyaCommercialManagerWindow.UseCommercialSafeBrands;
+            string brandName;
+            Color primaryCol, stripeCol;
+            if (brandKind == 0)
+            {
+                brandName = safe ? "TOTALX ENERGY" : "TOTALENERGIES";
+                primaryCol = Palette.Hex("#E3242B");
+                stripeCol  = Palette.Hex("#F59E0B");
+            }
+            else if (brandKind == 1)
+            {
+                brandName = safe ? "RUBIX ENERGY" : "RUBIS ENERGY";
+                primaryCol = Palette.Hex("#0F8A4B");
+                stripeCol  = Palette.Hex("#D4262C");
+            }
+            else
+            {
+                brandName = safe ? "SAVANNA FUEL" : "SHELL KENYA";
+                primaryCol = Palette.Hex("#F5B800");
+                stripeCol  = Palette.Hex("#DC2626");
+            }
+
+            string fullLabel = $"{brandName} {townLabel}";
+            var rootGo = new GameObject($"PetrolStation_{townLabel}");
+            var root = rootGo.transform;
             root.SetParent(parent, false);
             root.position = pos;
             root.rotation = Quaternion.Euler(0f, yawDeg, 0f);
 
+            // Live Interactive Refuel Forecourt Zone!
+            var fuelZone = rootGo.AddComponent<KenyaFuelStationZone>();
+            fuelZone.stationName = fullLabel;
+            fuelZone.refuelRadius = 13.5f;
+
             var matConcrete = GetMat("StationConcrete", Palette.Sidewalk, 0.25f, 0f, null, texCabroAlb, texCabroNrm, new Vector2(6f, 8f), 1.0f);
-            var matGreen = GetMat("RubisGreen", Palette.Hex("#0F8A4B"), 0.55f, 0.15f);
-            var matRed = GetMat("RubisRed", Palette.Hex("#D4262C"), 0.55f, 0.15f);
+            var matPrimary = GetMat($"FuelBrandPri_{brandKind}", primaryCol, 0.55f, 0.15f);
+            var matStripe  = GetMat($"FuelBrandStr_{brandKind}", stripeCol, 0.55f, 0.15f);
             var matWhite = GetMat("RubisWhite", Palette.EnaBodyWhite, 0.55f);
             var matDark = GetMat("StationDark", Palette.SignalHousing, 0.4f, 0.4f);
             var matGlow = GetMat("CanopyLightGlow", Palette.LampGlow, 0.7f, 0f, Palette.LampGlow * 2.8f);
             var matGlass = GetMat("StationGlass", Color.white, 0.9f, 0.2f, null, texGlassAlb, texGlassNrm, new Vector2(4f, 1f), 0.9f);
 
-            CreateBox("ForecourtPad", root, new Vector3(-2f, 0.02f, 0f), new Vector3(20f, 0.08f, 30f), matConcrete, true);
+            CreateBox("ForecourtPad", root, new Vector3(-2f, 0.02f, 0f), new Vector3(20f, 0.22f, 30f), matConcrete, true);
             CreateBox("CanopyTopWhite", root, new Vector3(-1.5f, 5.45f, 0f), new Vector3(11.5f, 0.45f, 19f), matWhite, false);
-            CreateBox("CanopyFasciaGreen", root, new Vector3(-1.5f, 5.80f, 0f), new Vector3(11.7f, 0.52f, 19.2f), matGreen, false);
-            CreateBox("CanopyStripeRed", root, new Vector3(-1.5f, 5.38f, 0f), new Vector3(11.75f, 0.20f, 19.25f), matRed, false);
-            CreateWorldSignText("CanopyBrandSign", root, $"{label}  •  RUBIS ENERGY", new Vector3(-7.42f, 5.82f, 0f), new Vector2(17.5f, 0.85f), 4.4f, Palette.EnaBodyWhite, Quaternion.Euler(0f, 90f, 0f), noWrap: true);
+            CreateBox("CanopyFasciaMain", root, new Vector3(-1.5f, 5.80f, 0f), new Vector3(11.7f, 0.52f, 19.2f), matPrimary, false);
+            CreateBox("CanopyStripeAccent", root, new Vector3(-1.5f, 5.38f, 0f), new Vector3(11.75f, 0.20f, 19.25f), matStripe, false);
+            CreateWorldSignText("CanopyBrandSign", root, $"{fullLabel}  •  24H DIESEL", new Vector3(-7.42f, 5.82f, 0f), new Vector2(18.0f, 0.85f), 4.0f, Palette.EnaBodyWhite, Quaternion.Euler(0f, 90f, 0f), noWrap: true);
 
             float[] colZ = { -6.0f, 6.0f };
             float[] colX = { -4.5f, 1.5f };
@@ -1898,30 +2060,31 @@ namespace KenyaStreetSim.Editor
             {
                 float iz = i * 4.2f;
                 CreateBox($"PumpIsland_{i}", root, new Vector3(-1.5f, 0.18f, iz), new Vector3(1.6f, 0.24f, 4.0f), matDark, true);
-                CreateBox($"PumpA_{i}", root, new Vector3(-1.5f, 1.15f, iz - 1.0f), new Vector3(0.85f, 1.75f, 0.65f), matGreen, true);
-                CreateBox($"PumpB_{i}", root, new Vector3(-1.5f, 1.15f, iz + 1.0f), new Vector3(0.85f, 1.75f, 0.65f), matRed, true);
+                CreateBox($"PumpA_{i}", root, new Vector3(-1.5f, 1.15f, iz - 1.0f), new Vector3(0.85f, 1.75f, 0.65f), matPrimary, true);
+                CreateBox($"PumpB_{i}", root, new Vector3(-1.5f, 1.15f, iz + 1.0f), new Vector3(0.85f, 1.75f, 0.65f), matStripe, true);
 
                 var led = CreateBox($"CanopyLed_{i}", root, new Vector3(-1.5f, 5.20f, iz), new Vector3(2.2f, 0.08f, 1.4f), matGlow, false);
                 glowRenderers.Add(led.GetComponent<Renderer>());
-
-                var plGo = new GameObject($"CanopyPointLight_{i}");
-                plGo.transform.SetParent(root, false);
-                plGo.transform.localPosition = new Vector3(-1.5f, 4.85f, iz);
-                var pl = plGo.AddComponent<Light>();
-                pl.type = LightType.Point;
-                pl.color = Palette.HeadlightWarm;
-                pl.range = 24f;
-                pl.intensity = 0f;
-                pl.enabled = false;
-                pointLights.Add(pl);
             }
 
+            // One efficient warm night canopy point light per station
+            var plGo = new GameObject("CanopyPointLight");
+            plGo.transform.SetParent(root, false);
+            plGo.transform.localPosition = new Vector3(-1.5f, 4.85f, 0f);
+            var pl = plGo.AddComponent<Light>();
+            pl.type = LightType.Point;
+            pl.color = Palette.HeadlightWarm;
+            pl.range = 26f;
+            pl.intensity = 0f;
+            pl.enabled = false;
+            pointLights.Add(pl);
+
             CreateBox("ShopBuilding", root, new Vector3(7.2f, 2.2f, 0f), new Vector3(6.5f, 4.4f, 19f), matWhite, true);
-            CreateBox("ShopBandGreen", root, new Vector3(7.2f, 4.15f, 0f), new Vector3(6.6f, 0.65f, 19.1f), matGreen, false);
+            CreateBox("ShopBandMain", root, new Vector3(7.2f, 4.15f, 0f), new Vector3(6.6f, 0.65f, 19.1f), matPrimary, false);
             CreateBox("ShopGlassFront", root, new Vector3(3.92f, 1.75f, 0f), new Vector3(0.14f, 2.7f, 14.5f), matGlass, false);
             CreateBox("PriceTotemPole", root, new Vector3(-9.5f, 3.8f, -12.5f), new Vector3(1.55f, 7.6f, 0.45f), matDark, true);
-            CreateBox("PriceTotemTop", root, new Vector3(-9.5f, 6.85f, -12.5f), new Vector3(1.75f, 1.5f, 0.52f), matGreen, false);
-            CreateWorldSignText("TotemPriceText", root, "RUBIS\nSUPER 180.50\nDIESEL 168.20", new Vector3(-9.5f, 5.1f, -12.78f), new Vector2(1.65f, 3.6f), 2.1f, Palette.UiAccentAmber, Quaternion.identity, noWrap: false);
+            CreateBox("PriceTotemTop", root, new Vector3(-9.5f, 6.85f, -12.5f), new Vector3(1.75f, 1.5f, 0.52f), matPrimary, false);
+            CreateWorldSignText("TotemPriceText", root, $"{brandName}\nSUPER 180.50\nDIESEL 168.20", new Vector3(-9.5f, 5.1f, -12.78f), new Vector2(1.65f, 3.6f), 2.0f, Palette.UiAccentAmber, Quaternion.identity, noWrap: false);
         }
 
         private static void BuildKplcPowerStretch(Transform parent, Vector3 start, Vector3 end, int poleCount)
@@ -1934,6 +2097,7 @@ namespace KenyaStreetSim.Editor
             for (int i = 0; i < poleCount; i++)
             {
                 Vector3 p = Vector3.Lerp(start, end, (float)i / Mathf.Max(1, poleCount - 1));
+                p.y = KenyaNetworkData.GetElevationAt(p.x, p.z) + 0.16f;
                 positions[i] = p;
                 var pole = new GameObject($"KPLC_Pole_{i}").transform;
                 pole.SetParent(parent, false);

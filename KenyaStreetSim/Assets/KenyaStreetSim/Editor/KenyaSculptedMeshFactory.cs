@@ -368,21 +368,27 @@ namespace KenyaStreetSim.Editor
 
         private static Mesh BuildFullKenyaTerrain()
         {
-            const int resX = 148;
-            const int resZ = 104;
-            const float minX = -1560f;
-            const float maxX = 1220f;
-            const float minZ = -520f;
-            const float maxZ = 1080f;
+            // Expanded National Republic of Kenya 3D Topography Grid:
+            // Covers Sori/Migori/Homa Bay/Kisumu/Malaba/Kitale (West/North) -> Rift/Kericho/Nairobi -> Mombasa/Kilifi/Malindi (East)!
+            const int resX = 188;
+            const int resZ = 132;
+            const float minX = -2280f;
+            const float maxX = 1560f;
+            const float minZ = -660f;
+            const float maxZ = 1800f;
 
-            // Pre-sample all highway segments into coarse 2D polyline segments for blazing fast distance checks
-            var roadSegs = new List<(Vector2 a, Vector2 b)>();
+            // Pre-sample all 15 highway splines into coarse 2D polyline segments for blazing-fast clearance checks
+            var roadSegs = new List<(Vector2 a, Vector2 b, float hw)>();
             for (int h = 0; h < KenyaNetworkData.Highways.Length; h++)
             {
-                var pts = KenyaNetworkData.SampleHighway(KenyaNetworkData.Highways[h], 24f);
+                var def = KenyaNetworkData.Highways[h];
+                var pts = KenyaNetworkData.SampleHighway(def, 22f);
                 for (int i = 0; i < pts.Count - 1; i++)
                 {
-                    roadSegs.Add((new Vector2(pts[i].x, pts[i].z), new Vector2(pts[i + 1].x, pts[i + 1].z)));
+                    Vector2 a = new Vector2(pts[i].x, pts[i].z);
+                    Vector2 b = new Vector2(pts[i + 1].x, pts[i + 1].z);
+                    float hw = KenyaNetworkData.GetRoadHalfWidthAt(def, (a + b) * 0.5f);
+                    roadSegs.Add((a, b, hw));
                 }
             }
 
@@ -401,46 +407,67 @@ namespace KenyaStreetSim.Editor
                     float wx = Mathf.Lerp(minX, maxX, ux);
                     Vector2 p = new Vector2(wx, wz);
 
-                    // Compute shortest distance to ANY Kenyan highway, roundabout, or town center!
+                    // Authoritative smooth 3D Kenyan elevation Y (flat plains vs steep Rift/Mau/Kericho/Kisii slopes!)
+                    float baseY = KenyaNetworkData.GetElevationAt(p);
+
+                    // Compute shortest distance to ANY Kenyan highway edge, roundabout, or town center!
                     float minDist = float.MaxValue;
                     for (int s = 0; s < roadSegs.Count; s++)
                     {
-                        var (a, b) = roadSegs[s];
+                        var (a, b, hw) = roadSegs[s];
                         Vector2 ab = b - a;
                         float lenSq = ab.sqrMagnitude;
                         float t = lenSq > 0.001f ? Mathf.Clamp01(Vector2.Dot(p - a, ab) / lenSq) : 0f;
-                        float d = Vector2.Distance(p, a + ab * t);
+                        float d = Mathf.Max(0f, Vector2.Distance(p, a + ab * t) - hw);
                         if (d < minDist) minDist = d;
                     }
                     for (int h = 0; h < KenyaNetworkData.Hubs.Length; h++)
                     {
-                        float dTown = Vector2.Distance(p, KenyaNetworkData.Hubs[h].xz) - 48f;
+                        float townPad = KenyaNetworkData.Hubs[h].tier == KenyaNetworkData.TownTier.MajorCity ? 68f : 44f;
+                        float dTown = Vector2.Distance(p, KenyaNetworkData.Hubs[h].xz) - townPad;
                         if (dTown < minDist) minDist = Mathf.Max(0f, dTown);
                     }
                     for (int r = 0; r < KenyaNetworkData.Roundabouts.Length; r++)
                     {
-                        float dRbt = Vector2.Distance(p, KenyaNetworkData.Roundabouts[r].center) - 36f;
+                        float dRbt = Vector2.Distance(p, KenyaNetworkData.Roundabouts[r].center) - (KenyaNetworkData.Roundabouts[r].outerRadius + 16f);
                         if (dRbt < minDist) minDist = Mathf.Max(0f, dRbt);
                     }
+                    // Keep all 4 International Airport plateaus (JKIA Nairobi, Kisumu, Eldoret, Moi Mombasa) dead-flat for runways & terminals!
+                    Vector2[] airportSites =
+                    {
+                        new Vector2(  135f,  -45f),
+                        new Vector2(-1615f,  915f),
+                        new Vector2(-1075f, 1085f),
+                        new Vector2(  840f, -455f),
+                    };
+                    for (int a = 0; a < airportSites.Length; a++)
+                    {
+                        float dAir = Vector2.Distance(p, airportSites[a]) - 78f;
+                        if (dAir < minDist) minDist = Mathf.Max(0f, dAir);
+                    }
 
-                    // Keep dry around Homa Bay & Mombasa-Malindi coastal highway; dip smoothly under Lake Victoria & Indian Ocean!
-                    bool inLakeVictoria = (wx < -1235f && wz > 360f);
-                    bool inIndianOcean = ((wx > 780f && wz < -275f) || (wx > 995f && wz < 220f) || (wx > 925f && wz < -185f));
+                    // Keep dry around Sori/Homa Bay/Kendu Bay/Kisumu & Mombasa/Kilifi/Malindi; dip smoothly under Lake Victoria & Indian Ocean!
+                    bool inLakeVictoria = ((wx < -1895f && wz > 120f && wz < 980f) || (wx < -2045f && wz > -260f && wz < 980f) || (wx < -1600f && wz > 560f && wz < 790f && minDist > 42f));
+                    bool inIndianOcean  = ((wx > 1075f && wz < -395f) || (wx > 1245f && wz < -180f) || (wx > 1345f && wz < 240f));
 
                     float y;
-                    if (inLakeVictoria || inIndianOcean)
+                    if ((inLakeVictoria || inIndianOcean) && minDist > 34f)
                     {
-                        y = -3.8f;
+                        y = -3.4f;
                     }
                     else
                     {
-                        float hillMask = SmoothRange(42f, 155f, minDist);
-                        // Taller escarpment hills around Rift Valley / Kericho / Ngong Hills
-                        float highlandBoost = (wx < -180f && wz > 120f) ? 1.45f : 1.0f;
-                        float n1 = Mathf.PerlinNoise(wx * 0.0028f + 13.7f, wz * 0.0028f + 29.1f);
-                        float n2 = Mathf.PerlinNoise(wx * 0.0085f + 71.3f, wz * 0.0085f + 41.9f);
-                        float ridge = (Mathf.Pow(n1, 1.35f) * 52f + n2 * 14f) * highlandBoost;
-                        y = -0.35f + ridge * hillMask;
+                        // Smooth scenic mountains & escarpment walls strictly outside road/town footprints!
+                        float hillMask = SmoothRange(36f, 150f, minDist);
+                        // Keep Coast, Lake Basin & Narok Savanna gentle/flat, while Rift Escarpment, Mau, Kericho & Kisii tower dramatically!
+                        bool isFlatPlain = (wx > 760f && wz < 120f) || (wx < -1720f && wz < 680f) || (wx > -760f && wx < -320f && wz < 260f);
+                        float regionScale = isFlatPlain ? 0.30f : ((wx < -180f && wz > 120f) ? 1.35f : 0.95f);
+
+                        float n1 = Mathf.Clamp01(Mathf.PerlinNoise(wx * 0.0026f + 13.7f, wz * 0.0026f + 29.1f));
+                        float n2 = Mathf.Clamp01(Mathf.PerlinNoise(wx * 0.0082f + 71.3f, wz * 0.0082f + 41.9f));
+                        float ridge = (Mathf.Pow(n1, 1.35f) * 44f + n2 * 12f) * regionScale;
+                        y = (baseY - 0.14f) + ridge * hillMask;
+                        if (float.IsNaN(y) || float.IsInfinity(y)) y = baseY - 0.14f;
                     }
 
                     int idx = iz * (resX + 1) + ix;

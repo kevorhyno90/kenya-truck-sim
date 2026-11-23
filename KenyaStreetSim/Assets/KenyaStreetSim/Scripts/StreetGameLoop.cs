@@ -200,7 +200,8 @@ namespace KenyaStreetSim
             }
 
             Vector3 left = Vector3.Cross(roadFwd, Vector3.up).normalized;
-            Vector3 spawn = roadPt + left * 3.4f + Vector3.up * 0.32f;
+            Vector3 spawn = roadPt + left * 3.4f;
+            spawn.y = KenyaNetworkData.GetElevationAt(spawn.x, spawn.z) + 0.35f;
             Quaternion rot = Quaternion.LookRotation(roadFwd, Vector3.up);
 
             ActiveVehicle.ResetToPose(spawn, rot);
@@ -266,7 +267,7 @@ namespace KenyaStreetSim
             ActiveMode = mode;
             if (mode == GameMode.IsuzuCargoHaul && ActiveRoute.kind != KenyaRouteCatalog.RouteKind.FrrParcelCargo)
             {
-                ActiveRouteIndex = 5; // FRR PARCEL: NAIROBI – ELDORET
+                ActiveRouteIndex = 6; // PARCEL: NAIROBI – ELDORET – MALABA
                 OnRouteSelected?.Invoke(ActiveRouteIndex);
             }
             else if (mode == GameMode.EnaCoachCareer && ActiveRoute.kind == KenyaRouteCatalog.RouteKind.FrrParcelCargo)
@@ -394,11 +395,12 @@ namespace KenyaStreetSim
             if (fleet == null || fleet.Length == 0) return;
 
             Vector3 carryPos = startPosition;
+            carryPos.y = Mathf.Max(carryPos.y, KenyaNetworkData.GetElevationAt(carryPos.x, carryPos.z) + 0.35f);
             Quaternion carryRot = Quaternion.identity;
             if (!resetPose && ActiveVehicle != null)
             {
                 carryPos = ActiveVehicle.transform.position;
-                carryPos.y = Mathf.Max(0.28f, carryPos.y);
+                carryPos.y = Mathf.Max(KenyaNetworkData.GetElevationAt(carryPos.x, carryPos.z) + 0.35f, carryPos.y);
                 carryRot = Quaternion.Euler(0f, ActiveVehicle.transform.eulerAngles.y, 0f);
             }
 

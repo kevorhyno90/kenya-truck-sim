@@ -140,12 +140,13 @@ namespace KenyaStreetSim
                 if (segFwd.sqrMagnitude < 0.01f) segFwd = vehFwd;
                 segFwd.Normalize();
                 Vector3 leftLane = Vector3.Cross(segFwd, Vector3.up).normalized;
-                Vector3 lanePt = rp + leftLane * 3.2f + Vector3.up * 0.24f;
+                Vector3 lanePt = rp + leftLane * 3.2f;
+                lanePt.y = KenyaNetworkData.GetElevationAt(lanePt.x, lanePt.z) + 0.28f;
 
                 if (iter == 0)
                 {
                     lanePt = vehPos + vehFwd * 7f;
-                    lanePt.y = 0.24f;
+                    lanePt.y = KenyaNetworkData.GetElevationAt(lanePt.x, lanePt.z) + 0.28f;
                 }
                 ribbon.Add(lanePt);
                 if (iter > 0) accumDist += Vector3.Distance(lastPt, lanePt);
@@ -157,7 +158,7 @@ namespace KenyaStreetSim
             // Always terminate cleanly toward the active stage beacon when close (< 130m)
             if (DistanceToNextStop < 130f)
             {
-                ribbon.Add(new Vector3(stagePos.x, 0.30f, stagePos.z));
+                ribbon.Add(new Vector3(stagePos.x, KenyaNetworkData.GetElevationAt(stagePos.x, stagePos.z) + 0.32f, stagePos.z));
             }
 
             if (ribbon.Count >= 2)

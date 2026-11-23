@@ -33,13 +33,16 @@ namespace KenyaStreetSim.Editor
             Material matBeacon  = MakeMat("RB_BeaconGlow", urpLit, new Color(0.25f, 0.62f, 1.0f), 0.85f, 0.0f, new Color(0.15f, 0.55f, 1f) * 3.5f);
             Material matGlass   = MakeMat("RB_PatrolGlass", urpLit, new Color(0.12f, 0.18f, 0.24f), 0.90f, 0.25f);
 
-            // 4 scenic highway checkpoints cleanly clear of roundabouts & town buildings!
+            // ONLY THE 5 MAJOR KENYAN HIGHWAY POLICE ROADBLOCKS (cleanly clear of roundabouts & town buildings!):
+            // 1. Mai Mahiu Escarpment (B3), 2. Salgaa / Mau Summit (A104), 3. Ahero – Kisumu (A1),
+            // 4. Mtito Andei / Tsavo (A109), 5. Webuye – Malaba Uganda Border Approach (A104)!
             (int highwayIdx, float progress, string title)[] placements =
             {
-                (1, 0.14f, "NAIROBI – NAROK B3 POLICE CHECKPOINT"),
-                (3, 0.28f, "RIFT VALLEY A104 POLICE CHECKPOINT"),
-                (4, 0.36f, "KERICHO – KISUMU B1 POLICE CHECKPOINT"),
-                (7, 0.14f, "MOMBASA RD A109 POLICE CHECKPOINT")
+                ( 7, 0.22f, "MAI MAHIU B3 MAJOR POLICE ROADBLOCK"),
+                (12, 0.80f, "SALGAA – TOTAL A104 MAJOR POLICE ROADBLOCK"),
+                ( 4, 0.78f, "AHERO – KISUMU A1 MAJOR POLICE ROADBLOCK"),
+                (14, 0.26f, "MTITO ANDEI A109 MAJOR POLICE ROADBLOCK"),
+                (13, 0.76f, "WEBUYE – BUNGOMA A104 MAJOR POLICE ROADBLOCK")
             };
 
             int built = 0;
@@ -47,15 +50,19 @@ namespace KenyaStreetSim.Editor
             {
                 var p = placements[i];
                 if (p.highwayIdx < 0 || p.highwayIdx >= KenyaNetworkData.Highways.Length) continue;
-                var samples = KenyaNetworkData.SampleHighway(KenyaNetworkData.Highways[p.highwayIdx], 6f);
+                var hDef = KenyaNetworkData.Highways[p.highwayIdx];
+                var samples = KenyaNetworkData.SampleHighway(hDef, 6f);
                 if (samples == null || samples.Count < 4) continue;
 
                 int idx = Mathf.Clamp(Mathf.RoundToInt(p.progress * (samples.Count - 1)), 2, samples.Count - 3);
                 Vector3 centerPt = samples[idx];
+                centerPt.y = KenyaNetworkData.GetElevationAt(centerPt.x, centerPt.z);
                 Vector3 fwd = (samples[idx + 1] - samples[idx - 1]);
-                fwd.y = 0f;
                 if (fwd.sqrMagnitude < 0.01f) continue;
                 fwd.Normalize();
+
+                float hw = KenyaNetworkData.GetRoadHalfWidthAt(hDef, new Vector2(centerPt.x, centerPt.z));
+                float extraShift = Mathf.Max(0f, hw - 7.0f);
 
                 Quaternion rot = Quaternion.LookRotation(fwd, Vector3.up);
                 var cpGo = new GameObject($"PoliceRoadblock_{i}_{p.highwayIdx}");
@@ -65,20 +72,21 @@ namespace KenyaStreetSim.Editor
                 var ctrl = cpGo.AddComponent<KenyaPoliceRoadblock>();
                 ctrl.checkpointName = p.title;
 
-                // Left-hand traffic shoulder is at local X = -6.2m; Left lane is X = -6.0 .. -0.4m!
-                // Concrete Yellow/Black Barrier Pedestal cleanly off the tarmac on the left shoulder
-                Box("BarrierPedestal", cpGo.transform, new Vector3(-6.45f, 0.58f, 0f), new Vector3(0.56f, 1.16f, 0.56f), matYellow);
-                Box("PedestalCap",     cpGo.transform, new Vector3(-6.45f, 1.20f, 0f), new Vector3(0.62f, 0.10f, 0.62f), matSteel);
+                // Place pedestal, signboard, parked patrol truck & cones shifted cleanly to this highway's true left shoulder!
+                float pedX = -6.45f - extraShift;
+                Box("BarrierPedestal", cpGo.transform, new Vector3(pedX, 0.58f, 0f), new Vector3(0.56f, 1.16f, 0.56f), matYellow);
+                Box("PedestalCap",     cpGo.transform, new Vector3(pedX, 1.20f, 0f), new Vector3(0.62f, 0.10f, 0.62f), matSteel);
 
                 // Flashing Blue/Red Police Beacon on top of Pedestal
-                var beaconObj = Cyl("CheckpointBeacon", cpGo.transform, new Vector3(-6.45f, 1.38f, 0f), new Vector3(0.24f, 0.14f, 0.24f), matBeacon, Quaternion.identity);
+                var beaconObj = Cyl("CheckpointBeacon", cpGo.transform, new Vector3(pedX, 1.38f, 0f), new Vector3(0.24f, 0.14f, 0.24f), matBeacon, Quaternion.identity);
                 ctrl.beaconLightRenderer = beaconObj.GetComponent<Renderer>();
 
-                // Animated Red/White Striped Boom Barrier Pole spanning across the left lane (raises up to -76° when cleared!)
+                // Animated Red/White Striped Boom Barrier Pole spanning across the left inspection lane (raises up to -76° when cleared!)
                 var boomPivot = new GameObject("BoomBarrierPivot").transform;
                 boomPivot.SetParent(cpGo.transform, false);
-                boomPivot.localPosition = new Vector3(-6.20f, 1.02f, 0f);
-                for (int seg = 0; seg < 6; seg++)
+                boomPivot.localPosition = new Vector3(pedX + 0.25f, 1.02f, 0f);
+                int boomSegs = Mathf.Clamp(Mathf.RoundToInt((hw - 0.6f) / 0.85f), 6, 10);
+                for (int seg = 0; seg < boomSegs; seg++)
                 {
                     float xSeg = 0.42f + seg * 0.85f;
                     Box($"BoomStripe_{seg}", boomPivot, new Vector3(xSeg, 0f, 0f), new Vector3(0.84f, 0.12f, 0.10f), (seg % 2 == 0) ? matRed : matWhite);
@@ -86,16 +94,16 @@ namespace KenyaStreetSim.Editor
                 ctrl.boomBarrierPivot = boomPivot;
 
                 // Tall Reflective "STOP - KENYA POLICE CHECK" Signboard 10m ahead on left shoulder
-                Box("SignPost", cpGo.transform, new Vector3(-7.4f, 1.25f, -10.5f), new Vector3(0.10f, 2.50f, 0.10f), matSteel);
-                Box("SignBoard", cpGo.transform, new Vector3(-7.4f, 2.15f, -10.5f), new Vector3(2.25f, 0.92f, 0.08f), matSignBlu);
-                WorldSign("SignFrontTxt", cpGo.transform, "STOP — KENYA POLICE\nROUTINE CHECK", new Vector3(-7.4f, 2.15f, -10.56f), new Vector2(2.15f, 0.84f), 2.1f, Color.white, Quaternion.identity);
-                WorldSign("SignRearTxt",  cpGo.transform, "KENYA POLICE CHECK\nSAFARI NJEMA", new Vector3(-7.4f, 2.15f, -10.44f), new Vector2(2.15f, 0.84f), 2.0f, Color.white, Quaternion.Euler(0f, 180f, 0f));
+                Box("SignPost", cpGo.transform, new Vector3(pedX - 1.0f, 1.25f, -10.5f), new Vector3(0.10f, 2.50f, 0.10f), matSteel);
+                Box("SignBoard", cpGo.transform, new Vector3(pedX - 1.0f, 2.15f, -10.5f), new Vector3(2.25f, 0.92f, 0.08f), matSignBlu);
+                WorldSign("SignFrontTxt", cpGo.transform, "STOP — KENYA POLICE\nMAJOR ROADBLOCK", new Vector3(pedX - 1.0f, 2.15f, -10.56f), new Vector2(2.15f, 0.84f), 2.1f, Color.white, Quaternion.identity);
+                WorldSign("SignRearTxt",  cpGo.transform, "KENYA POLICE CHECK\nSAFARI NJEMA", new Vector3(pedX - 1.0f, 2.15f, -10.44f), new Vector2(2.15f, 0.84f), 2.0f, Color.white, Quaternion.Euler(0f, 180f, 0f));
 
                 // 4 High-Visibility Orange/White Traffic Cones guiding cars calmly into the inspection lane
                 Vector3[] conePos =
                 {
-                    new Vector3(-6.9f, 0f, -6.5f),
-                    new Vector3(-6.9f, 0f, -3.2f),
+                    new Vector3(pedX - 0.45f, 0f, -6.5f),
+                    new Vector3(pedX - 0.45f, 0f, -3.2f),
                     new Vector3(-0.35f, 0f, -3.5f),
                     new Vector3(-0.35f, 0f,  2.8f)
                 };
@@ -106,7 +114,7 @@ namespace KenyaStreetSim.Editor
 
                 // Inspector Officer #1 standing beside the barrier — walks ALL THE WAY AROUND your vehicle!
                 var off1 = BuildKenyaPoliceOfficer(cpGo.transform, "InspectorOfficer_WalkAround",
-                    new Vector3(-6.0f, 0f, -2.4f), Quaternion.Euler(0f, 118f, 0f),
+                    new Vector3(pedX + 0.45f, 0f, -2.4f), Quaternion.Euler(0f, 118f, 0f),
                     matNavy, matVest, matSkin, matBoot, matYellow,
                     out Transform off1ArmR, out Transform off1LegL, out Transform off1LegR);
                 ctrl.inspectorOfficer = off1;
@@ -116,12 +124,12 @@ namespace KenyaStreetSim.Editor
 
                 // Partner Officer #2 standing guard beside the parked Police Patrol Truck on the far shoulder!
                 BuildKenyaPoliceOfficer(cpGo.transform, "GuardOfficer_Post",
-                    new Vector3(-8.4f, 0f, 2.2f), Quaternion.Euler(0f, 145f, 0f),
+                    new Vector3(pedX - 2.0f, 0f, 2.2f), Quaternion.Euler(0f, 145f, 0f),
                     matNavy, matVest, matSkin, matBoot, matYellow,
                     out _, out _, out _);
 
-                // Parked Kenya Police Patrol Truck cleanly off on the grass shoulder (X = -10.2m, clear of tarmac!)
-                BuildParkedPolicePatrolTruck(cpGo.transform, new Vector3(-10.2f, 0f, 4.2f), Quaternion.Euler(0f, 14f, 0f),
+                // Parked Kenya Police Patrol Truck cleanly off on the grass shoulder (clear of tarmac!)
+                BuildParkedPolicePatrolTruck(cpGo.transform, new Vector3(pedX - 3.8f, 0f, 4.2f), Quaternion.Euler(0f, 14f, 0f),
                     matWhite, matSignBlu, matRed, matYellow, matBoot, matGlass, matSteel);
 
                 built++;
