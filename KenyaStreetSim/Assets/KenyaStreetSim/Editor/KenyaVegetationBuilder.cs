@@ -39,8 +39,14 @@ namespace KenyaStreetSim.Editor
             var texBarkNrm = AssetDatabase.LoadAssetAtPath<Texture2D>($"{KenyaPbrTextureGenerator.TexFolder}/CC0_PBR/CC0_Bark_Normal.jpg")
                           ?? AssetDatabase.LoadAssetAtPath<Texture2D>($"{KenyaPbrTextureGenerator.TexFolder}/Bark_Normal.png");
             var texLeaf = AssetDatabase.LoadAssetAtPath<Texture2D>($"{KenyaPbrTextureGenerator.TexFolder}/LeafCluster_Albedo.png");
-            var texTeaNrm = AssetDatabase.LoadAssetAtPath<Texture2D>($"{KenyaPbrTextureGenerator.TexFolder}/TerrainMicroDetail_Normal.png")
+            var texTeaNrm = AssetDatabase.LoadAssetAtPath<Texture2D>($"{KenyaPbrTextureGenerator.TexFolder}/CC0_PBR/ACG_KenyaHighlandGrass_Normal.jpg")
+                         ?? AssetDatabase.LoadAssetAtPath<Texture2D>($"{KenyaPbrTextureGenerator.TexFolder}/TerrainMicroDetail_Normal.png")
                          ?? AssetDatabase.LoadAssetAtPath<Texture2D>($"{KenyaPbrTextureGenerator.TexFolder}/Murram_Normal.png");
+
+            // Load real sculpted Blender 5.3 jagged branching highland pine/cypress meshes (replaces smooth cones!)
+            ExtractBlenderPineMeshes(out Mesh coniferTrunkMesh, out Mesh coniferCrownMesh);
+            if (coniferTrunkMesh == null) coniferTrunkMesh = KenyaSculptedMeshFactory.ConiferTrunkMesh;
+            if (coniferCrownMesh == null) coniferCrownMesh = KenyaSculptedMeshFactory.ConiferCrownMesh;
 
             // Authentic Kenyan ecological flora materials
             Material matAcaciaBark  = MakeMat("Veg_AcaciaBark",     urpLit, new Color(0.85f, 0.80f, 0.72f), 0.10f, 0f, texBark, texBarkNrm, new Vector2(1f, 3f), false);
@@ -216,8 +222,8 @@ namespace KenyaStreetSim.Editor
                     {
                         if (rng.NextDouble() < 0.78)
                         {
-                            AddInst(KenyaSculptedMeshFactory.ConiferTrunkMesh, matConiferBark, m);
-                            AddInst(KenyaSculptedMeshFactory.ConiferCrownMesh, matConiferLeaf, m);
+                            AddInst(coniferTrunkMesh, matConiferBark, m);
+                            AddInst(coniferCrownMesh, matConiferLeaf, m);
                         }
                         else
                         {
@@ -373,8 +379,8 @@ namespace KenyaStreetSim.Editor
                             }
                             else if (isMontaneForest)
                             {
-                                AddInst(KenyaSculptedMeshFactory.ConiferTrunkMesh, matConiferBark, m);
-                                AddInst(KenyaSculptedMeshFactory.ConiferCrownMesh, matConiferLeaf, m);
+                                AddInst(coniferTrunkMesh, matConiferBark, m);
+                                AddInst(coniferCrownMesh, matConiferLeaf, m);
                             }
                             else if (isKakamega)
                             {
@@ -467,6 +473,49 @@ namespace KenyaStreetSim.Editor
             }
             AssetDatabase.CreateAsset(mesh, path);
             return mesh;
+        }
+
+        private static void ExtractBlenderPineMeshes(out Mesh trunkCombined, out Mesh crownCombined)
+        {
+            trunkCombined = null;
+            crownCombined = null;
+            var prefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/KenyaStreetSim/ImportedModels/KenyaWorldKit/Kenya_Highland_Pine.glb");
+            if (prefab == null) return;
+
+            var inst = Object.Instantiate(prefab);
+            inst.transform.SetPositionAndRotation(Vector3.zero, Quaternion.identity);
+            inst.transform.localScale = Vector3.one;
+
+            var trunkList = new List<CombineInstance>();
+            var crownList = new List<CombineInstance>();
+            foreach (var mf in inst.GetComponentsInChildren<MeshFilter>(true))
+            {
+                if (mf.sharedMesh == null || !mf.sharedMesh.isReadable) continue;
+                var ci = new CombineInstance { mesh = mf.sharedMesh, transform = mf.transform.localToWorldMatrix };
+                if (mf.gameObject.name.IndexOf("Canopy", System.StringComparison.OrdinalIgnoreCase) >= 0 ||
+                    mf.gameObject.name.IndexOf("Foliage", System.StringComparison.OrdinalIgnoreCase) >= 0)
+                {
+                    crownList.Add(ci);
+                }
+                else
+                {
+                    trunkList.Add(ci);
+                }
+            }
+            Object.DestroyImmediate(inst);
+
+            if (trunkList.Count > 0)
+            {
+                trunkCombined = new Mesh { name = "BlenderKenyaPineTrunk" };
+                trunkCombined.CombineMeshes(trunkList.ToArray(), true, true);
+                trunkCombined.RecalculateBounds();
+            }
+            if (crownList.Count > 0)
+            {
+                crownCombined = new Mesh { name = "BlenderKenyaPineCrown" };
+                crownCombined.CombineMeshes(crownList.ToArray(), true, true);
+                crownCombined.RecalculateBounds();
+            }
         }
 
         private static void BuildReserveSign(Transform parent, Vector3 pos, float yawDeg, string text, Material matBoard, Material matSteel)

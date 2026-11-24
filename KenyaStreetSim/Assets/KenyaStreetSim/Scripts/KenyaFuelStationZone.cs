@@ -47,12 +47,14 @@ namespace KenyaStreetSim
 
             if (veh.SpeedKmh < 14f && veh.fuelNormalized < 0.999f)
             {
-                veh.RefuelStep(refuelRatePerSec * Time.deltaTime);
+                float step = refuelRatePerSec * Time.deltaTime;
+                KenyaBusCareerManager.Instance?.TryChargeFuelStep(step);
+                veh.RefuelStep(step);
                 if (veh.fuelNormalized >= 0.999f && !notifiedFull)
                 {
                     notifiedFull = true;
                     KenyaStreetAudio.Instance?.PlayPickupBlip();
-                    loop.hud?.ShowToast($"REFUELED AT {stationName.ToUpperInvariant()} — 100% FULL TANK!");
+                    loop.hud?.ShowToast($"REFUELED AT {stationName.ToUpperInvariant()} — 100% FULL DIESEL TANK!");
                 }
             }
         }

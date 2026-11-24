@@ -69,6 +69,7 @@ namespace KenyaStreetSim.Editor
             // Continuous 3D sculpted Kericho/Chebilat/Kisii Tea Plantations + Kenyan Forests are now built batched in KenyaVegetationBuilder!
             BuildNarokAndTsavoWildlife(root, matZebraW, matZebraB, matGiraffeY, matGiraffeS, matGazelle, matElephant, matIvory, matWarnYellow, matSteel);
             BuildClimbingLaneSigns(root, matSignBlue, matWarnYellow, matSteel);
+            BuildEscarpmentGuardrails(root);
         }
 
         // =========================================================================
@@ -261,7 +262,20 @@ namespace KenyaStreetSim.Editor
                 Box("SignBoard", mGo, new Vector3( 0.0f, 3.6f, 5.2f), new Vector3(11.2f, 1.35f, 0.18f), matSignBlue);
                 WorldSign("MarketName", mGo, mk.marketTitle, new Vector3(0f, 3.6f, 5.34f), new Vector2(10.8f, 1.2f), 4.6f, Color.white, Quaternion.Euler(0f, 180f, 0f));
 
-                // Row of 6 vibrant Kenyan open-air wooden market stalls with colorful canvas tarps & fresh produce!
+                // Prefer real sculpted Blender 5.3 Kenyan Market Cluster (.glb), with procedural fallback!
+                var marketPrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/KenyaStreetSim/ImportedModels/KenyaWorldKit/Kenya_Market_Cluster.glb");
+                if (marketPrefab != null)
+                {
+                    var inst = (GameObject)PrefabUtility.InstantiatePrefab(marketPrefab);
+                    inst.name = "BlenderMarketCluster";
+                    inst.transform.SetParent(mGo, false);
+                    inst.transform.localPosition = new Vector3(0f, 0f, -0.5f);
+                    inst.transform.localRotation = Quaternion.identity;
+                    inst.transform.localScale = new Vector3(1.18f, 1.05f, 1.15f);
+                    continue;
+                }
+
+                // Fallback: Row of 6 vibrant Kenyan open-air wooden market stalls with colorful canvas tarps & fresh produce!
                 for (int s = 0; s < 6; s++)
                 {
                     float sx = -9.5f + s * 3.8f;
@@ -684,6 +698,75 @@ namespace KenyaStreetSim.Editor
                 Box("Trim",  go, new Vector3( 0.0f, 3.96f, 0f), new Vector3(3.45f, 0.14f, 0.14f), matYellow);
                 WorldSign("FrontTxt", go, s.title, new Vector3(0f, 3.05f, -0.09f), new Vector2(3.2f, 1.6f), 2.5f, Color.white, Quaternion.identity);
                 WorldSign("BackTxt",  go, s.title, new Vector3(0f, 3.05f,  0.09f), new Vector2(3.2f, 1.6f), 2.5f, Color.white, Quaternion.Euler(0f, 180f, 0f));
+            }
+        }
+
+        // =========================================================================
+        // 6. ETS2-GRADE GALVANIZED W-BEAM STEEL ESCARPMENT HIGHWAY GUARDRAILS!
+        // =========================================================================
+        private static void BuildEscarpmentGuardrails(Transform parent)
+        {
+            var guardrailPrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/KenyaStreetSim/ImportedModels/KenyaWorldKit/Kenya_Highway_Guardrail.glb");
+            if (guardrailPrefab == null) return;
+
+            var grRoot = new GameObject("Kenya_Escarpment_WBeam_Guardrails").transform;
+            grRoot.SetParent(parent, false);
+
+            // Escarpment & highland highway stretches: B3 Mai Mahiu/Narok (7), B1 Kericho (10), A104 Salgaa-Total (12), A104 Timboroa-Eldoret (13), A1 Kisii-Sondu (4)
+            (int hIdx, float minProg, float maxProg)[] stretches =
+            {
+                ( 7, 0.06f, 0.34f), // Mai Mahiu Rift Valley Escarpment!
+                (12, 0.45f, 0.94f), // Nakuru -> Salgaa -> Total Climbing Corridor!
+                (13, 0.06f, 0.42f), // Total -> Timboroa 2,700m Forest Climb!
+                (10, 0.18f, 0.85f), // Kaplong -> Kericho -> Total Tea Escarpment!
+                ( 4, 0.10f, 0.42f), // Kisii -> Oyugis -> Sondu Highlands!
+            };
+
+            for (int s = 0; s < stretches.Length; s++)
+            {
+                var st = stretches[s];
+                if (st.hIdx < 0 || st.hIdx >= KenyaNetworkData.Highways.Length) continue;
+                var hDef = KenyaNetworkData.Highways[st.hIdx];
+                var samples = KenyaNetworkData.SampleHighway(hDef, 12.2f);
+                if (samples == null || samples.Count < 6) continue;
+
+                int iStart = Mathf.Clamp(Mathf.RoundToInt(st.minProg * (samples.Count - 1)), 2, samples.Count - 3);
+                int iEnd = Mathf.Clamp(Mathf.RoundToInt(st.maxProg * (samples.Count - 1)), iStart + 1, samples.Count - 2);
+
+                for (int i = iStart; i <= iEnd; i++)
+                {
+                    Vector3 pt = samples[i];
+                    Vector2 ptXZ = new Vector2(pt.x, pt.z);
+                    if (!KenyaNetworkData.IsClearOfAllRoundabouts(ptXZ, 44f)) continue;
+                    bool nearTown = false;
+                    for (int h = 0; h < KenyaNetworkData.Hubs.Length; h++)
+                    {
+                        if (Vector2.Distance(ptXZ, KenyaNetworkData.Hubs[h].xz) < 52f) { nearTown = true; break; }
+                    }
+                    if (nearTown) continue;
+
+                    Vector3 fwd = samples[i + 1] - samples[i - 1];
+                    if (fwd.sqrMagnitude < 0.01f) continue;
+                    Vector3 fwdNorm = fwd.normalized;
+                    Vector3 flatFwd = new Vector3(fwd.x, 0f, fwd.z).normalized;
+                    Vector3 right = Vector3.Cross(Vector3.up, flatFwd).normalized;
+                    float localHw = KenyaNetworkData.GetRoadHalfWidthAt(hDef, ptXZ);
+
+                    for (int side = -1; side <= 1; side += 2)
+                    {
+                        Vector3 gp = pt + right * (side * (localHw + 1.45f));
+                        if (KenyaNetworkData.DistanceToAnyTarmacEdge(new Vector2(gp.x, gp.z)) < 0.85f) continue;
+                        gp.y = KenyaNetworkData.GetElevationAt(gp.x, gp.z) - 0.04f;
+
+                        Quaternion rot = Quaternion.LookRotation(fwdNorm, Vector3.up);
+                        if (side > 0) rot *= Quaternion.Euler(0f, 180f, 0f);
+
+                        var inst = (GameObject)PrefabUtility.InstantiatePrefab(guardrailPrefab);
+                        inst.name = $"Guardrail_{st.hIdx}_{i}_{side}";
+                        inst.transform.SetParent(grRoot, false);
+                        inst.transform.SetPositionAndRotation(gp, rot);
+                    }
+                }
             }
         }
 

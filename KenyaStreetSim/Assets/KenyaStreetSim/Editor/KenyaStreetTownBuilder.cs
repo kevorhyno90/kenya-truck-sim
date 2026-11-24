@@ -29,6 +29,8 @@ namespace KenyaStreetSim.Editor
         private const string OwnedCoachAssetPath = "Assets/KenyaStreetSim/ImportedModels/OwnedFleet/Savanna_Express_Coach_2026.glb";
         private const string OwnedLorryAssetPath = "Assets/KenyaStreetSim/ImportedModels/OwnedFleet/Savanna_Parcel_Lorry_FRR.glb";
         private const string OwnedSemiTrailerAssetPath = "Assets/KenyaStreetSim/ImportedModels/OwnedFleet/Kenya_SemiTrailer_Transit.glb";
+        private const string OwnedMatatuAssetPath = "Assets/KenyaStreetSim/ImportedModels/RealTraffic/Kenya_Matatu_14Seater_PSV.glb";
+        private const string WorldKitFolder = "Assets/KenyaStreetSim/ImportedModels/KenyaWorldKit";
         private const string ScaniaBusAssetPath = "Assets/KenyaStreetSim/ImportedModels/ScaniaTouring2026/Scania_Touring_2026.glb";
         private const string IsuzuFrrAssetPath = "Assets/KenyaStreetSim/ImportedModels/Fleet/Isuzu_FRR_Kenyan.glb";
         private const string IsuzuTxAssetPath = "Assets/KenyaStreetSim/ImportedModels/Fleet/Isuzu_TX_Lorry.glb";
@@ -179,11 +181,21 @@ namespace KenyaStreetSim.Editor
                 "Savanna_Parcel_Lorry_KDX409G", "Savanna Parcel Lorry (KDX 409G)", "KDX 409G",
                 isCoach: false, targetLength: 8.35f, massKg: 7600f, motorTorque: 3350f, maxSpeedKmh: 98f,
                 extraYawDeg: 0f, matSharedTire, matSharedRim, matSharedHead, matSharedTail, matSharedInd, matSharedPlate, matSharedInt, matSharedBlk, matSharedChr);
+            var migoriMatatu = BuildImportedModVehicle(
+                fleetRoot.transform, startPos, OwnedMatatuAssetPath,
+                "Migori_Shuttle_Matatu_KDM254M", "Migori 14-Seater Matatu (KDM 254M)", "KDM 254M",
+                isCoach: false, targetLength: 5.35f, massKg: 2650f, motorTorque: 1950f, maxSpeedKmh: 108f,
+                extraYawDeg: 0f, matSharedTire, matSharedRim, matSharedHead, matSharedTail, matSharedInd, matSharedPlate, matSharedInt, matSharedBlk, matSharedChr);
+            if (migoriMatatu != null)
+            {
+                migoriMatatu.jobRole = KenyaStreetVehicle.VehicleJobRole.BusPassenger;
+            }
 
             var fleetList = new List<KenyaStreetVehicle>();
             if (savannaCoach != null) fleetList.Add(savannaCoach);
             fleetList.Add(policeLandCruiser);
             if (savannaLorry != null) fleetList.Add(savannaLorry);
+            if (migoriMatatu != null) fleetList.Add(migoriMatatu);
 
             // Prototype reference models remain available while testing, and are automatically excluded when Commercial-Safe Mode is ON!
             if (!KenyaCommercialManagerWindow.UseCommercialSafeBrands)
@@ -282,6 +294,7 @@ namespace KenyaStreetSim.Editor
 
             var hud = sysRoot.AddComponent<KenyaStreetHUD>();
             var routeMap = sysRoot.AddComponent<KenyaRouteMapUI>();
+            sysRoot.AddComponent<KenyaBusCareerManager>();
             var loop = sysRoot.AddComponent<StreetGameLoop>();
             loop.fleet = fleetList.ToArray();
             loop.stages = stages;
@@ -338,10 +351,12 @@ namespace KenyaStreetSim.Editor
             foreach (var t in worldRoot.GetComponentsInChildren<Transform>(true))
             {
                 if (!t.name.StartsWith("Shop_") && !t.name.StartsWith("RubisStation_") && !t.name.StartsWith("PetrolStation_")) continue;
-                var mainBlock = t.Find("MainBlock") ?? t.Find("ShopBuilding");
+                var mainBlock = t.Find("MainBlock") ?? t.Find("ShopBuilding") ?? t.Find("BlenderKenyaDuka") ?? t.Find("BlenderKenyaPlaza") ?? t.Find("MartCollider");
                 if (mainBlock == null) continue;
-                var ls = mainBlock.lossyScale;
-                if (!KenyaNetworkData.IsFootprintClearOfAllRoads(mainBlock.position, ls.x * 0.5f, ls.z * 0.5f, mainBlock.eulerAngles.y, 0.5f))
+                var bc = mainBlock.GetComponent<BoxCollider>();
+                float hx = bc != null ? bc.size.x * mainBlock.lossyScale.x * 0.5f : mainBlock.lossyScale.x * 0.5f;
+                float hz = bc != null ? bc.size.z * mainBlock.lossyScale.z * 0.5f : mainBlock.lossyScale.z * 0.5f;
+                if (!KenyaNetworkData.IsFootprintClearOfAllRoads(mainBlock.position, hx, hz, mainBlock.eulerAngles.y, 0.5f))
                 {
                     violations++;
                 }
@@ -423,19 +438,19 @@ namespace KenyaStreetSim.Editor
             string tf = KenyaPbrTextureGenerator.TexFolder;
             string cc0 = $"{tf}/CC0_PBR";
 
-            // Prefer real photographed CC0 2K Poly Haven PBR maps when present, with clean procedural fallback!
-            texTarmacAlb = LoadFirstTex($"{cc0}/CC0_Asphalt_Albedo.jpg", $"{tf}/Tarmac_Albedo.png");
-            texTarmacNrm = LoadFirstTex($"{cc0}/CC0_Asphalt_Normal.jpg", $"{tf}/Tarmac_Normal.png");
-            texMurramAlb = AssetDatabase.LoadAssetAtPath<Texture2D>($"{tf}/Murram_Albedo.png");
-            texMurramNrm = AssetDatabase.LoadAssetAtPath<Texture2D>($"{tf}/Murram_Normal.png");
-            texSavannaAlb = LoadFirstTex($"{cc0}/CC0_SavannaTerrain_Albedo.jpg", $"{tf}/Murram_Albedo.png");
-            texSavannaNrm = LoadFirstTex($"{cc0}/CC0_SavannaTerrain_Normal.jpg", $"{tf}/Murram_Normal.png");
+            // Prefer real photographed CC0 Poly Haven + AmbientCG PBR maps when present, with clean procedural fallback!
+            texTarmacAlb = LoadFirstTex($"{cc0}/CC0_Asphalt_Albedo.jpg", $"{cc0}/ACG_KenyaHighwayTarmac_Albedo.jpg", $"{tf}/Tarmac_Albedo.png");
+            texTarmacNrm = LoadFirstTex($"{cc0}/CC0_Asphalt_Normal.jpg", $"{cc0}/ACG_KenyaHighwayTarmac_Normal.jpg", $"{tf}/Tarmac_Normal.png");
+            texMurramAlb = LoadFirstTex($"{cc0}/CC0_KenyaRedMurram_Albedo.jpg", $"{tf}/Murram_Albedo.png");
+            texMurramNrm = LoadFirstTex($"{cc0}/CC0_KenyaRedMurram_Normal.jpg", $"{tf}/Murram_Normal.png");
+            texSavannaAlb = LoadFirstTex($"{cc0}/CC0_SavannaTerrain_Albedo.jpg", $"{cc0}/ACG_KenyaHighlandGrass_Albedo.jpg", $"{tf}/Murram_Albedo.png");
+            texSavannaNrm = LoadFirstTex($"{cc0}/CC0_SavannaTerrain_Normal.jpg", $"{cc0}/ACG_KenyaHighlandGrass_Normal.jpg", $"{tf}/Murram_Normal.png");
             texCabroAlb = LoadFirstTex($"{cc0}/CC0_Cabro_Albedo.jpg", $"{tf}/Cabro_Albedo.png");
             texCabroNrm = LoadFirstTex($"{cc0}/CC0_Cabro_Normal.jpg", $"{tf}/Cabro_Normal.png");
             texPlasterAlb = LoadFirstTex($"{cc0}/CC0_Plaster_Albedo.jpg", $"{tf}/Plaster_Albedo.png");
             texPlasterNrm = LoadFirstTex($"{cc0}/CC0_Plaster_Normal.jpg", $"{tf}/Plaster_Normal.png");
-            texMabatiAlb = LoadFirstTex($"{cc0}/CC0_Mabati_Albedo.jpg", $"{tf}/Mabati_Albedo.png");
-            texMabatiNrm = LoadFirstTex($"{cc0}/CC0_Mabati_Normal.jpg", $"{tf}/Mabati_Normal.png");
+            texMabatiAlb = LoadFirstTex($"{cc0}/ACG_KenyaMabatiRoof_Albedo.jpg", $"{cc0}/CC0_Mabati_Albedo.jpg", $"{tf}/Mabati_Albedo.png");
+            texMabatiNrm = LoadFirstTex($"{cc0}/ACG_KenyaMabatiRoof_Normal.jpg", $"{cc0}/CC0_Mabati_Normal.jpg", $"{tf}/Mabati_Normal.png");
             texBarkAlb = LoadFirstTex($"{cc0}/CC0_Bark_Albedo.jpg", $"{tf}/Bark_Albedo.png");
             texBarkNrm = LoadFirstTex($"{cc0}/CC0_Bark_Normal.jpg", $"{tf}/Bark_Normal.png");
             texLeafCluster = AssetDatabase.LoadAssetAtPath<Texture2D>($"{tf}/LeafCluster_Albedo.png");
@@ -624,11 +639,11 @@ namespace KenyaStreetSim.Editor
             RenderSettings.ambientSkyColor = Palette.AmbientSky;
             RenderSettings.ambientEquatorColor = Palette.AmbientEquator;
             RenderSettings.ambientGroundColor = Palette.AmbientGround;
-            // Crystal-clear high-altitude Kenyan sunlight visibility (minimal haze!)
+            // Warm East African atmospheric horizon haze (ETS2-grade distant mountain & Rift Valley depth!)
             RenderSettings.fog = true;
             RenderSettings.fogMode = FogMode.ExponentialSquared;
-            RenderSettings.fogColor = new Color(0.72f, 0.82f, 0.93f, 1f);
-            RenderSettings.fogDensity = 0.00024f;
+            RenderSettings.fogColor = new Color(0.75f, 0.84f, 0.93f, 1f);
+            RenderSettings.fogDensity = 0.00048f;
             DynamicGI.UpdateEnvironment();
 
             var profile = AssetDatabase.LoadAssetAtPath<VolumeProfile>(VolumeProfilePath);
@@ -1132,14 +1147,35 @@ namespace KenyaStreetSim.Editor
                 var shelter = new GameObject("CoachStageShelter").transform;
                 shelter.SetParent(stageGo.transform, false);
                 shelter.localPosition = new Vector3(-5.8f, 0.16f, 0f);
-                CreateBox("BackWall", shelter, new Vector3(-1.1f, 1.45f, 0f), new Vector3(0.14f, 2.7f, 8.6f), matShelterFrame, true);
-                CreateBox("PostFL", shelter, new Vector3(0.95f, 1.45f, -3.9f), new Vector3(0.16f, 2.9f, 0.16f), matShelterFrame, true);
-                CreateBox("PostFR", shelter, new Vector3(0.95f, 1.45f,  3.9f), new Vector3(0.16f, 2.9f, 0.16f), matShelterFrame, true);
-                var roof = CreateBox("ShelterRoof", shelter, new Vector3(0f, 3.02f, 0f), new Vector3(2.95f, 0.20f, 9.2f), matShelterRoof, false);
-                roof.transform.localRotation = Quaternion.Euler(0f, 0f, -6f);
-                CreateBox("BenchSeat", shelter, new Vector3(-0.45f, 0.55f, 0f), new Vector3(0.65f, 0.14f, 6.0f), matBench, true);
                 string stageHeader = KenyaCommercialManagerWindow.UseCommercialSafeBrands ? "SAVANNA COACH STAGE" : "ENA COACH TERMINAL";
-                CreateWorldSignText("StageSignText", shelter, $"{stageHeader}\n{hub.name.ToUpperInvariant()}", new Vector3(1.10f, 2.74f, 0f), new Vector2(7.6f, 0.90f), 2.7f, Palette.EnaBodyWhite, Quaternion.Euler(0f, -90f, 0f));
+                var stageKitPrefab = AssetDatabase.LoadAssetAtPath<GameObject>($"{WorldKitFolder}/Kenya_BusStage_Terminal.glb");
+                if (stageKitPrefab != null)
+                {
+                    var stInst = (GameObject)PrefabUtility.InstantiatePrefab(stageKitPrefab);
+                    stInst.name = "BlenderStageTerminal";
+                    stInst.transform.SetParent(shelter, false);
+                    stInst.transform.localPosition = Vector3.zero;
+                    stInst.transform.localRotation = Quaternion.identity;
+                    var fascia = stInst.transform.Find("ShelterFascia");
+                    if (fascia != null && fascia.localPosition.x < 0f)
+                    {
+                        stInst.transform.localRotation = Quaternion.Euler(0f, 180f, 0f);
+                    }
+                    var bc = stInst.AddComponent<BoxCollider>();
+                    bc.center = new Vector3(-0.35f, 1.65f, 0f);
+                    bc.size = new Vector3(2.8f, 3.3f, 10.2f);
+                    CreateWorldSignText("StageSignText", shelter, $"{stageHeader}\n{hub.name.ToUpperInvariant()}", new Vector3(1.74f, 3.28f, 0f), new Vector2(9.2f, 0.72f), 2.7f, Palette.EnaBodyWhite, Quaternion.Euler(0f, -90f, 0f));
+                }
+                else
+                {
+                    CreateBox("BackWall", shelter, new Vector3(-1.1f, 1.45f, 0f), new Vector3(0.14f, 2.7f, 8.6f), matShelterFrame, true);
+                    CreateBox("PostFL", shelter, new Vector3(0.95f, 1.45f, -3.9f), new Vector3(0.16f, 2.9f, 0.16f), matShelterFrame, true);
+                    CreateBox("PostFR", shelter, new Vector3(0.95f, 1.45f,  3.9f), new Vector3(0.16f, 2.9f, 0.16f), matShelterFrame, true);
+                    var roof = CreateBox("ShelterRoof", shelter, new Vector3(0f, 3.02f, 0f), new Vector3(2.95f, 0.20f, 9.2f), matShelterRoof, false);
+                    roof.transform.localRotation = Quaternion.Euler(0f, 0f, -6f);
+                    CreateBox("BenchSeat", shelter, new Vector3(-0.45f, 0.55f, 0f), new Vector3(0.65f, 0.14f, 6.0f), matBench, true);
+                    CreateWorldSignText("StageSignText", shelter, $"{stageHeader}\n{hub.name.ToUpperInvariant()}", new Vector3(1.10f, 2.74f, 0f), new Vector2(7.6f, 0.90f), 2.7f, Palette.EnaBodyWhite, Quaternion.Euler(0f, -90f, 0f));
+                }
 
                 // Confetti celebration burst
                 var psGo = new GameObject("ConfettiBurst");
@@ -1211,17 +1247,33 @@ namespace KenyaStreetSim.Editor
             var matIvory = GetMat("MombasaTusksIvory", Palette.Hex("#F5F1E6"), 0.45f, 0.08f);
             var matBlack = GetMat("KenyaFlagBlack", Palette.EnaStripeBlack, 0.35f);
 
-            // 1. All 10 Multi-Exit Roundabout Monument Spires (Grounded to Exact 3D Elevation!)
+            // 1. All 10 Multi-Exit Roundabout Sculpted Blender Monuments (Stone Planter, Kenyan Shield & Crossed Spears, Flagpoles!)
+            var rbtMonPrefab = AssetDatabase.LoadAssetAtPath<GameObject>($"{WorldKitFolder}/Kenya_Roundabout_Monument.glb");
             foreach (var rb in KenyaNetworkData.Roundabouts)
             {
                 var mon = new GameObject($"Monument_{rb.name}").transform;
                 mon.SetParent(root, false);
                 float rbY = KenyaNetworkData.GetElevationAt(rb.center);
-                mon.position = new Vector3(rb.center.x, rbY + 0.35f, rb.center.y);
-                CreateBox("Pedestal", mon, new Vector3(0f, 1.0f, 0f), new Vector3(3.8f, 2.0f, 3.8f), matBlack, true);
-                CreateBox("RedBand", mon, new Vector3(0f, 3.4f, 0f), new Vector3(2.1f, 2.8f, 2.1f), matEnaRed, false);
-                CreateBox("GreenBand", mon, new Vector3(0f, 6.2f, 0f), new Vector3(1.5f, 2.8f, 1.5f), matKenhaGreen, false);
-                CreateSphere("TopGlobe", mon, new Vector3(0f, 8.3f, 0f), Vector3.one * 1.9f, matWhite);
+                mon.position = new Vector3(rb.center.x, rbY + 0.30f, rb.center.y);
+                if (rbtMonPrefab != null)
+                {
+                    var mInst = (GameObject)PrefabUtility.InstantiatePrefab(rbtMonPrefab);
+                    mInst.name = "BlenderKenyaMonument";
+                    mInst.transform.SetParent(mon, false);
+                    mInst.transform.localPosition = Vector3.zero;
+                    float mScale = Mathf.Clamp(rb.innerRadius / 10.5f, 0.92f, 1.25f);
+                    mInst.transform.localScale = Vector3.one * mScale;
+                    var bc = mInst.AddComponent<BoxCollider>();
+                    bc.center = new Vector3(0f, 2.2f, 0f);
+                    bc.size = new Vector3(7.5f, 4.4f, 7.5f);
+                }
+                else
+                {
+                    CreateBox("Pedestal", mon, new Vector3(0f, 1.0f, 0f), new Vector3(3.8f, 2.0f, 3.8f), matBlack, true);
+                    CreateBox("RedBand", mon, new Vector3(0f, 3.4f, 0f), new Vector3(2.1f, 2.8f, 2.1f), matEnaRed, false);
+                    CreateBox("GreenBand", mon, new Vector3(0f, 6.2f, 0f), new Vector3(1.5f, 2.8f, 1.5f), matKenhaGreen, false);
+                    CreateSphere("TopGlobe", mon, new Vector3(0f, 8.3f, 0f), Vector3.one * 1.9f, matWhite);
+                }
             }
 
             // 2. KeNHA Green Overhead Directional Highway Gantries across ALL Major Kenyan Splits (Grounded & Wide-Span!)
@@ -2192,6 +2244,55 @@ namespace KenyaStreetSim.Editor
             var matGlow = GetMat("CanopyLightGlow", Palette.LampGlow, 0.7f, 0f, Palette.LampGlow * 2.8f);
             var matGlass = GetMat("StationGlass", Color.white, 0.9f, 0.2f, null, texGlassAlb, texGlassNrm, new Vector2(4f, 1f), 0.9f);
 
+            // One efficient warm night canopy point light per station
+            var plGo = new GameObject("CanopyPointLight");
+            plGo.transform.SetParent(root, false);
+            plGo.transform.localPosition = new Vector3(-1.5f, 4.85f, 0f);
+            var pl = plGo.AddComponent<Light>();
+            pl.type = LightType.Point;
+            pl.color = Palette.HeadlightWarm;
+            pl.range = 26f;
+            pl.intensity = 0f;
+            pl.enabled = false;
+            pointLights.Add(pl);
+
+            var petrolKitPrefab = AssetDatabase.LoadAssetAtPath<GameObject>($"{WorldKitFolder}/Kenya_PetrolStation_Modern.glb");
+            if (petrolKitPrefab != null)
+            {
+                var psInst = (GameObject)PrefabUtility.InstantiatePrefab(petrolKitPrefab);
+                psInst.name = "BlenderModernPetrolStation";
+                psInst.transform.SetParent(root, false);
+                psInst.transform.localPosition = Vector3.zero;
+                psInst.transform.localRotation = Quaternion.identity;
+                // Ensure rear Express Mart building always sits away from road (+X local) and Canopy faces road (-X)!
+                var mart = psInst.transform.Find("MartBody");
+                if (mart != null && mart.localPosition.x < 0f)
+                {
+                    psInst.transform.localRotation = Quaternion.Euler(0f, 180f, 0f);
+                }
+                // Tint canopy crown & totem accents cleanly to this brand's color (TotalEnergies Red / Rubis Green / Shell Gold)!
+                foreach (var r in psInst.GetComponentsInChildren<Renderer>(true))
+                {
+                    if (r.gameObject.name.Contains("CanopyFascia") || r.gameObject.name.Contains("MartCrown") || r.gameObject.name.Contains("TotemCrown") || r.gameObject.name.Contains("PumpHead"))
+                        r.sharedMaterial = matPrimary;
+                    else if (r.gameObject.name.Contains("CanopyAccent"))
+                        r.sharedMaterial = matStripe;
+                    else if (r.gameObject.name.Contains("SoffitLED"))
+                        glowRenderers.Add(r);
+                }
+                // Solid colliders for rear shop & pump islands (forecourt drive-through stays 100% open!)
+                var shopCol = new GameObject("MartCollider");
+                shopCol.transform.SetParent(root, false);
+                shopCol.transform.localPosition = new Vector3(7.0f, 2.2f, 0f);
+                shopCol.AddComponent<BoxCollider>().size = new Vector3(6.4f, 4.4f, 18.8f);
+
+                CreateWorldSignText("CanopyBrandSign", root, $"{fullLabel}  •  24H DIESEL", new Vector3(-7.56f, 5.82f, 0f), new Vector2(18.0f, 0.85f), 4.0f, Palette.EnaBodyWhite, Quaternion.Euler(0f, 90f, 0f), noWrap: true);
+                var totem = psInst.transform.Find("TotemBase");
+                Vector3 totemPos = totem != null ? root.InverseTransformPoint(totem.position) : new Vector3(-9.3f, 3.85f, -12.2f);
+                CreateWorldSignText("TotemPriceText", root, $"{brandName}\nSUPER 180.50\nDIESEL 168.20", new Vector3(totemPos.x, 5.1f, totemPos.z - 0.32f), new Vector2(1.65f, 3.6f), 2.0f, Palette.UiAccentAmber, Quaternion.identity, noWrap: false);
+                return;
+            }
+
             CreateBox("ForecourtPad", root, new Vector3(-2f, 0.02f, 0f), new Vector3(20f, 0.22f, 30f), matConcrete, true);
             CreateBox("CanopyTopWhite", root, new Vector3(-1.5f, 5.45f, 0f), new Vector3(11.5f, 0.45f, 19f), matWhite, false);
             CreateBox("CanopyFasciaMain", root, new Vector3(-1.5f, 5.80f, 0f), new Vector3(11.7f, 0.52f, 19.2f), matPrimary, false);
@@ -2214,18 +2315,6 @@ namespace KenyaStreetSim.Editor
                 var led = CreateBox($"CanopyLed_{i}", root, new Vector3(-1.5f, 5.20f, iz), new Vector3(2.2f, 0.08f, 1.4f), matGlow, false);
                 glowRenderers.Add(led.GetComponent<Renderer>());
             }
-
-            // One efficient warm night canopy point light per station
-            var plGo = new GameObject("CanopyPointLight");
-            plGo.transform.SetParent(root, false);
-            plGo.transform.localPosition = new Vector3(-1.5f, 4.85f, 0f);
-            var pl = plGo.AddComponent<Light>();
-            pl.type = LightType.Point;
-            pl.color = Palette.HeadlightWarm;
-            pl.range = 26f;
-            pl.intensity = 0f;
-            pl.enabled = false;
-            pointLights.Add(pl);
 
             CreateBox("ShopBuilding", root, new Vector3(7.2f, 2.2f, 0f), new Vector3(6.5f, 4.4f, 19f), matWhite, true);
             CreateBox("ShopBandMain", root, new Vector3(7.2f, 4.15f, 0f), new Vector3(6.6f, 0.65f, 19.1f), matPrimary, false);
@@ -2355,6 +2444,47 @@ namespace KenyaStreetSim.Editor
             b.SetParent(parent, false);
             b.localPosition = localPos;
             b.localRotation = Quaternion.Euler(0f, yawDeg, 0f);
+
+            // Prefer real sculpted Blender 5.3 Kenyan Duka (1-2 story) & County Plaza (3+ story) architectures!
+            string kitFile = (stories >= 3) ? "Kenya_Plaza_3Story.glb" : "Kenya_Shop_Duka_2Story.glb";
+            var bldgPrefab = AssetDatabase.LoadAssetAtPath<GameObject>($"{WorldKitFolder}/{kitFile}");
+            if (bldgPrefab != null)
+            {
+                var inst = (GameObject)PrefabUtility.InstantiatePrefab(bldgPrefab);
+                inst.name = stories >= 3 ? "BlenderKenyaPlaza" : "BlenderKenyaDuka";
+                inst.transform.SetParent(b, false);
+                inst.transform.localPosition = Vector3.zero;
+                float baseW = stories >= 3 ? 14.8f : 13.8f;
+                float baseD = stories >= 3 ? 10.6f : 10.4f;
+                inst.transform.localScale = new Vector3(widthFront / baseW, 1f, depth / baseD);
+                // Auto-orient veranda/arcade to face +Z toward the passing Kenyan highway!
+                var frontProbe = inst.transform.Find(stories >= 3 ? "ArcadeCol_0.0" : "VerandaCol_0.0");
+                if (frontProbe != null && frontProbe.localPosition.z < 0f)
+                {
+                    inst.transform.localRotation = Quaternion.Euler(0f, 180f, 0f);
+                }
+                // Subtle facade color tint diversity across towns!
+                foreach (var r in inst.GetComponentsInChildren<Renderer>(true))
+                {
+                    if (r.gameObject.name == "GroundCore" || r.gameObject.name == "UpperCore" || r.gameObject.name == "PlazaCore")
+                    {
+                        r.sharedMaterial = facadeMat;
+                    }
+                    else if (r.gameObject.name == "AwningSloped")
+                    {
+                        r.sharedMaterial = awningMat;
+                    }
+                }
+                var bc = inst.AddComponent<BoxCollider>();
+                bc.center = new Vector3(0f, stories >= 3 ? 5.2f : 4.0f, 0f);
+                bc.size = new Vector3(baseW, stories >= 3 ? 10.4f : 8.0f, baseD);
+
+                float signZ = (depth * 0.5f) + 0.65f;
+                float signY = stories >= 3 ? 4.05f : 3.92f;
+                CreateBox("ShopSignBoard", b, new Vector3(0f, signY, signZ - 0.12f), new Vector3(widthFront * 0.78f, 0.78f, 0.14f), matSign, false);
+                CreateWorldSignText("ShopSignText", b, shopName, new Vector3(0f, signY, signZ), new Vector2(widthFront * 0.74f, 0.66f), 3.1f, Palette.UiAccentAmber);
+                return;
+            }
 
             float groundH = 3.9f;
             float floorH = 3.2f;

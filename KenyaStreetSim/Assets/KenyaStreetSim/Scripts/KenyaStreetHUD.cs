@@ -35,6 +35,7 @@ namespace KenyaStreetSim
 
         // Gameplay HUD widgets
         private TextMeshProUGUI gpsGuideText;
+        private TextMeshProUGUI careerStatusText;
         private TextMeshProUGUI stageLabelText;
         private TextMeshProUGUI nextStageDistText;
         private Image routeFillBar;
@@ -212,6 +213,10 @@ namespace KenyaStreetSim
             {
                 gpsGuideText.text = KenyaGpsRouteGuide.Instance.CurrentInstruction;
             }
+            if (careerStatusText != null && KenyaBusCareerManager.Instance != null)
+            {
+                careerStatusText.text = KenyaBusCareerManager.Instance.GetCompactHudBadgeText();
+            }
 
             int totalStages = loop.RouteTotalStops;
             if (stageLabelText != null)
@@ -302,6 +307,11 @@ namespace KenyaStreetSim
                 SpawnFloatingText($"+KES {stage.rewardKes:N0}   •   +{stage.passengerCount} PAX", Palette.UiAccentAmber);
                 TriggerMilestoneMoment("BUS STAGE COMPLETE!", $"{stage.stageName}  •  +KES {stage.rewardKes:N0}", Palette.UiAccentAmber);
             }
+        }
+
+        public void ShowMilestoneBanner(string title, string subtitle)
+        {
+            TriggerMilestoneMoment(title, subtitle, Palette.UiAccentAmber);
         }
 
         private void HandleSafetyPenalty(int penalty, string reason)
@@ -603,7 +613,7 @@ namespace KenyaStreetSim
             var titleTmp = CreateText("GameTitle", titleCard, "KENYA STREET SIM", 66f, FontStyles.Bold, Palette.UiAccentAmber, TextAlignmentOptions.Center);
             StretchRect(titleTmp.rectTransform, 20f, 44f, -20f, -10f);
 
-            var subTmp = CreateText("GameSubtitle", titleCard, "16 KENYAN TOWNS  •  SELECTABLE MODES & REAL 3D KENYAN FLEET  •  ZERO SPEED BUMPS", 18.5f, FontStyles.Normal, Palette.UiTextPrimary, TextAlignmentOptions.Center);
+            var subTmp = CreateText("GameSubtitle", titleCard, "41 KENYAN TOWNS  •  BLENDER 3D KENYA WORLD  •  BUS BUSINESS STORY MODE", 18.5f, FontStyles.Normal, Palette.UiTextPrimary, TextAlignmentOptions.Center);
             subTmp.textWrappingMode = TextWrappingModes.NoWrap;
             StretchRect(subTmp.rectTransform, 20f, 12f, -20f, -96f);
 
@@ -648,18 +658,12 @@ namespace KenyaStreetSim
             for (int v = 0; v < fleetCount; v++)
             {
                 int capturedVeh = v;
-                string labelText;
-                if (v < shortDefaults.Length)
-                {
-                    labelText = shortDefaults[v];
-                }
-                else
-                {
-                    string rawName = loopRef.fleet[v] != null ? loopRef.fleet[v].displayName : $"ETS2 MOD {v + 1}";
-                    int paren = rawName.IndexOf('(');
-                    if (paren > 4) rawName = rawName.Substring(0, paren).Trim();
-                    labelText = rawName.ToUpperInvariant();
-                }
+                string rawName = (loopRef != null && loopRef.fleet != null && v < loopRef.fleet.Length && loopRef.fleet[v] != null)
+                    ? loopRef.fleet[v].displayName
+                    : (v < shortDefaults.Length ? shortDefaults[v] : $"KENYA FLEET {v + 1}");
+                int paren = rawName.IndexOf('(');
+                if (paren > 4) rawName = rawName.Substring(0, paren).Trim();
+                string labelText = rawName.ToUpperInvariant();
 
                 float xPos = startX + v * (btnW + gap);
                 vehicleSelectButtons[v] = CreateButton($"SelectVehBtn_{v}", fleetRow, labelText, new Vector2(xPos, -9f), new Vector2(btnW, 44f), Palette.UiButtonNormal, Palette.UiTextPrimary, () =>
@@ -704,8 +708,8 @@ namespace KenyaStreetSim
             routeSubText.textWrappingMode = TextWrappingModes.NoWrap;
             SetBox(routeSubText.rectTransform, 0f, 10f, 760f, 20f, new Vector2(0.5f, 0f));
 
-            // Start button & pulsing prompt cleanly bottom-anchored (immune to any aspect ratio!)
-            var startBtn = CreateButton("StartDriveBtn", tr, "START DRIVING", Vector2.zero, new Vector2(360f, 58f), Palette.UiAccentRed, Palette.UiTextPrimary, () =>
+            // Start button & Kenyan Bus Story button cleanly bottom-anchored (immune to any aspect ratio!)
+            var startBtn = CreateButton("StartDriveBtn", tr, "START DRIVING", Vector2.zero, new Vector2(310f, 58f), Palette.UiAccentRed, Palette.UiTextPrimary, () =>
             {
                 StreetGameLoop.Instance?.StartRun();
             });
@@ -713,7 +717,24 @@ namespace KenyaStreetSim
             srt.anchorMin = new Vector2(0.5f, 0.095f);
             srt.anchorMax = new Vector2(0.5f, 0.095f);
             srt.pivot = new Vector2(0.5f, 0.5f);
-            srt.anchoredPosition = Vector2.zero;
+            srt.anchoredPosition = new Vector2(-175f, 0f);
+
+            var storyBtn = CreateButton("StartStoryBtn", tr, "BUS BUSINESS STORY (CH 1)", Vector2.zero, new Vector2(330f, 58f), Palette.Hex("#0E7A42"), Palette.UiTextPrimary, () =>
+            {
+                if (KenyaBusCareerManager.Instance != null)
+                {
+                    KenyaBusCareerManager.Instance.StartChapter1MigoriStory();
+                }
+                else
+                {
+                    StreetGameLoop.Instance?.StartRun();
+                }
+            });
+            var btrt = storyBtn.GetComponent<RectTransform>();
+            btrt.anchorMin = new Vector2(0.5f, 0.095f);
+            btrt.anchorMax = new Vector2(0.5f, 0.095f);
+            btrt.pivot = new Vector2(0.5f, 0.5f);
+            btrt.anchoredPosition = new Vector2(175f, 0f);
 
             titlePromptText = CreateText("PromptLine", tr, "PRESS  ENTER  OR  SPACE  TO  HIT  THE  KENYAN  HIGHWAY", 18.5f, FontStyles.Bold, Palette.UiTextPrimary, TextAlignmentOptions.Center);
             titlePromptText.characterSpacing = 3.5f;
@@ -791,8 +812,8 @@ namespace KenyaStreetSim
             StretchRect(gearValueText.rectTransform, 0f, 0f, 0f, 0f);
 
             // Bottom-Left: Single-Line Compact Controls Pill
-            var botLeft = CreateBorderedCornerPanel("ControlsPill", gr, new Vector2(0f, 0f), new Vector2(0f, 0f), new Vector2(28f, 26f), new Vector2(1280f, 44f), panelFill, Palette.UiPanelBorder, 1.5f);
-            var ctrlTxt = CreateText("ControlsTxt", botLeft, "WASD Drive  •  M Routes/Map  •  O Door  •  R Rain  •  K Wipers  •  C Cam/Front  •  V Switch  •  G Siren  •  H Horn  •  L Beams  •  T Time  •  ESC", 14.5f, FontStyles.Normal, Palette.UiTextMuted, TextAlignmentOptions.Center);
+            var botLeft = CreateBorderedCornerPanel("ControlsPill", gr, new Vector2(0f, 0f), new Vector2(0f, 0f), new Vector2(28f, 26f), new Vector2(1310f, 44f), panelFill, Palette.UiPanelBorder, 1.5f);
+            var ctrlTxt = CreateText("ControlsTxt", botLeft, "WASD Drive • B Business Office • M Map • O Door • R Rain • K Wipers • C Cockpit • V Switch • G Siren • H Horn • L Beams • T Time • ESC", 14.0f, FontStyles.Normal, Palette.UiTextMuted, TextAlignmentOptions.Center);
             ctrlTxt.textWrappingMode = TextWrappingModes.NoWrap;
             StretchRect(ctrlTxt.rectTransform, 14f, 4f, -14f, -4f);
 
@@ -802,6 +823,15 @@ namespace KenyaStreetSim
             gpsGuideText.textWrappingMode = TextWrappingModes.NoWrap;
             gpsGuideText.overflowMode = TextOverflowModes.Truncate;
             StretchRect(gpsGuideText.rectTransform, 16f, 4f, -16f, -4f);
+
+            // Live Clickable Kenyan Bus Business Story Strip right under GPS Bar!
+            var careerBar = CreateBorderedCornerPanel("CareerStatusBar", gr, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(44f, -78f), new Vector2(820f, 34f), Palette.Hex("#0F1A26"), Palette.UiAccentGreen, 1.5f);
+            var careerBtn = careerBar.gameObject.AddComponent<Button>();
+            careerBtn.onClick.AddListener(() => KenyaBusCareerManager.Instance?.ToggleOffice());
+            careerStatusText = CreateText("CareerStatusTxt", careerBar, "CH 1: SAVANNA LINE SACCO  |  BANK: KES 3,500  |  [B] OFFICE", 14f, FontStyles.Bold, Palette.UiAccentGreen, TextAlignmentOptions.Center);
+            careerStatusText.textWrappingMode = TextWrappingModes.NoWrap;
+            careerStatusText.overflowMode = TextOverflowModes.Truncate;
+            StretchRect(careerStatusText.rectTransform, 12f, 2f, -12f, -2f);
 
             // Center-Bottom: Bus Stage Boarding Progress Panel
             var boardRt = CreateBorderedAnchoredPanel("BoardingPanel", gr, new Vector2(0.5f, 0.16f), new Vector2(560f, 88f), panelFill, Palette.UiAccentAmber, 2.5f);
@@ -813,12 +843,12 @@ namespace KenyaStreetSim
             boardingFillBar = CreateProgressBar("BoardingBar", boardRt, 26f, -52f, 504f, 18f, Palette.UiAccentGreen);
             boardingPanel.SetActive(false);
 
-            // Top-Center Toast (below GPS Guidance Bar so zero overlap!)
+            // Top-Center Toast (below Career Strip so zero overlap!)
             toastText = CreateText("ToastText", gr, "", 21f, FontStyles.Bold, Palette.UiTextPrimary, TextAlignmentOptions.Center);
             var trt = toastText.rectTransform;
-            trt.anchorMin = new Vector2(0.5f, 0.895f);
-            trt.anchorMax = new Vector2(0.5f, 0.895f);
-            trt.sizeDelta = new Vector2(820f, 36f);
+            trt.anchorMin = new Vector2(0.5f, 0.855f);
+            trt.anchorMax = new Vector2(0.5f, 0.855f);
+            trt.sizeDelta = new Vector2(860f, 36f);
             trt.anchoredPosition = new Vector2(40f, 0f);
             toastText.gameObject.SetActive(false);
         }
