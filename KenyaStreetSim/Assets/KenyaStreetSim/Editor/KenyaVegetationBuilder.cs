@@ -471,6 +471,12 @@ namespace KenyaStreetSim.Editor
 
         private static void BuildReserveSign(Transform parent, Vector3 pos, float yawDeg, string text, Material matBoard, Material matSteel)
         {
+            // Strictly guarantee reserve sign & BOTH steel posts sit completely OFF all tarmac & OFF all roundabouts!
+            if (!KenyaNetworkData.IsClearOfAllRoundabouts(new Vector2(pos.x, pos.z), 36f) ||
+                !KenyaNetworkData.IsFootprintClearOfAllRoads(pos, 5.2f, 1.2f, yawDeg, 3.8f))
+            {
+                return;
+            }
             var g = new GameObject($"EcoSign_{text.Replace(" ", "_")}").transform;
             g.SetParent(parent, false);
             g.SetPositionAndRotation(pos, Quaternion.Euler(0f, yawDeg, 0f));

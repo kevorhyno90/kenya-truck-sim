@@ -33,16 +33,17 @@ namespace KenyaStreetSim.Editor
             Material matBeacon  = MakeMat("RB_BeaconGlow", urpLit, new Color(0.25f, 0.62f, 1.0f), 0.85f, 0.0f, new Color(0.15f, 0.55f, 1f) * 3.5f);
             Material matGlass   = MakeMat("RB_PatrolGlass", urpLit, new Color(0.12f, 0.18f, 0.24f), 0.90f, 0.25f);
 
-            // ONLY THE 5 MAJOR KENYAN HIGHWAY POLICE ROADBLOCKS (cleanly clear of roundabouts & town buildings!):
-            // 1. Mai Mahiu Escarpment (B3), 2. Salgaa / Mau Summit (A104), 3. Ahero – Kisumu (A1),
-            // 4. Mtito Andei / Tsavo (A109), 5. Webuye – Malaba Uganda Border Approach (A104)!
+            // ONLY THE 5 MAJOR KENYAN HIGHWAY POLICE ROADBLOCKS — STRICTLY ON OPEN HIGHWAY STRETCHES
+            // (>= 95m clear of EVERY roundabout & >= 60m clear of town centers — NEVER on roundabouts!):
+            // 1. Mai Mahiu – Narok Open Plains (B3), 2. Salgaa Mid-Climb (A104), 3. Sondu – Katito Plains (A1),
+            // 4. Emali – Mtito Andei Open Highway (A109), 5. Eldoret – Turbo Open Highway (A104)!
             (int highwayIdx, float progress, string title)[] placements =
             {
-                ( 7, 0.22f, "MAI MAHIU B3 MAJOR POLICE ROADBLOCK"),
-                (12, 0.80f, "SALGAA – TOTAL A104 MAJOR POLICE ROADBLOCK"),
-                ( 4, 0.78f, "AHERO – KISUMU A1 MAJOR POLICE ROADBLOCK"),
-                (14, 0.26f, "MTITO ANDEI A109 MAJOR POLICE ROADBLOCK"),
-                (13, 0.76f, "WEBUYE – BUNGOMA A104 MAJOR POLICE ROADBLOCK")
+                ( 7, 0.28f, "MAI MAHIU – NAROK B3 MAJOR POLICE ROADBLOCK"),
+                (12, 0.84f, "SALGAA – TOTAL A104 MAJOR POLICE ROADBLOCK"),
+                ( 4, 0.56f, "KATITO – AHERO A1 MAJOR POLICE ROADBLOCK"),
+                (14, 0.17f, "EMALI – MTITO ANDEI A109 MAJOR POLICE ROADBLOCK"),
+                (13, 0.55f, "ELDORET – TURBO A104 MAJOR POLICE ROADBLOCK")
             };
 
             int built = 0;
@@ -52,9 +53,31 @@ namespace KenyaStreetSim.Editor
                 if (p.highwayIdx < 0 || p.highwayIdx >= KenyaNetworkData.Highways.Length) continue;
                 var hDef = KenyaNetworkData.Highways[p.highwayIdx];
                 var samples = KenyaNetworkData.SampleHighway(hDef, 6f);
-                if (samples == null || samples.Count < 4) continue;
+                if (samples == null || samples.Count < 8) continue;
 
-                int idx = Mathf.Clamp(Mathf.RoundToInt(p.progress * (samples.Count - 1)), 2, samples.Count - 3);
+                // Search cleanly outward from target progress until strictly >= 95m from ALL roundabouts & >= 55m from towns!
+                int baseIdx = Mathf.Clamp(Mathf.RoundToInt(p.progress * (samples.Count - 1)), 3, samples.Count - 4);
+                int idx = -1;
+                for (int delta = 0; delta < samples.Count; delta++)
+                {
+                    int[] tries = delta == 0 ? new[] { baseIdx } : new[] { baseIdx + delta, baseIdx - delta };
+                    for (int t = 0; t < tries.Length; t++)
+                    {
+                        int candIdx = tries[t];
+                        if (candIdx < 4 || candIdx >= samples.Count - 4) continue;
+                        Vector2 candXZ = new Vector2(samples[candIdx].x, samples[candIdx].z);
+                        if (!KenyaNetworkData.IsClearOfAllRoundabouts(candXZ, 95f)) continue;
+                        bool nearTown = false;
+                        for (int h = 0; h < KenyaNetworkData.Hubs.Length; h++)
+                        {
+                            if (Vector2.Distance(candXZ, KenyaNetworkData.Hubs[h].xz) < 55f) { nearTown = true; break; }
+                        }
+                        if (!nearTown) { idx = candIdx; break; }
+                    }
+                    if (idx >= 0) break;
+                }
+                if (idx < 0) continue;
+
                 Vector3 centerPt = samples[idx];
                 centerPt.y = KenyaNetworkData.GetElevationAt(centerPt.x, centerPt.z);
                 Vector3 fwd = (samples[idx + 1] - samples[idx - 1]);
@@ -93,11 +116,12 @@ namespace KenyaStreetSim.Editor
                 }
                 ctrl.boomBarrierPivot = boomPivot;
 
-                // Tall Reflective "STOP - KENYA POLICE CHECK" Signboard 10m ahead on left shoulder
-                Box("SignPost", cpGo.transform, new Vector3(pedX - 1.0f, 1.25f, -10.5f), new Vector3(0.10f, 2.50f, 0.10f), matSteel);
-                Box("SignBoard", cpGo.transform, new Vector3(pedX - 1.0f, 2.15f, -10.5f), new Vector3(2.25f, 0.92f, 0.08f), matSignBlu);
-                WorldSign("SignFrontTxt", cpGo.transform, "STOP — KENYA POLICE\nMAJOR ROADBLOCK", new Vector3(pedX - 1.0f, 2.15f, -10.56f), new Vector2(2.15f, 0.84f), 2.1f, Color.white, Quaternion.identity);
-                WorldSign("SignRearTxt",  cpGo.transform, "KENYA POLICE CHECK\nSAFARI NJEMA", new Vector3(pedX - 1.0f, 2.15f, -10.44f), new Vector2(2.15f, 0.84f), 2.0f, Color.white, Quaternion.Euler(0f, 180f, 0f));
+                // Tall Reflective "STOP - KENYA POLICE CHECK" Signboard 10m ahead — cleanly on grass shoulder (NEVER overhanging tarmac!)
+                float signX = pedX - 2.4f;
+                Box("SignPost", cpGo.transform, new Vector3(signX, 1.25f, -10.5f), new Vector3(0.10f, 2.50f, 0.10f), matSteel);
+                Box("SignBoard", cpGo.transform, new Vector3(signX, 2.15f, -10.5f), new Vector3(2.25f, 0.92f, 0.08f), matSignBlu);
+                WorldSign("SignFrontTxt", cpGo.transform, "STOP — KENYA POLICE\nMAJOR ROADBLOCK", new Vector3(signX, 2.15f, -10.56f), new Vector2(2.15f, 0.84f), 2.1f, Color.white, Quaternion.identity);
+                WorldSign("SignRearTxt",  cpGo.transform, "KENYA POLICE CHECK\nSAFARI NJEMA", new Vector3(signX, 2.15f, -10.44f), new Vector2(2.15f, 0.84f), 2.0f, Color.white, Quaternion.Euler(0f, 180f, 0f));
 
                 // 4 High-Visibility Orange/White Traffic Cones guiding cars calmly into the inspection lane
                 Vector3[] conePos =

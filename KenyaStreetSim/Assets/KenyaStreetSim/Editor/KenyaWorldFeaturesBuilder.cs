@@ -427,10 +427,27 @@ namespace KenyaStreetSim.Editor
             var zoneGo = new GameObject(zoneName).transform;
             zoneGo.SetParent(parent, false);
 
-            // Warning Signs on BOTH approaches cleanly off tarmac!
+            // Warning Signs on BOTH approaches strictly verified OFF all tarmac & OFF all roundabouts!
+            var hDefW = KenyaNetworkData.Highways[highwayIdx];
             for (int dir = -1; dir <= 1; dir += 2)
             {
-                Vector3 signPos = c + fwd * (dir * 42f) + right * (dir * -11.8f);
+                Vector3 basePt = c + fwd * (dir * 42f);
+                float localHw = KenyaNetworkData.GetRoadHalfWidthAt(hDefW, new Vector2(basePt.x, basePt.z));
+                Vector3 signPos = basePt + right * (dir * -(localHw + 4.8f));
+                bool signClear = false;
+                for (int push = 0; push < 5; push++)
+                {
+                    Vector3 cand = basePt + right * (dir * -(localHw + 4.8f + push * 2.5f));
+                    Vector2 candXZ = new Vector2(cand.x, cand.z);
+                    if (KenyaNetworkData.DistanceToAnyTarmacEdge(candXZ) >= 3.2f &&
+                        KenyaNetworkData.IsClearOfAllRoundabouts(candXZ, 32f))
+                    {
+                        signPos = cand;
+                        signClear = true;
+                        break;
+                    }
+                }
+                if (!signClear) continue;
                 signPos.y = KenyaNetworkData.GetElevationAt(signPos.x, signPos.z);
                 Quaternion signRot = Quaternion.LookRotation(-fwd * dir, Vector3.up);
                 var sGo = new GameObject($"WildSign_{dir}").transform;
@@ -632,14 +649,30 @@ namespace KenyaStreetSim.Editor
             for (int i = 0; i < signs.Length; i++)
             {
                 var s = signs[i];
-                var samples = KenyaNetworkData.SampleHighway(KenyaNetworkData.Highways[s.hIdx], 6f);
+                var hDef = KenyaNetworkData.Highways[s.hIdx];
+                var samples = KenyaNetworkData.SampleHighway(hDef, 6f);
                 if (samples == null || samples.Count < 6) continue;
                 int idx = Mathf.Clamp(Mathf.RoundToInt(s.prog * (samples.Count - 1)), 2, samples.Count - 3);
                 Vector3 pt = samples[idx];
                 Vector3 fwd = (samples[idx + 1] - samples[idx - 1]); fwd.y = 0f; fwd.Normalize();
                 Vector3 right = Vector3.Cross(Vector3.up, fwd).normalized;
 
-                Vector3 pos = pt - right * 11.4f;
+                float localHw = KenyaNetworkData.GetRoadHalfWidthAt(hDef, new Vector2(pt.x, pt.z));
+                Vector3 pos = pt - right * (localHw + 4.8f);
+                bool signClear = false;
+                for (int push = 0; push < 6; push++)
+                {
+                    Vector3 cand = pt - right * (localHw + 4.8f + push * 2.5f);
+                    float yaw = Mathf.Atan2(fwd.x, fwd.z) * Mathf.Rad2Deg;
+                    if (KenyaNetworkData.IsClearOfAllRoundabouts(new Vector2(cand.x, cand.z), 36f) &&
+                        KenyaNetworkData.IsFootprintClearOfAllRoads(cand, 2.0f, 0.8f, yaw, 2.8f))
+                    {
+                        pos = cand;
+                        signClear = true;
+                        break;
+                    }
+                }
+                if (!signClear) continue;
                 pos.y = KenyaNetworkData.GetElevationAt(pos.x, pos.z);
                 var go = new GameObject($"ClimbingSign_{i}").transform;
                 go.SetParent(signRoot, false);

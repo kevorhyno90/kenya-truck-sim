@@ -299,8 +299,10 @@ namespace KenyaStreetSim.Editor
             int defaultMatCount = CountDefaultMaterials();
             int housesOnRoad = AuditHousesOnRoad(worldRoot.transform);
             int stationsOnRoundabout = AuditStationsOnRoundabout(worldRoot.transform);
+            int roadblocksNearRoundabout = AuditRoadblocksNearRoundabout(worldRoot.transform);
+            int signsOnRoad = AuditSignsOnRoad(worldRoot.transform);
             int pedCount = Object.FindObjectsByType<KenyaPedestrianAI>().Length;
-            string summary = $"Built 41-Town National Kenya Highway Map ({ScenePath}) | Towns={KenyaNetworkData.Hubs.Length} | Highways={KenyaNetworkData.Highways.Length} | Roundabouts={KenyaNetworkData.Roundabouts.Length} | Roadblocks={roadblockCount} | Flora={floraCount} | Vehicles={trafficCount} (3D={importedVehiclePrefabs.Count}) | People={pedCount} (3D={importedPeoplePrefabs.Count}) | Renderers={meshCount} | HousesOnRoad={housesOnRoad} | StationsOnRoundabout={stationsOnRoundabout} | DefaultMaterials={defaultMatCount} | SpeedBumps=0";
+            string summary = $"Built 41-Town National Kenya Highway Map ({ScenePath}) | Towns={KenyaNetworkData.Hubs.Length} | Highways={KenyaNetworkData.Highways.Length} | Roundabouts={KenyaNetworkData.Roundabouts.Length} | Roadblocks={roadblockCount} (NearRbt={roadblocksNearRoundabout}) | SignsOnRoad={signsOnRoad} | Flora={floraCount} | Vehicles={trafficCount} (3D={importedVehiclePrefabs.Count}) | People={pedCount} (3D={importedPeoplePrefabs.Count}) | Renderers={meshCount} | HousesOnRoad={housesOnRoad} | StationsOnRoundabout={stationsOnRoundabout} | DefaultMaterials={defaultMatCount} | SpeedBumps=0";
             Debug.Log(summary);
             return summary;
         }
@@ -359,6 +361,40 @@ namespace KenyaStreetSim.Editor
             {
                 Vector2 p = new Vector2(fuel.transform.position.x, fuel.transform.position.z);
                 if (!KenyaNetworkData.IsClearOfAllRoundabouts(p, 18f)) violations++;
+            }
+            return violations;
+        }
+
+        private static int AuditRoadblocksNearRoundabout(Transform worldRoot)
+        {
+            int violations = 0;
+            foreach (var rb in worldRoot.GetComponentsInChildren<KenyaPoliceRoadblock>(true))
+            {
+                Vector2 p = new Vector2(rb.transform.position.x, rb.transform.position.z);
+                if (!KenyaNetworkData.IsClearOfAllRoundabouts(p, 75f)) violations++;
+            }
+            return violations;
+        }
+
+        private static int AuditSignsOnRoad(Transform worldRoot)
+        {
+            Physics.SyncTransforms();
+            int violations = 0;
+            foreach (var t in worldRoot.GetComponentsInChildren<Transform>(true))
+            {
+                if (t.name.StartsWith("ClimbingSign_") || t.name.StartsWith("WildSign_") ||
+                    t.name.StartsWith("EcoSign_") || t.name == "KenyaBillboard" || t.name == "SignPost")
+                {
+                    Vector2 p = new Vector2(t.position.x, t.position.z);
+                    if (KenyaNetworkData.DistanceToAnyTarmacEdge(p) < 0.8f) violations++;
+                }
+                else if (t.name.StartsWith("KenhaGantry_"))
+                {
+                    var legL = t.Find("LegL");
+                    var legR = t.Find("LegR");
+                    if (legL != null && KenyaNetworkData.DistanceToAnyTarmacEdge(new Vector2(legL.position.x, legL.position.z)) < 0.5f) violations++;
+                    if (legR != null && KenyaNetworkData.DistanceToAnyTarmacEdge(new Vector2(legR.position.x, legR.position.z)) < 0.5f) violations++;
+                }
             }
             return violations;
         }
@@ -1302,15 +1338,59 @@ namespace KenyaStreetSim.Editor
 
         private static void BuildKenhaGantry(Transform parent, Vector3 pos, float yawDeg, string text, Material matSteel, Material matBoard, Material matWhite, float legHalfSpan = 9.2f)
         {
+            // Snap gantry squarely to the actual highway centerline & tangent so BOTH steel legs plant strictly OFF tarmac!
+            Quaternion approxRot = Quaternion.Euler(0f, yawDeg, 0f);
+            Vector3 approxFwd = approxRot * Vector3.forward;
+            if (KenyaNetworkData.FindNearestRoadPoint(pos, out Vector3 roadPt, out Vector3 roadFwd, out float d) && d < 35f)
+            {
+                pos = roadPt;
+                if (Vector3.Dot(roadFwd, approxFwd) < 0f) roadFwd = -roadFwd;
+                yawDeg = Mathf.Atan2(roadFwd.x, roadFwd.z) * Mathf.Rad2Deg;
+            }
+            if (!KenyaNetworkData.IsClearOfAllRoundabouts(new Vector2(pos.x, pos.z), 12f))
+            {
+                Vector3 fwd = Quaternion.Euler(0f, yawDeg, 0f) * Vector3.forward;
+                for (int step = 1; step <= 6; step++)
+                {
+                    Vector3 backCand = pos - fwd * (step * 10f);
+                    if (KenyaNetworkData.IsClearOfAllRoundabouts(new Vector2(backCand.x, backCand.z), 14f) &&
+                        KenyaNetworkData.FindNearestRoadPoint(backCand, out Vector3 snPt, out Vector3 snFwd, out float sd) && sd < 15f)
+                    {
+                        pos = snPt;
+                        if (Vector3.Dot(snFwd, fwd) < 0f) snFwd = -snFwd;
+                        yawDeg = Mathf.Atan2(snFwd.x, snFwd.z) * Mathf.Rad2Deg;
+                        break;
+                    }
+                }
+            }
+
+            // Guarantee BOTH gantry support legs sit strictly outside ALL road tarmac edges (NEVER in the road!)
+            Vector3 right = Quaternion.Euler(0f, yawDeg, 0f) * Vector3.right;
+            float safeHalfSpan = legHalfSpan;
+            bool legsClear = false;
+            for (float hs = Mathf.Max(legHalfSpan, 9.2f); hs <= 17.5f; hs += 1.2f)
+            {
+                Vector3 pL = pos - right * hs;
+                Vector3 pR = pos + right * hs;
+                if (KenyaNetworkData.DistanceToAnyTarmacEdge(new Vector2(pL.x, pL.z)) >= 1.4f &&
+                    KenyaNetworkData.DistanceToAnyTarmacEdge(new Vector2(pR.x, pR.z)) >= 1.4f)
+                {
+                    safeHalfSpan = hs;
+                    legsClear = true;
+                    break;
+                }
+            }
+            if (!legsClear) return; // Never place a gantry if a junction prevents clear leg placement!
+
             pos.y = KenyaNetworkData.GetElevationAt(pos.x, pos.z);
             var tr = new GameObject($"KenhaGantry_{pos.x:0}_{pos.z:0}").transform;
             tr.SetParent(parent, false);
             tr.position = pos;
             tr.rotation = Quaternion.Euler(0f, yawDeg, 0f);
 
-            float span = legHalfSpan * 2f + 0.8f;
-            CreateCylinder("LegL", tr, new Vector3(-legHalfSpan, 4.15f, 0f), new Vector3(0.38f, 4.15f, 0.38f), matSteel);
-            CreateCylinder("LegR", tr, new Vector3( legHalfSpan, 4.15f, 0f), new Vector3(0.38f, 4.15f, 0.38f), matSteel);
+            float span = safeHalfSpan * 2f + 0.8f;
+            CreateCylinder("LegL", tr, new Vector3(-safeHalfSpan, 4.15f, 0f), new Vector3(0.38f, 4.15f, 0.38f), matSteel);
+            CreateCylinder("LegR", tr, new Vector3( safeHalfSpan, 4.15f, 0f), new Vector3(0.38f, 4.15f, 0.38f), matSteel);
             CreateBox("CrossTrussTop", tr, new Vector3(0f, 8.10f, 0f), new Vector3(span, 0.36f, 0.42f), matSteel, false);
             CreateBox("CrossTrussBot", tr, new Vector3(0f, 7.10f, 0f), new Vector3(span, 0.28f, 0.42f), matSteel, false);
 
@@ -2205,6 +2285,26 @@ namespace KenyaStreetSim.Editor
 
         private static void BuildBillboard(Transform parent, Vector3 pos, float yawDeg, string text, Material boardMat, Material poleMat, Material borderMat)
         {
+            // Push billboard safely off tarmac if needed so ZERO signs ever touch any highway!
+            if (KenyaNetworkData.DistanceToAnyTarmacEdge(new Vector2(pos.x, pos.z)) < 4.0f &&
+                KenyaNetworkData.FindNearestRoadPoint(pos, out Vector3 rPt, out _, out _))
+            {
+                Vector3 away = pos - rPt; away.y = 0f;
+                if (away.sqrMagnitude < 0.01f) away = Vector3.right;
+                away.Normalize();
+                for (int s = 1; s <= 6; s++)
+                {
+                    Vector3 cand = pos + away * (s * 3.5f);
+                    if (KenyaNetworkData.DistanceToAnyTarmacEdge(new Vector2(cand.x, cand.z)) >= 4.0f)
+                    {
+                        pos = cand;
+                        break;
+                    }
+                }
+            }
+            if (KenyaNetworkData.DistanceToAnyTarmacEdge(new Vector2(pos.x, pos.z)) < 3.5f) return;
+            pos.y = KenyaNetworkData.GetElevationAt(pos.x, pos.z) + 0.12f;
+
             var bb = new GameObject("KenyaBillboard").transform;
             bb.SetParent(parent, false);
             bb.position = pos;
