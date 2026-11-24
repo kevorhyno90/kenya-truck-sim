@@ -85,6 +85,7 @@ namespace KenyaStreetSim.Editor
         private static Texture2D texLeafCluster;
         private static Texture2D texTireAlb, texTireNrm;
         private static Texture2D texGlassAlb, texGlassNrm;
+        private static Texture2D texKenyaBiomeMap, texTerrainMicroAlb, texTerrainMicroNrm;
         private static Texture2D texSkyDay, texSkySunset, texSkyNight;
 
         [MenuItem("Kenya Street Sim/Build Full Kenya ENA Coach Map")]
@@ -115,20 +116,22 @@ namespace KenyaStreetSim.Editor
             var streetLights = new List<Light>();
             var lampRenderers = new List<Renderer>();
 
-            // 1. Full Multi-Biome Terrain + Lake Victoria + Lake Naivasha + Indian Ocean + All 8 Highways + 3 Roundabouts
-            BuildKenyaTerrainWaterAndHighways(worldRoot.transform);
+            // 1. Full Multi-Biome 3D Terrain + Lake Victoria + Lake Naivasha + Indian Ocean + All 15 Highways + 10 Roundabouts
+            var terrainCollider = BuildKenyaTerrainWaterAndHighways(worldRoot.transform);
 
-            // 2. Nairobi CBD Traffic Light Intersection + KICC Skyline + Sidewalks + KPLC Power Lines + 5 Rubis Stations
+            // 2. Nairobi CBD Traffic Light Intersection + KICC Skyline + Sidewalks + KPLC Power Lines + 20 Refuellable Petrol Stations
             var nairobiLight = BuildNairobiCbdCore(worldRoot.transform, streetLights, lampRenderers);
 
-            // 3. Build All 16 Living Kenyan ENA Coach Towns (Curve-Aligned & Road-Clearance Verified!) + 16 Bus Stage Terminals
+            // 3. Build All 41 Living Kenyan Towns (Curve-Aligned & Roundabout-Clear!) + 41 Verified Bus Stage Terminals
             var stages = BuildAllSixteenKenyaTownsAndStages(worldRoot.transform, streetLights, lampRenderers);
 
-            // 4. KeNHA Directional Highway Gantries, 3 Roundabout Monuments, Sirare Border Arch & Mombasa Crossed Tusks!
+            // 4. KeNHA Directional Highway Gantries, 10 Roundabout Monuments, Sirare & Malaba Border Arches & Mombasa Crossed Tusks!
             BuildKenyaNationalLandmarksAndGantries(worldRoot.transform);
 
-            // 5. Highway Acacia Savanna, Kericho/Kakamega Highlands & Coastal/Lakeside Palm Trees along corridors
-            BuildHighwayBiomeFoliage(worldRoot.transform);
+            // 5. Authentic Batched National Kenyan Forests & Vegetation (Kericho/Chebilat Tea, Mau/Timboroa/Karura Conifers,
+            //    Kakamega Tropical Rainforest, Awendo/Muhoroni/Mumias Sugarcane, Tsavo Baobabs, Savanna Acacias & Coastal Palms!)
+            Physics.SyncTransforms();
+            int floraCount = KenyaVegetationBuilder.BuildAllKenyanVegetationAndForests(worldRoot.transform, terrainCollider);
 
             // 5b. 4 International Airports + Overhead Passing Jets, 10 Roadside Markets, Kericho/Chebilat Tea Plantations,
             //     Narok & Tsavo Animated Wildlife Crossings, and Climbing-Lane Escarpment Signage!
@@ -295,8 +298,9 @@ namespace KenyaStreetSim.Editor
             int meshCount = Object.FindObjectsByType<MeshRenderer>().Length + Object.FindObjectsByType<SkinnedMeshRenderer>().Length;
             int defaultMatCount = CountDefaultMaterials();
             int housesOnRoad = AuditHousesOnRoad(worldRoot.transform);
+            int stationsOnRoundabout = AuditStationsOnRoundabout(worldRoot.transform);
             int pedCount = Object.FindObjectsByType<KenyaPedestrianAI>().Length;
-            string summary = $"Built 41-Town National Kenya Highway Map ({ScenePath}) | Towns={KenyaNetworkData.Hubs.Length} | Highways={KenyaNetworkData.Highways.Length} | Roundabouts={KenyaNetworkData.Roundabouts.Length} | Roadblocks={roadblockCount} | Vehicles={trafficCount} (3D={importedVehiclePrefabs.Count}) | People={pedCount} (3D={importedPeoplePrefabs.Count}) | Renderers={meshCount} | HousesOnRoad={housesOnRoad} | DefaultMaterials={defaultMatCount} | SpeedBumps=0";
+            string summary = $"Built 41-Town National Kenya Highway Map ({ScenePath}) | Towns={KenyaNetworkData.Hubs.Length} | Highways={KenyaNetworkData.Highways.Length} | Roundabouts={KenyaNetworkData.Roundabouts.Length} | Roadblocks={roadblockCount} | Flora={floraCount} | Vehicles={trafficCount} (3D={importedVehiclePrefabs.Count}) | People={pedCount} (3D={importedPeoplePrefabs.Count}) | Renderers={meshCount} | HousesOnRoad={housesOnRoad} | StationsOnRoundabout={stationsOnRoundabout} | DefaultMaterials={defaultMatCount} | SpeedBumps=0";
             Debug.Log(summary);
             return summary;
         }
@@ -339,6 +343,22 @@ namespace KenyaStreetSim.Editor
                 {
                     violations++;
                 }
+            }
+            return violations;
+        }
+
+        private static int AuditStationsOnRoundabout(Transform worldRoot)
+        {
+            int violations = 0;
+            foreach (var stage in worldRoot.GetComponentsInChildren<BusStageZone>(true))
+            {
+                Vector2 p = new Vector2(stage.transform.position.x, stage.transform.position.z);
+                if (!KenyaNetworkData.IsClearOfAllRoundabouts(p, 16f)) violations++;
+            }
+            foreach (var fuel in worldRoot.GetComponentsInChildren<KenyaFuelStationZone>(true))
+            {
+                Vector2 p = new Vector2(fuel.transform.position.x, fuel.transform.position.z);
+                if (!KenyaNetworkData.IsClearOfAllRoundabouts(p, 18f)) violations++;
             }
             return violations;
         }
@@ -387,6 +407,9 @@ namespace KenyaStreetSim.Editor
             texTireNrm = AssetDatabase.LoadAssetAtPath<Texture2D>($"{tf}/TireTread_Normal.png");
             texGlassAlb = AssetDatabase.LoadAssetAtPath<Texture2D>($"{tf}/WindowFacade_Albedo.png");
             texGlassNrm = AssetDatabase.LoadAssetAtPath<Texture2D>($"{tf}/WindowFacade_Normal.png");
+            texKenyaBiomeMap = AssetDatabase.LoadAssetAtPath<Texture2D>($"{tf}/KenyaBiomeMap.png");
+            texTerrainMicroAlb = AssetDatabase.LoadAssetAtPath<Texture2D>($"{tf}/TerrainMicroDetail_Albedo.png");
+            texTerrainMicroNrm = AssetDatabase.LoadAssetAtPath<Texture2D>($"{tf}/TerrainMicroDetail_Normal.png");
 
             texSkyDay = AssetDatabase.LoadAssetAtPath<Texture2D>($"{cc0}/Sky_KenyaDay_2k.hdr");
             texSkySunset = AssetDatabase.LoadAssetAtPath<Texture2D>($"{cc0}/Sky_KenyaSunset_2k.hdr");
@@ -640,16 +663,34 @@ namespace KenyaStreetSim.Editor
             return camGo;
         }
 
-        private static void BuildKenyaTerrainWaterAndHighways(Transform parent)
+        private static Collider BuildKenyaTerrainWaterAndHighways(Transform parent)
         {
-            var matTerrain = GetMat("RiftMurramTerrain", Palette.Hex("#E4E6DC"), 0.08f, 0f, null, texSavannaAlb, texSavannaNrm, new Vector2(0.85f, 0.85f), 1.45f);
+            // National Republic of Kenya Ecological Biome Terrain:
+            // UV0 samples KenyaBiomeMap.png (1:1 exact Kenyan forests, Kericho/Chebilat tea green, Rift savanna, Tsavo red earth, coastal sand)
+            // + URP Lit _DETAIL_MULX2 adds crisp per-meter grass/soil micro-grain & normal relief across every square meter!
+            var matTerrain = GetMat("RiftMurramTerrain", Color.white, 0.08f, 0f, null, texKenyaBiomeMap ?? texSavannaAlb, null, Vector2.one, 1.0f);
+            if (texTerrainMicroAlb != null || texTerrainMicroNrm != null)
+            {
+                matTerrain.EnableKeyword("_DETAIL_MULX2");
+                if (texTerrainMicroAlb != null)
+                {
+                    matTerrain.SetTexture("_DetailAlbedoMap", texTerrainMicroAlb);
+                    matTerrain.SetTextureScale("_DetailAlbedoMap", new Vector2(145f, 96f));
+                    matTerrain.SetFloat("_DetailAlbedoMapScale", 0.72f);
+                }
+                if (texTerrainMicroNrm != null)
+                {
+                    matTerrain.SetTexture("_DetailNormalMap", texTerrainMicroNrm);
+                    matTerrain.SetFloat("_DetailNormalMapScale", 1.35f);
+                }
+                EditorUtility.SetDirty(matTerrain);
+            }
             var matTarmac = GetMat("KenyaHighwayTarmac", Palette.Hex("#888C94"), 0.24f, 0f, null, texTarmacAlb, texTarmacNrm, new Vector2(1.4f, 1.4f), 1.35f);
             var matMurramShoulder = GetMat("KenyaMurramShoulder", Color.white, 0.10f, 0f, null, texMurramAlb, texMurramNrm, Vector2.one, 1.3f);
             var matWhiteLine = GetMat("RoadLineWhite", Palette.RoadLineWhite, 0.15f);
             var matYellowLine = GetMat("RoadLineYellow", Palette.RoadLineYellow, 0.18f);
             var matCurb = GetMat("CurbStone", Palette.CurbStone, 0.22f, 0f, null, texPlasterAlb, texPlasterNrm, new Vector2(2f, 2f), 0.9f);
             var matGrass = GetMat("RoundaboutLawn", Palette.GrassVerge, 0.12f);
-            var matTeaHills = GetMat("KerichoTeaGreen", Palette.Hex("#3E7C2F"), 0.14f, 0f, null, texMurramAlb, texMurramNrm, new Vector2(18f, 18f), 1.1f);
             var matLakeWater = GetMat("LakeVictoriaWater", Palette.Hex("#1E6EA1"), 0.92f, 0.12f);
             var matOceanWater = GetMat("IndianOceanWater", Palette.Hex("#1289A7"), 0.94f, 0.15f);
 
@@ -673,6 +714,7 @@ namespace KenyaStreetSim.Editor
             // 2. Smooth 3D Catmull-Rom Extruded Variable-Width PBR Highways (2-Lane, 3-Lane Climbing & 6-Lane City!) + 10 Roundabouts!
             KenyaRoadSplineBuilder.BuildAllHighwayAndRoundaboutGeometry(
                 parent, matTarmac, matMurramShoulder, matWhiteLine, matYellowLine, matCurb, matGrass);
+            return terrainGo.GetComponent<Collider>();
         }
 
         private static StreetTrafficLight BuildNairobiCbdCore(Transform parent, List<Light> pointLights, List<Renderer> glowRenderers)
@@ -789,37 +831,50 @@ namespace KenyaStreetSim.Editor
             // KPLC Utility Poles & Sagging Power Cables along East side of Nairobi CBD (grounded per pole!)
             BuildKplcPowerStretch(cbd, new Vector3(15.6f, 0f, -45f), new Vector3(15.6f, 0f, 115f), 5);
 
-            // 18 MAJOR KENYAN TOWN REFUELLABLE PETROL STATIONS (TotalEnergies/TotalX, Shell/SavannaFuel, Rubis/Rubix!)
-            // Every big town along Kenya's highway corridors now has an interactive drive-in Petrol Station!
+            // 20 MAJOR KENYAN TOWN REFUELLABLE PETROL STATIONS (TotalEnergies/TotalX, Shell/SavannaFuel, Rubis/Rubix!)
+            // Strictly verified OFF all roads AND at least 32m clear of EVERY roundabout outer edge!
             int[] fuelHubIndices = { 0, 1, 2, 3, 4, 9, 13, 17, 23, 25, 28, 29, 31, 32, 34, 35, 36, 37, 38, 40 };
             for (int f = 0; f < fuelHubIndices.Length; f++)
             {
                 int hIdx = fuelHubIndices[f];
                 var hub = KenyaNetworkData.Hubs[hIdx];
-                float arc = (hIdx == 0) ? -28f : 38f;
-                float side = (f % 2 == 0) ? 1f : -1f;
-                if (hIdx == 0) side = 1f;
-                if (KenyaNetworkData.SampleRoadAlongTown(hub.xz, hub.roadYawDeg, arc, out Vector3 rPt, out Vector3 rFwd))
+                float[] arcTries = (hIdx == 0)
+                    ? new[] { -28f }
+                    : new[] { 62f, -62f, 84f, -84f, 108f, -108f, 132f, -132f };
+                float prefSide = (hIdx == 0) ? 1f : ((f % 2 == 0) ? 1f : -1f);
+                int brandKind = f % 3;
+
+                bool placedFuel = false;
+                for (int at = 0; at < arcTries.Length && !placedFuel; at++)
                 {
+                    if (!KenyaNetworkData.SampleRoadAlongTown(hub.xz, hub.roadYawDeg, arcTries[at], out Vector3 rPt, out Vector3 rFwd))
+                        continue;
+                    if (!KenyaNetworkData.IsClearOfAllRoundabouts(new Vector2(rPt.x, rPt.z), 30f))
+                        continue;
+
                     Vector3 rRight = Vector3.Cross(Vector3.up, rFwd).normalized;
-                    float yaw = Mathf.Atan2(rFwd.x, rFwd.z) * Mathf.Rad2Deg + (side < 0f ? 180f : 0f);
-                    Vector3 candPos = rPt + rRight * (side * 26.5f);
-                    candPos.y = KenyaNetworkData.GetElevationAt(candPos.x, candPos.z) + 0.08f;
-                    int brandKind = f % 3; // 0 = TotalEnergies/TotalX, 1 = Rubis/Rubix, 2 = Shell/SavannaFuel
-                    TryPlacePetrolStation(parent, candPos, yaw, hub.name.ToUpperInvariant(), brandKind, pointLights, glowRenderers);
+                    float[] sides = { prefSide, -prefSide };
+                    for (int s = 0; s < sides.Length && !placedFuel; s++)
+                    {
+                        float side = sides[s];
+                        float yaw = Mathf.Atan2(rFwd.x, rFwd.z) * Mathf.Rad2Deg + (side < 0f ? 180f : 0f);
+                        Vector3 candPos = rPt + rRight * (side * 26.5f);
+                        placedFuel = TryPlacePetrolStation(parent, candPos, yaw, hub.name.ToUpperInvariant(), brandKind, pointLights, glowRenderers);
+                    }
                 }
             }
 
             return ctrl;
         }
 
-        private static void TryPlacePetrolStation(Transform parent, Vector3 pos, float yawDeg, string townLabel, int brandKind, List<Light> pointLights, List<Renderer> glowRenderers)
+        private static bool TryPlacePetrolStation(Transform parent, Vector3 pos, float yawDeg, string townLabel, int brandKind, List<Light> pointLights, List<Renderer> glowRenderers)
         {
-            if (KenyaNetworkData.IsFootprintClearOfAllRoads(pos, 11.5f, 15.5f, yawDeg, minBufferFromTarmacEdge: 3.4f))
+            if (KenyaNetworkData.IsClearOfAllRoundabouts(new Vector2(pos.x, pos.z), 30f) &&
+                KenyaNetworkData.IsFootprintClearOfAllRoads(pos, 11.5f, 15.5f, yawDeg, minBufferFromTarmacEdge: 3.6f))
             {
                 pos.y = KenyaNetworkData.GetElevationAt(pos.x, pos.z) + 0.08f;
                 BuildKenyaPetrolStation(parent, pos, yawDeg, townLabel, brandKind, pointLights, glowRenderers);
-                return;
+                return true;
             }
             if (KenyaNetworkData.FindNearestRoadPoint(pos, out Vector3 roadPt, out _, out _))
             {
@@ -830,14 +885,16 @@ namespace KenyaStreetSim.Editor
                 for (int step = 1; step <= 6; step++)
                 {
                     Vector3 cand = pos + away * (step * 4.5f);
-                    if (KenyaNetworkData.IsFootprintClearOfAllRoads(cand, 11.5f, 15.5f, yawDeg, minBufferFromTarmacEdge: 3.4f))
+                    if (KenyaNetworkData.IsClearOfAllRoundabouts(new Vector2(cand.x, cand.z), 30f) &&
+                        KenyaNetworkData.IsFootprintClearOfAllRoads(cand, 11.5f, 15.5f, yawDeg, minBufferFromTarmacEdge: 3.6f))
                     {
                         cand.y = KenyaNetworkData.GetElevationAt(cand.x, cand.z) + 0.08f;
                         BuildKenyaPetrolStation(parent, cand, yawDeg, townLabel, brandKind, pointLights, glowRenderers);
-                        return;
+                        return true;
                     }
                 }
             }
+            return false;
         }
 
         private static void BuildKiccAndNairobiSkyline(Transform parent)
@@ -900,13 +957,29 @@ namespace KenyaStreetSim.Editor
                 var townGo = new GameObject($"Town_{h:00}_{hub.name}").transform;
                 townGo.SetParent(townsRoot, false);
 
-                // Tiered Kenyan Town Density: Major Cities (5-6 pairs, tall blocks), Regional Hubs (3 pairs), Transit Towns (2 pairs)!
+                // 1. FIRST locate a 100% ROUNDABOUT-CLEAR highway bay for this town's Coach Bus Stage Terminal!
+                //    (NEVER placed inside or beside any of Kenya's 10 Roundabouts -> StationsOnRoundabout = 0!)
+                float chosenStageArc = 0f;
+                Vector3 stageRoadPt = Vector3.zero, stageRoadFwd = Vector3.forward;
+                if (h == 0)
+                {
+                    stageRoadPt = new Vector3(0f, KenyaNetworkData.GetElevationAt(0f, hub.xz.y), hub.xz.y);
+                    stageRoadFwd = Vector3.forward;
+                }
+                else
+                {
+                    KenyaNetworkData.FindRoundaboutClearStageSite(
+                        hub.xz, hub.roadYawDeg, minRoundaboutBuffer: 28f,
+                        out stageRoadPt, out stageRoadFwd, out chosenStageArc);
+                }
+
+                // 2. Tiered Kenyan Town Density: Major Cities (5-6 pairs), Regional Hubs (3 pairs), Transit Towns (2 pairs)!
                 int pairsPerTown = (h == 0) ? 6
                     : (hub.tier == KenyaNetworkData.TownTier.MajorCity) ? 4
                     : (hub.tier == KenyaNetworkData.TownTier.RegionalHub) ? 3
                     : 2;
                 float spacing = (h == 0) ? 23f : 22f;
-                float arcStart = (h == 0) ? -72f : -(pairsPerTown - 1) * spacing * 0.5f;
+                float arcStart = (h == 0) ? -72f : (chosenStageArc - (pairsPerTown - 1) * spacing * 0.5f);
 
                 for (int k = 0; k < pairsPerTown; k++)
                 {
@@ -930,7 +1003,7 @@ namespace KenyaStreetSim.Editor
                     {
                         if (h == 0 && side == 1 && Mathf.Abs(roadPt.z - 12f) < 26f) continue;
                         if (h == 0 && Mathf.Abs(roadPt.z - 95f) < 12f) continue;
-                        if (side == -1 && Mathf.Abs(arcOffset) < 14f) continue; // clear bay for Terminal shelter!
+                        if (side == -1 && Mathf.Abs(arcOffset - chosenStageArc) < 16f) continue; // clear bay for verified Terminal shelter!
 
                         float wFront = 13.5f + (float)rng.NextDouble() * 4.0f;
                         float depth = 10.8f;
@@ -942,12 +1015,13 @@ namespace KenyaStreetSim.Editor
                         float lateralOffset = estHalfW + 5.8f + depth * 0.5f;
                         Vector3 lotPos = roadPt + roadRight * (side * lateralOffset);
 
-                        // GUARANTEE ZERO HOUSES ON ROAD: test all 9 rotated footprint corners against ALL 15 highways & ALL 10 roundabouts!
+                        // GUARANTEE ZERO HOUSES ON ROAD OR ROUNDABOUT: test all 9 corners against ALL 15 highways & ALL 10 roundabouts!
                         bool clear = false;
                         for (int push = 0; push < 5; push++)
                         {
                             Vector3 cand = roadPt + roadRight * (side * (lateralOffset + push * 3.0f));
-                            if (KenyaNetworkData.IsFootprintClearOfAllRoads(cand, wFront * 0.5f + 0.5f, depth * 0.5f + 0.5f, shopYaw, minBufferFromTarmacEdge: 3.4f))
+                            if (KenyaNetworkData.IsClearOfAllRoundabouts(new Vector2(cand.x, cand.z), 16f) &&
+                                KenyaNetworkData.IsFootprintClearOfAllRoads(cand, wFront * 0.5f + 0.5f, depth * 0.5f + 0.5f, shopYaw, minBufferFromTarmacEdge: 3.4f))
                             {
                                 lotPos = cand;
                                 clear = true;
@@ -994,13 +1068,7 @@ namespace KenyaStreetSim.Editor
                     }
                 }
 
-                // Shaded Kenyan Coach Bus Stage Terminal grounded to 3D elevation & aligned to road width at EVERY town!
-                KenyaNetworkData.SampleRoadAlongTown(hub.xz, hub.roadYawDeg, 0f, out Vector3 stageRoadPt, out Vector3 stageRoadFwd);
-                if (h == 0)
-                {
-                    stageRoadPt = new Vector3(0f, KenyaNetworkData.GetElevationAt(0f, hub.xz.y), hub.xz.y);
-                    stageRoadFwd = Vector3.forward;
-                }
+                // 3. Build the verified Roundabout-Clear Kenyan Coach Bus Stage Terminal!
                 Vector3 stageRight = Vector3.Cross(Vector3.up, stageRoadFwd).normalized;
                 float stageYaw = Mathf.Atan2(stageRoadFwd.x, stageRoadFwd.z) * Mathf.Rad2Deg;
                 float stageRoadHalfW = KenyaNetworkData.IsInsideMajorCityCorridor(new Vector2(stageRoadPt.x, stageRoadPt.z)) ? 10.6f : 7.4f;

@@ -32,6 +32,8 @@ namespace KenyaStreetSim.Editor
             GeneratePoliceCanvas(256);
             GenerateDiamondPlate(256);
             GenerateKenyaPoliceCrest(256);
+            GenerateKenyaBiomeTerrainMap(1024, 672);
+            GenerateTerrainMicroDetail(512);
 
             AssetDatabase.Refresh();
             ConfigureImporters();
@@ -460,7 +462,7 @@ namespace KenyaStreetSim.Editor
                     {
                         imp.textureType = TextureImporterType.Default;
                         imp.maxTextureSize = 2048;
-                        imp.wrapMode = TextureWrapMode.Repeat;
+                        imp.wrapMode = fn.Contains("biomemap") ? TextureWrapMode.Clamp : TextureWrapMode.Repeat;
                         imp.filterMode = FilterMode.Trilinear;
                         imp.anisoLevel = 16;
                         imp.textureCompression = TextureImporterCompression.CompressedHQ;
@@ -666,6 +668,168 @@ namespace KenyaStreetSim.Editor
             }
             tex.Apply();
             SavePng(tex, $"{TexFolder}/PoliceLC_Crest_Albedo.png");
+            Object.DestroyImmediate(tex);
+        }
+
+        /// <summary>
+        /// Generates a geographically accurate National Republic of Kenya Ecological Biome Albedo Map
+        /// aligned 1:1 with FullKenyaTerrainHills [minX=-2280..1560, minZ=-660..1800]:
+        /// - Deep Emerald Tea Belts (Kericho, Kaplong, Bomet, Sotik, Chebilat, Keroka, Kisii)
+        /// - Misty Dark Montane Forests (Mau Forest Complex, Timboroa, Karura/Ngong)
+        /// - Kakamega Tropical Rainforest & Western Lush Hills (Vihiga, Kakamega, Webuye, Kitale)
+        /// - Awendo / Muhoroni / Mumias Sugarcane & Ahero Rice Plains
+        /// - Great Rift & Narok / Maasai Mara Golden Acacia Savanna
+        /// - Tsavo / Mtito Andei / Voi Iconic Red Laterite Earth & Dry Bush
+        /// - Mombasa / Kilifi / Arabuko-Sokoke / Malindi Coastal Forest & Golden Sand Shoreline
+        /// </summary>
+        private static void GenerateKenyaBiomeTerrainMap(int w, int h)
+        {
+            const float minX = -2280f;
+            const float maxX = 1560f;
+            const float minZ = -660f;
+            const float maxZ = 1800f;
+
+            var tex = new Texture2D(w, h, TextureFormat.RGBA32, false);
+            var pixels = new Color32[w * h];
+
+            Color colBaseHighland = new Color(0.36f, 0.45f, 0.22f); // Warm Kenyan highland grass
+            Color colTeaEmerald   = new Color(0.15f, 0.43f, 0.14f); // Iconic lush Kericho/Chebilat tea green
+            Color colTeaBright    = new Color(0.22f, 0.52f, 0.18f); // Fresh plucked tea leaves
+            Color colMontaneFor   = new Color(0.11f, 0.28f, 0.13f); // Deep Mau / Timboroa cedar & pine forest
+            Color colRainforest   = new Color(0.12f, 0.34f, 0.14f); // Kakamega tropical equatorial rainforest
+            Color colKaruraGreen  = new Color(0.20f, 0.40f, 0.18f); // Nairobi Karura / Ngong / Thika woodland
+            Color colSugarcane    = new Color(0.27f, 0.50f, 0.17f); // Awendo / Muhoroni / Mumias sugarcane belt
+            Color colRiftSavanna  = new Color(0.55f, 0.50f, 0.26f); // Narok / Mai Mahiu / Naivasha golden savanna
+            Color colTsavoRed     = new Color(0.60f, 0.35f, 0.21f); // Tsavo / Voi / Mtito Andei red earth laterite
+            Color colCoastForest  = new Color(0.18f, 0.39f, 0.17f); // Mombasa / Kilifi / Arabuko-Sokoke coastal bush
+            Color colBeachSand    = new Color(0.84f, 0.77f, 0.58f); // Indian Ocean warm sandy shore
+            Color colLakeBasin    = new Color(0.25f, 0.44f, 0.20f); // Lake Victoria fertile shoreline
+
+            for (int iy = 0; iy < h; iy++)
+            {
+                float vz = (float)iy / (h - 1);
+                float wz = Mathf.Lerp(minZ, maxZ, vz);
+                for (int ix = 0; ix < w; ix++)
+                {
+                    float ux = (float)ix / (w - 1);
+                    float wx = Mathf.Lerp(minX, maxX, ux);
+
+                    float nMacro = Mathf.Clamp01(Mathf.PerlinNoise(wx * 0.0028f + 19.3f, wz * 0.0028f + 43.7f));
+                    float nDetail = Mathf.Clamp01(Mathf.PerlinNoise(wx * 0.015f + 71.1f, wz * 0.015f + 12.9f));
+                    float nFine = Hash2(ix, iy, 919);
+
+                    Color c = Color.Lerp(colBaseHighland, colRiftSavanna, nMacro * 0.35f);
+
+                    // 1. Rift Valley & Narok / Maasai Mara Golden Acacia Savanna
+                    float wRift = Gauss2D(wx, wz, -440f, 290f, 340f) + Gauss2D(wx, wz, -650f, 115f, 240f) * 0.9f;
+                    c = Color.Lerp(c, Color.Lerp(colRiftSavanna, colBaseHighland, nDetail * 0.35f), Mathf.Clamp01(wRift));
+
+                    // 2. Tsavo / Mtito Andei / Voi Iconic Red Laterite Earth & Dry Bushland
+                    float wTsavo = Gauss2D(wx, wz, 510f, -110f, 310f) + Gauss2D(wx, wz, 730f, -230f, 220f) * 0.7f;
+                    c = Color.Lerp(c, Color.Lerp(colTsavoRed, colRiftSavanna, nDetail * 0.42f), Mathf.Clamp01(wTsavo));
+
+                    // 3. Nairobi / Karura / Ngong / Thika Highland Woodland
+                    float wKarura = Gauss2D(wx, wz, 40f, 240f, 240f) + Gauss2D(wx, wz, -90f, 250f, 180f) * 0.7f;
+                    c = Color.Lerp(c, Color.Lerp(colKaruraGreen, colMontaneFor, nDetail * 0.35f), Mathf.Clamp01(wKarura));
+
+                    // 4. Kericho / Bomet / Kaplong / Sotik / Chebilat / Keroka / Kisii LUSH EMERALD TEA BELT!
+                    float wTea = Gauss2D(wx, wz, -1060f, 470f, 230f) * 1.35f  // Kericho heartland
+                               + Gauss2D(wx, wz, -1260f, 255f, 220f) * 1.25f  // Sotik / Chebilat / Keroka
+                               + Gauss2D(wx, wz, -1040f, 225f, 190f) * 1.15f  // Bomet / Kaplong
+                               + Gauss2D(wx, wz, -1525f, 240f, 170f) * 0.95f; // Kisii / Nyamira hills
+                    if (wTea > 0.05f)
+                    {
+                        // Subtle contoured tea-row striping visible across the lush emerald hills!
+                        float contour = 0.5f + 0.5f * Mathf.Sin((wx * 0.14f + wz * 0.09f) + nMacro * 6f);
+                        Color teaCol = Color.Lerp(colTeaEmerald, colTeaBright, contour * 0.55f + nDetail * 0.35f);
+                        c = Color.Lerp(c, teaCol, Mathf.Clamp01(wTea));
+                    }
+
+                    // 5. Mau Forest Complex & Timboroa High-Altitude Montane Conifer Forests!
+                    float wMau = Gauss2D(wx, wz, -785f, 765f, 200f) * 1.2f   // Mau Summit / Total / Salgaa
+                               + Gauss2D(wx, wz, -870f, 975f, 210f) * 1.3f   // Timboroa Forest!
+                               + Gauss2D(wx, wz, -860f, 470f, 185f) * 1.0f;  // South-West Mau Forest (Narok-Kericho ridge)
+                    c = Color.Lerp(c, Color.Lerp(colMontaneFor, colTeaEmerald, nDetail * 0.25f), Mathf.Clamp01(wMau));
+
+                    // 6. Kakamega Tropical Rainforest & Trans-Nzoia Lush Green Highlands!
+                    float wKak = Gauss2D(wx, wz, -1370f, 1170f, 240f) * 1.25f // Kakamega Rainforest
+                               + Gauss2D(wx, wz, -1120f, 1440f, 260f) * 0.95f // Webuye -> Kiminini -> Kitale
+                               + Gauss2D(wx, wz, -1425f, 990f, 170f) * 0.90f; // Vihiga / Chavakali
+                    c = Color.Lerp(c, Color.Lerp(colRainforest, colKaruraGreen, nDetail * 0.35f), Mathf.Clamp01(wKak));
+
+                    // 7. Awendo / Rongo, Muhoroni & Mumias / Bungoma Sugarcane + Ahero Rice Plains!
+                    float wCane = Gauss2D(wx, wz, -1655f, -205f, 185f) * 1.1f // Awendo Sugar Belt
+                                + Gauss2D(wx, wz, -1235f,  660f, 175f) * 1.0f // Muhoroni / Ahero Rice & Cane
+                                + Gauss2D(wx, wz, -1565f, 1160f, 200f) * 0.95f; // Mumias / Bungoma Sugar Belt
+                    c = Color.Lerp(c, Color.Lerp(colSugarcane, colTeaBright, nDetail * 0.35f), Mathf.Clamp01(wCane));
+
+                    // 8. Lake Victoria Basin Shores (Sori -> Homa Bay -> Kendu Bay -> Kisumu)
+                    float wLake = Gauss2D(wx, wz, -1820f, 260f, 260f) + Gauss2D(wx, wz, -1560f, 760f, 230f);
+                    c = Color.Lerp(c, Color.Lerp(colLakeBasin, colBaseHighland, nDetail * 0.3f), Mathf.Clamp01(wLake * 0.78f));
+
+                    // 9. Mombasa / Kilifi / Arabuko-Sokoke Coastal Forest & Golden Beach Sand!
+                    float wCoast = Gauss2D(wx, wz, 1120f, -150f, 280f) + Gauss2D(wx, wz, 1225f, 55f, 220f);
+                    c = Color.Lerp(c, Color.Lerp(colCoastForest, colSugarcane, nDetail * 0.3f), Mathf.Clamp01(wCoast));
+                    // Warm golden sand right along Indian Ocean shoreline edge
+                    if ((wx > 1030f && wz < -340f) || (wx > 1200f && wz < -130f) || (wx > 1295f && wz < 220f))
+                    {
+                        float sandMask = Mathf.Clamp01(((wx - 1030f) / 90f) * (wz < -300f ? 1f : 0f)
+                                       + ((wx - 1200f) / 85f) * (wz >= -300f && wz < -110f ? 1f : 0f)
+                                       + ((wx - 1295f) / 70f) * (wz >= -110f ? 1f : 0f));
+                        c = Color.Lerp(c, colBeachSand, Mathf.Clamp01(sandMask * 0.85f));
+                    }
+
+                    // Organic soil/foliage grain variation
+                    float grain = 0.88f + nDetail * 0.18f + (nFine - 0.5f) * 0.08f;
+                    c.r = Mathf.Clamp01(c.r * grain);
+                    c.g = Mathf.Clamp01(c.g * grain);
+                    c.b = Mathf.Clamp01(c.b * grain);
+                    c.a = 1f;
+                    pixels[iy * w + ix] = c;
+                }
+            }
+
+            tex.SetPixels32(pixels);
+            tex.Apply();
+            SavePng(tex, $"{TexFolder}/KenyaBiomeMap.png");
+            Object.DestroyImmediate(tex);
+        }
+
+        private static float Gauss2D(float x, float z, float cx, float cz, float radius)
+        {
+            float dx = x - cx;
+            float dz = z - cz;
+            return Mathf.Exp(-(dx * dx + dz * dz) / (2f * radius * radius));
+        }
+
+        /// <summary>
+        /// Seamless mid-gray (0.5 average) grass/soil micro-detail map for URP Lit _DETAIL_MULX2
+        /// so close-up terrain looks razor sharp while preserving 100% faithful Kenyan biome colors!
+        /// </summary>
+        private static void GenerateTerrainMicroDetail(int size)
+        {
+            var tex = new Texture2D(size, size, TextureFormat.RGBA32, false);
+            var height = new float[size * size];
+
+            for (int y = 0; y < size; y++)
+            {
+                float v = (float)y / size;
+                for (int x = 0; x < size; x++)
+                {
+                    float u = (float)x / size;
+                    float fbm1 = TileFbm(u * 10f, v * 10f, 10f, 4, 613);
+                    float fbm2 = TileFbm(u * 32f, v * 32f, 32f, 3, 733);
+                    float speck = Hash2(x, y, 821);
+                    float h = Mathf.Clamp01(fbm1 * 0.45f + fbm2 * 0.35f + speck * 0.20f);
+                    height[y * size + x] = h;
+                    // Center strictly around 0.5 so URP Detail Mulx2 keeps biome albedo bright & balanced!
+                    float lum = Mathf.Lerp(0.38f, 0.62f, h);
+                    tex.SetPixel(x, y, new Color(lum, lum, lum, 1f));
+                }
+            }
+            tex.Apply();
+            SavePng(tex, $"{TexFolder}/TerrainMicroDetail_Albedo.png");
+            SaveNormalFromHeight(height, size, 3.6f, $"{TexFolder}/TerrainMicroDetail_Normal.png");
             Object.DestroyImmediate(tex);
         }
 

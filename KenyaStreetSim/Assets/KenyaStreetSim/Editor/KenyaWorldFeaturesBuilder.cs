@@ -66,7 +66,7 @@ namespace KenyaStreetSim.Editor
 
             BuildFourKenyanAirports(root, matTarmac, matWhiteLine, matTerminal, matGlass, matPlaneWhite, matPlaneRed, matPlaneGreen, matPlaneDark, matStrobe, matSteel);
             BuildKenyanRoadsideMarkets(root, matWood, canopyMats, matProduceYel, matProduceRed, matProduceBag, matSignBlue, matSteel);
-            BuildTeaPlantations(root, matTeaLight, matTeaMid, matTeaDeep, matSoilDark, matSignBlue, matSteel);
+            // Continuous 3D sculpted Kericho/Chebilat/Kisii Tea Plantations + Kenyan Forests are now built batched in KenyaVegetationBuilder!
             BuildNarokAndTsavoWildlife(root, matZebraW, matZebraB, matGiraffeY, matGiraffeS, matGazelle, matElephant, matIvory, matWarnYellow, matSteel);
             BuildClimbingLaneSigns(root, matSignBlue, matWarnYellow, matSteel);
         }
@@ -225,19 +225,30 @@ namespace KenyaStreetSim.Editor
             {
                 var mk = markets[m];
                 var hub = KenyaNetworkData.Hubs[mk.hubIndex];
-                if (!KenyaNetworkData.SampleRoadAlongTown(hub.xz, hub.roadYawDeg, mk.arcOffset, out Vector3 rPt, out Vector3 rFwd))
-                    continue;
-
-                Vector3 right = Vector3.Cross(Vector3.up, rFwd).normalized;
-                float lat = mk.sideSign * 24.5f;
-                Vector3 pos = rPt + right * lat;
-                float yaw = Mathf.Atan2(rFwd.x, rFwd.z) * Mathf.Rad2Deg + (mk.sideSign > 0f ? -90f : 90f);
-
-                if (!KenyaNetworkData.IsFootprintClearOfAllRoads(pos, 7.5f, 14f, yaw, 3.0f))
+                float[] arcTries = { mk.arcOffset, mk.arcOffset * 1.35f, -mk.arcOffset * 1.25f, mk.arcOffset * 1.65f };
+                Vector3 pos = Vector3.zero;
+                float yaw = 0f;
+                bool foundMarketSite = false;
+                for (int at = 0; at < arcTries.Length && !foundMarketSite; at++)
                 {
-                    pos = rPt + right * (mk.sideSign * 31f);
-                    if (!KenyaNetworkData.IsFootprintClearOfAllRoads(pos, 7.5f, 14f, yaw, 2.8f)) continue;
+                    if (!KenyaNetworkData.SampleRoadAlongTown(hub.xz, hub.roadYawDeg, arcTries[at], out Vector3 rPt, out Vector3 rFwd))
+                        continue;
+                    Vector3 right = Vector3.Cross(Vector3.up, rFwd).normalized;
+                    yaw = Mathf.Atan2(rFwd.x, rFwd.z) * Mathf.Rad2Deg + (mk.sideSign > 0f ? -90f : 90f);
+                    float[] latTries = { 24.5f, 30.5f, 36.5f };
+                    for (int lt = 0; lt < latTries.Length; lt++)
+                    {
+                        Vector3 cand = rPt + right * (mk.sideSign * latTries[lt]);
+                        if (KenyaNetworkData.IsClearOfAllRoundabouts(new Vector2(cand.x, cand.z), 28f) &&
+                            KenyaNetworkData.IsFootprintClearOfAllRoads(cand, 7.5f, 14f, yaw, 3.0f))
+                        {
+                            pos = cand;
+                            foundMarketSite = true;
+                            break;
+                        }
+                    }
                 }
+                if (!foundMarketSite) continue;
                 pos.y = KenyaNetworkData.GetElevationAt(pos.x, pos.z);
 
                 var mGo = new GameObject($"Market_{m}_{hub.name}").transform;

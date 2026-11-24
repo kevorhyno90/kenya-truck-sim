@@ -6,20 +6,19 @@ using UnityEngine.Rendering.Universal;
 namespace KenyaStreetSim.Editor
 {
     /// <summary>
-    /// Renders crisp 1280x720 URP visual audit postcards across all signature regions of the
-    /// 41-Town National Kenya Highway Map (6-Lane Nairobi, Narok Wildlife, Kericho/Chebilat Tea,
-    /// Salgaa-Total Climbing Semi-Trailer, Kisumu Airport & Lake, Mombasa Tusks & Coast).
+    /// Renders crisp 1280x720 URP visual audit postcards across Kenya's verified roundabouts,
+    /// ecological forests, continuous tea hills, sugarcane belts, Tsavo baobabs & coast.
     /// </summary>
     public static class KenyaMapVerificationCapture
     {
-        private const string OutDir = "C:/Users/USER/.gemini/antigravity/brain/1f115163-e25f-4fe7-8681-12dc36b17000/scratch/map_verify";
+        private const string OutDir = "C:/Users/USER/.gemini/antigravity/brain/1f115163-e25f-4fe7-8681-12dc36b17000/scratch/map_verify_v2";
 
         [MenuItem("Kenya Street Sim/Capture 6-Region Kenya Map Audit")]
         public static void CaptureAllRegions()
         {
             Directory.CreateDirectory(OutDir);
 
-            // Place all spline AI traffic at their initial poses in Edit Mode so semi-trailers & cars are visible!
+            // Position spline AI traffic cleanly at their initial highway poses for Edit-Mode audit
             foreach (var ai in Object.FindObjectsByType<KenyaSplineTraffic>())
             {
                 if (ai.highwayIndex < 0 || ai.highwayIndex >= KenyaNetworkData.Highways.Length) continue;
@@ -38,72 +37,41 @@ namespace KenyaStreetSim.Editor
                 ai.transform.SetPositionAndRotation(p, Quaternion.LookRotation(fwd.normalized, Vector3.up));
             }
 
-            // Place flying jets along their low scenic flyover pass so they show up vividly in airport shots!
             foreach (var jet in Object.FindObjectsByType<KenyaAirportPlaneAI>())
             {
                 Vector3 p = jet.airportCenter + new Vector3(28f, 24f, -15f);
                 jet.transform.SetPositionAndRotation(p, Quaternion.Euler(-8f, -35f, -14f));
             }
 
-            // 1. Nairobi CBD 6-Lane Expressway + KICC + Savanna Coach + Petrol Station
-            SnapAndSave("01_Nairobi_6Lane_CBD.png",
-                AtGround(-12f, -44f, 11.5f), AtGround(2f, 48f, 6.0f));
+            // 1. Total / Mau Summit Roundabout (ZERO stations on roundabout!) + Mau Forest Complex!
+            SnapAndSave("01_Total_Roundabout_And_MauForest.png",
+                AtGround(-715f, 738f, 18f), AtGround(-800f, 768f, 3f));
 
-            // 2. Narok Wildlife Crossing (Zebras, Giraffes & Gazelles on B3!)
-            var narokZone = GameObject.Find("Narok_Suswa_Mara_Crossing");
-            if (narokZone != null)
-            {
-                Vector3 c = FindFirstChildPos(narokZone.transform, new Vector3(-475f, KenyaNetworkData.GetElevationAt(-475f, 135f), 135f));
-                SnapAndSave("02_Narok_Wildlife_Crossing.png",
-                    new Vector3(c.x + 28f, c.y + 8.5f, c.z - 22f),
-                    new Vector3(c.x - 4f, c.y + 1.8f, c.z + 2f));
-            }
+            // 2. Kericho Continuous Sculpted 3D Tea Plantations & Emerald Tea Biome Hills!
+            SnapAndSave("02_Kericho_Emerald_Tea_Hills.png",
+                AtGround(-1085f, 415f, 24f), AtGround(-1005f, 495f, 2f));
 
-            // 3. Kericho & Chebilat Terraced Emerald Tea Plantations + B1 Highway
-            SnapAndSave("03_Kericho_Tea_Plantations.png",
-                AtGround(-1095f, 425f, 28f), AtGround(-1015f, 510f, 2f));
+            // 3. Timboroa Highland Montane Conifer Forest flanking A104 Climbing Lane!
+            SnapAndSave("03_Timboroa_Montane_Forest.png",
+                AtGround(-815f, 895f, 18f), AtGround(-865f, 990f, 6f));
 
-            // 4. Salgaa – Total 3-Lane Climbing Lane + 16.5m Semi-Trailer Transit Truck!
-            var semi = GameObject.Find("HeavyTransit_NakuruSalgaaTrailer") ?? GameObject.Find("HeavyTransit_TotalEldoretTrailer");
-            if (semi != null)
-            {
-                Vector3 s = semi.transform.position;
-                Vector3 f = semi.transform.forward;
-                Vector3 r = semi.transform.right;
-                SnapAndSave("04_Salgaa_Climbing_SemiTrailer.png",
-                    s + f * 22f + r * 11f + Vector3.up * 7.5f,
-                    s + Vector3.up * 2.2f);
-            }
-            else
-            {
-                SnapAndSave("04_Salgaa_Climbing_SemiTrailer.png",
-                    AtGround(-615f, 705f, 16f), AtGround(-675f, 745f, 2f));
-            }
+            // 4. Kakamega Tropical Equatorial Rainforest towering along A1!
+            SnapAndSave("04_Kakamega_Tropical_Rainforest.png",
+                AtGround(-1405f, 1085f, 19f), AtGround(-1355f, 1185f, 8f));
 
-            // 5. Kisumu Lakeside City + Airport + Overhead Jet + Kibuye Market
-            var kisAir = GameObject.Find("Airport_KIS_Kisumu");
-            Vector3 kisTarget = kisAir != null ? kisAir.transform.position : AtGround(-1585f, 905f, 4f);
-            SnapAndSave("05_Kisumu_Airport_And_City.png",
-                kisTarget + new Vector3(88f, 34f, -65f),
-                kisTarget + new Vector3(0f, 11f, 0f));
+            // 5. Tsavo Red-Earth Laterite Corridor with Iconic Bulbous Kenyan Baobab Trees!
+            SnapAndSave("05_Tsavo_Baobabs_RedEarth.png",
+                AtGround(480f, -95f, 14f), AtGround(575f, -155f, 4f));
 
-            // 6. Mombasa Iconic Crossed Tusks + Palms + Coast
-            SnapAndSave("06_Mombasa_Tusks_Coast.png",
-                AtGround(928f, -335f, 9.5f), AtGround(972f, -358f, 5.5f));
+            // 6. Kilifi – Arabuko-Sokoke Coastal Forest, Palms, Golden Sand & Indian Ocean!
+            SnapAndSave("06_Kilifi_Arabuko_Coast.png",
+                AtGround(1125f, -195f, 22f), AtGround(1210f, -45f, 5f));
 
-            // 7. Daraja Mbili Roadside Market (Kisii) + Vibrant Canopies & Produce Stalls!
-            var mkt = GameObject.Find("Market_0_Kisii Town") ?? GameObject.Find("Market_3_Kisumu City");
-            if (mkt != null)
-            {
-                Vector3 mp = mkt.transform.position;
-                Vector3 mf = mkt.transform.forward;
-                Vector3 mr = mkt.transform.right;
-                SnapAndSave("07_Roadside_Market.png",
-                    mp + mf * 22f + mr * 10f + Vector3.up * 8.0f,
-                    mp + Vector3.up * 2.0f);
-            }
+            // 7. Awendo South Nyanza Sugarcane Belt along A1!
+            SnapAndSave("07_Awendo_Sugarcane_Belt.png",
+                AtGround(-1640f, -145f, 15f), AtGround(-1665f, -245f, 3f));
 
-            Debug.Log($"[KenyaMapVerificationCapture] Saved 7 URP regional audit PNGs to {OutDir}");
+            Debug.Log($"[KenyaMapVerificationCapture] Saved 7 ecological & roundabout audit PNGs to {OutDir}");
         }
 
         [MenuItem("Kenya Street Sim/Debug/Start Run In PlayMode")]
@@ -112,6 +80,21 @@ namespace KenyaStreetSim.Editor
             if (Application.isPlaying && StreetGameLoop.Instance != null)
             {
                 StreetGameLoop.Instance.StartRun();
+            }
+        }
+
+        [MenuItem("Kenya Street Sim/Debug/Watch Nairobi Roundabout In PlayMode")]
+        public static void WatchNairobiRoundaboutInPlayMode()
+        {
+            if (!Application.isPlaying) return;
+            StreetGameLoop.Instance?.StartRun();
+            if (Camera.main != null)
+            {
+                var follow = Camera.main.GetComponent<KenyaStreetCamera>();
+                if (follow != null) follow.enabled = false;
+                float ry = KenyaNetworkData.GetElevationAt(0f, 170f);
+                Camera.main.transform.position = new Vector3(-42f, ry + 28f, 128f);
+                Camera.main.transform.LookAt(new Vector3(0f, ry + 1f, 170f));
             }
         }
 
@@ -129,16 +112,6 @@ namespace KenyaStreetSim.Editor
         private static Vector3 AtGround(float x, float z, float yAbove)
         {
             return new Vector3(x, KenyaNetworkData.GetElevationAt(x, z) + yAbove, z);
-        }
-
-        private static Vector3 FindFirstChildPos(Transform parent, Vector3 fallback)
-        {
-            foreach (Transform c in parent)
-            {
-                if (c.name.Contains("Zebra") || c.name.Contains("Giraffe") || c.name.Contains("Elephant"))
-                    return c.position;
-            }
-            return fallback;
         }
 
         private static void SnapAndSave(string filename, Vector3 camPos, Vector3 lookAt)

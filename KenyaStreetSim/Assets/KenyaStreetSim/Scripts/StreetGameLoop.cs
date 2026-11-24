@@ -186,24 +186,51 @@ namespace KenyaStreetSim
         {
             if (hubIndex < 0 || hubIndex >= KenyaNetworkData.Hubs.Length || ActiveVehicle == null) return;
             var hub = KenyaNetworkData.Hubs[hubIndex];
-            Quaternion approxRot = Quaternion.Euler(0f, hub.roadYawDeg, 0f);
-            Vector3 approxFwd = approxRot * Vector3.forward;
 
-            // Snap cleanly onto the actual curved tarmac highway 30m ahead of the selected town's ENA Coach Terminal
-            Vector3 probePos = new Vector3(hub.xz.x, 0f, hub.xz.y) - approxFwd * 30f;
-            Vector3 roadPt = probePos;
-            Vector3 roadFwd = approxFwd;
-            if (KenyaNetworkData.FindNearestRoadPoint(probePos, out Vector3 snappedPt, out Vector3 snappedFwd, out float d) && d < 28f)
+            Vector3 spawn;
+            Quaternion rot;
+            // Always place the player cleanly on the straight/curved highway approaching this town's ACTUAL
+            // verified Bus Stage Terminal (never inside a roundabout island!)
+            if (stages != null && hubIndex < stages.Length && stages[hubIndex] != null)
             {
-                roadPt = snappedPt;
-                roadFwd = Vector3.Dot(snappedFwd, approxFwd) >= 0f ? snappedFwd : -snappedFwd;
+                Transform st = stages[hubIndex].transform;
+                Vector3 stageFwd = st.forward; stageFwd.y = 0f;
+                if (stageFwd.sqrMagnitude < 0.01f) stageFwd = Vector3.forward;
+                stageFwd.Normalize();
+
+                Vector3 probePos = st.position - stageFwd * 24f;
+                if (KenyaNetworkData.FindNearestRoadPoint(probePos, out Vector3 snappedPt, out Vector3 snappedFwd, out float d) &&
+                    d < 22f && KenyaNetworkData.IsClearOfAllRoundabouts(new Vector2(snappedPt.x, snappedPt.z), 12f))
+                {
+                    Vector3 dir = Vector3.Dot(snappedFwd, stageFwd) >= 0f ? snappedFwd : -snappedFwd;
+                    Vector3 left = Vector3.Cross(dir, Vector3.up).normalized;
+                    spawn = snappedPt + left * 3.5f;
+                    rot = Quaternion.LookRotation(dir, Vector3.up);
+                }
+                else
+                {
+                    spawn = st.position - stageFwd * 20f;
+                    rot = Quaternion.LookRotation(stageFwd, Vector3.up);
+                }
+            }
+            else
+            {
+                Quaternion approxRot = Quaternion.Euler(0f, hub.roadYawDeg, 0f);
+                Vector3 approxFwd = approxRot * Vector3.forward;
+                Vector3 probePos = new Vector3(hub.xz.x, 0f, hub.xz.y) - approxFwd * 58f;
+                Vector3 roadPt = probePos;
+                Vector3 roadFwd = approxFwd;
+                if (KenyaNetworkData.FindNearestRoadPoint(probePos, out Vector3 snappedPt, out Vector3 snappedFwd, out float d) && d < 28f)
+                {
+                    roadPt = snappedPt;
+                    roadFwd = Vector3.Dot(snappedFwd, approxFwd) >= 0f ? snappedFwd : -snappedFwd;
+                }
+                Vector3 left = Vector3.Cross(roadFwd, Vector3.up).normalized;
+                spawn = roadPt + left * 3.5f;
+                rot = Quaternion.LookRotation(roadFwd, Vector3.up);
             }
 
-            Vector3 left = Vector3.Cross(roadFwd, Vector3.up).normalized;
-            Vector3 spawn = roadPt + left * 3.4f;
             spawn.y = KenyaNetworkData.GetElevationAt(spawn.x, spawn.z) + 0.35f;
-            Quaternion rot = Quaternion.LookRotation(roadFwd, Vector3.up);
-
             ActiveVehicle.ResetToPose(spawn, rot);
 
             if (streetCamera != null)

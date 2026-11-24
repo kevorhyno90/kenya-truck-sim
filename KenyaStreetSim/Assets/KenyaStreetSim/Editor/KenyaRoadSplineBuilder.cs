@@ -46,13 +46,13 @@ namespace KenyaStreetSim.Editor
                     halfWidths[k] = KenyaNetworkData.GetRoadHalfWidthAt(def, new Vector2(pts[k].x, pts[k].z));
                 }
 
-                // Smooth 3D tarmac ribbon (yOffset = 0.00f) with MeshCollider for silky WheelCollider driving!
-                var tarmacMesh = SaveRoadMesh($"RoadTarmac_{def.id}", BuildVariableRibbonMesh(pts, halfWidths, extraMargin: 0f, yOffset: 0.0f, outerEdgeDrop: 0.0f, uvWidthRepeat: 2.5f, uvMetersPerRepeat: 7f));
+                // Smooth 3D tarmac ribbon (yOffset = 0.00f) — cleanly clips inside roundabout center islands!
+                var tarmacMesh = SaveRoadMesh($"RoadTarmac_{def.id}", BuildVariableRibbonMesh(pts, halfWidths, extraMargin: 0f, yOffset: 0.0f, outerEdgeDrop: 0.0f, uvWidthRepeat: 2.5f, uvMetersPerRepeat: 7f, clipRoundaboutRadiusOffset: -2.0f, clipToInnerIslandOnly: true));
                 var tarmacGo = CreateMeshObj($"Tarmac_{def.id}", root, tarmacMesh, matTarmac, addMeshCollider: true);
                 tarmacGo.isStatic = true;
 
-                // Wide Kenyan red murram road shoulder embankment smoothly sloping down into 3D hills!
-                var shoulderMesh = SaveRoadMesh($"RoadShoulder_{def.id}", BuildVariableRibbonMesh(pts, halfWidths, extraMargin: 9.5f, yOffset: -0.025f, outerEdgeDrop: -0.35f, uvWidthRepeat: 3.5f, uvMetersPerRepeat: 12f));
+                // Wide Kenyan red murram road shoulder embankment — cleanly clipped outside all roundabouts so ZERO brown strips cross roundabout tarmac!
+                var shoulderMesh = SaveRoadMesh($"RoadShoulder_{def.id}", BuildVariableRibbonMesh(pts, halfWidths, extraMargin: 9.5f, yOffset: -0.028f, outerEdgeDrop: -0.35f, uvWidthRepeat: 3.5f, uvMetersPerRepeat: 12f, clipRoundaboutRadiusOffset: 2.5f, clipToInnerIslandOnly: false));
                 CreateMeshObj($"MurramShoulder_{def.id}", root, shoulderMesh, matMurram, addMeshCollider: true).isStatic = true;
 
                 // Left & Right continuous crisp white tarmac edge stripes hugging variable road width!
@@ -121,17 +121,17 @@ namespace KenyaStreetSim.Editor
                 rGo.SetParent(root, false);
                 rGo.position = new Vector3(rb.center.x, centerY, rb.center.y);
 
-                // Smooth circular drivable tarmac disc conforming seamlessly to exact 3D highway elevation!
-                var ringMesh = SaveRoadMesh($"RoundaboutTarmac_{r}", BuildElevationAnnulusMesh(rb.center, centerY, rb.innerRadius - 0.5f, rb.outerRadius, 0.008f, 48));
+                // Smooth circular drivable tarmac disc conforming seamlessly to exact 3D highway elevation (+2.8m outer skirt merges cleanly into every highway!)
+                var ringMesh = SaveRoadMesh($"RoundaboutTarmac_{r}", BuildElevationAnnulusMesh(rb.center, centerY, rb.innerRadius - 0.5f, rb.outerRadius + 2.8f, 0.026f, 48));
                 CreateMeshObj("RoundaboutTarmac", rGo, ringMesh, matTarmac, addMeshCollider: true).isStatic = true;
 
                 // Outer shoulder apron under roundabout
-                var rShoulderMesh = SaveRoadMesh($"RoundaboutShoulder_{r}", BuildElevationAnnulusMesh(rb.center, centerY, 0f, rb.outerRadius + 9.5f, -0.025f, 48));
+                var rShoulderMesh = SaveRoadMesh($"RoundaboutShoulder_{r}", BuildElevationAnnulusMesh(rb.center, centerY, 0f, rb.outerRadius + 11.5f, -0.028f, 48));
                 CreateMeshObj("RoundaboutShoulder", rGo, rShoulderMesh, matMurram, addMeshCollider: true).isStatic = true;
 
                 // White & yellow roundabout ring lane markings
-                var rMarkOuter = SaveRoadMesh($"RoundaboutOuterMark_{r}", BuildElevationAnnulusMesh(rb.center, centerY, rb.outerRadius - 0.7f, rb.outerRadius - 0.48f, 0.020f, 48));
-                var rMarkMid = SaveRoadMesh($"RoundaboutMidMark_{r}", BuildElevationAnnulusMesh(rb.center, centerY, (rb.innerRadius + rb.outerRadius) * 0.5f - 0.10f, (rb.innerRadius + rb.outerRadius) * 0.5f + 0.10f, 0.020f, 48));
+                var rMarkOuter = SaveRoadMesh($"RoundaboutOuterMark_{r}", BuildElevationAnnulusMesh(rb.center, centerY, rb.outerRadius - 0.7f, rb.outerRadius - 0.48f, 0.038f, 48));
+                var rMarkMid = SaveRoadMesh($"RoundaboutMidMark_{r}", BuildElevationAnnulusMesh(rb.center, centerY, (rb.innerRadius + rb.outerRadius) * 0.5f - 0.10f, (rb.innerRadius + rb.outerRadius) * 0.5f + 0.10f, 0.038f, 48));
                 CreateMeshObj("RoundaboutOuterLine", rGo, rMarkOuter, matWhiteLine, false).isStatic = true;
                 CreateMeshObj("RoundaboutMidLine", rGo, rMarkMid, matYellowLine, false).isStatic = true;
 
@@ -155,12 +155,23 @@ namespace KenyaStreetSim.Editor
             AssetDatabase.SaveAssets();
         }
 
-        private static Mesh BuildVariableRibbonMesh(List<Vector3> pts, float[] halfWidths, float extraMargin, float yOffset, float outerEdgeDrop, float uvWidthRepeat, float uvMetersPerRepeat)
+        private static bool IsInsideAnyRoundaboutClip(Vector2 xz, float radiusOffset, bool innerIslandOnly)
+        {
+            for (int r = 0; r < KenyaNetworkData.Roundabouts.Length; r++)
+            {
+                var rb = KenyaNetworkData.Roundabouts[r];
+                float rad = (innerIslandOnly ? rb.innerRadius : rb.outerRadius) + radiusOffset;
+                if (Vector2.Distance(xz, rb.center) < rad) return true;
+            }
+            return false;
+        }
+
+        private static Mesh BuildVariableRibbonMesh(List<Vector3> pts, float[] halfWidths, float extraMargin, float yOffset, float outerEdgeDrop, float uvWidthRepeat, float uvMetersPerRepeat, float clipRoundaboutRadiusOffset, bool clipToInnerIslandOnly)
         {
             int n = pts.Count;
             var verts = new Vector3[n * 2];
             var uvs = new Vector2[n * 2];
-            var tris = new int[(n - 1) * 6];
+            var tris = new List<int>((n - 1) * 6);
 
             float dist = 0f;
             for (int i = 0; i < n; i++)
@@ -173,7 +184,6 @@ namespace KenyaStreetSim.Editor
                 Vector3 p = pts[i];
                 Vector3 vL = p - right * hw;
                 Vector3 vR = p + right * hw;
-                // Keep tarmac laterally level for realistic driving; shoulders droop gently into hillsides!
                 vL.y = p.y + yOffset + outerEdgeDrop;
                 vR.y = p.y + yOffset + outerEdgeDrop;
 
@@ -185,24 +195,21 @@ namespace KenyaStreetSim.Editor
                 uvs[i * 2 + 1] = new Vector2(uvWidthRepeat, vCoord);
             }
 
-            int ti = 0;
             for (int i = 0; i < n - 1; i++)
             {
+                Vector2 mid = new Vector2((pts[i].x + pts[i + 1].x) * 0.5f, (pts[i].z + pts[i + 1].z) * 0.5f);
+                if (IsInsideAnyRoundaboutClip(mid, clipRoundaboutRadiusOffset, clipToInnerIslandOnly)) continue;
+
                 int i0 = i * 2;
                 int i1 = i0 + 1;
                 int i2 = i0 + 2;
                 int i3 = i0 + 3;
 
-                tris[ti++] = i0;
-                tris[ti++] = i2;
-                tris[ti++] = i1;
-
-                tris[ti++] = i1;
-                tris[ti++] = i2;
-                tris[ti++] = i3;
+                tris.Add(i0); tris.Add(i2); tris.Add(i1);
+                tris.Add(i1); tris.Add(i2); tris.Add(i3);
             }
 
-            return FinalizeMesh(verts, uvs, tris);
+            return FinalizeMesh(verts, uvs, tris.ToArray());
         }
 
         private static Mesh BuildVariableEdgeStripMesh(List<Vector3> pts, float[] halfWidths, float sideSign, float insetFromEdge, float halfWidth, float yOffset)
@@ -210,7 +217,7 @@ namespace KenyaStreetSim.Editor
             int n = pts.Count;
             var verts = new Vector3[n * 2];
             var uvs = new Vector2[n * 2];
-            var tris = new int[(n - 1) * 6];
+            var tris = new List<int>((n - 1) * 6);
 
             for (int i = 0; i < n; i++)
             {
@@ -226,17 +233,19 @@ namespace KenyaStreetSim.Editor
                 uvs[i * 2 + 1] = new Vector2(1f, i);
             }
 
-            int ti = 0;
             for (int i = 0; i < n - 1; i++)
             {
+                Vector2 mid = new Vector2((pts[i].x + pts[i + 1].x) * 0.5f, (pts[i].z + pts[i + 1].z) * 0.5f);
+                if (IsInsideAnyRoundaboutClip(mid, 1.5f, false)) continue;
+
                 int i0 = i * 2;
                 int i1 = i0 + 1;
                 int i2 = i0 + 2;
                 int i3 = i0 + 3;
-                tris[ti++] = i0; tris[ti++] = i2; tris[ti++] = i1;
-                tris[ti++] = i1; tris[ti++] = i2; tris[ti++] = i3;
+                tris.Add(i0); tris.Add(i2); tris.Add(i1);
+                tris.Add(i1); tris.Add(i2); tris.Add(i3);
             }
-            return FinalizeMesh(verts, uvs, tris);
+            return FinalizeMesh(verts, uvs, tris.ToArray());
         }
 
         private static Mesh BuildOffsetStripMesh(List<Vector3> pts, float[] halfWidths, float lateralOffset, float halfWidth, float yOffset, bool dashed, float minRequiredHalfW)
@@ -249,8 +258,9 @@ namespace KenyaStreetSim.Editor
             for (int i = 0; i < pts.Count - 1; i++)
             {
                 float segLen = Vector3.Distance(pts[i], pts[i + 1]);
+                Vector2 mid = new Vector2((pts[i].x + pts[i + 1].x) * 0.5f, (pts[i].z + pts[i + 1].z) * 0.5f);
                 bool wideEnough = halfWidths[i] >= minRequiredHalfW && halfWidths[i + 1] >= minRequiredHalfW;
-                bool draw = wideEnough && (!dashed || (((dist / 9.5f) % 1f) < 0.46f));
+                bool draw = wideEnough && !IsInsideAnyRoundaboutClip(mid, 1.5f, false) && (!dashed || (((dist / 9.5f) % 1f) < 0.46f));
                 dist += segLen;
                 if (!draw) continue;
 

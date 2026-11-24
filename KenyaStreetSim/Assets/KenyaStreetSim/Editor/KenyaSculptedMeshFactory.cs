@@ -6,8 +6,10 @@ using UnityEngine;
 namespace KenyaStreetSim.Editor
 {
     /// <summary>
-    /// Builds and persists smooth, sculpted UV-mapped Unity Mesh assets so vehicles, trees,
-    /// and the surrounding Kenyan Ngong Hills / Rift Valley landscape look realistic rather than boxy primitives.
+    /// Builds and persists smooth, sculpted UV-mapped Unity Mesh assets so vehicles,
+    /// authentic Kenyan flora (Acacia, Coastal Palm, Montane Conifer, Kakamega Rainforest Giant,
+    /// Tsavo Baobab, Awendo Sugarcane & Plucked Kericho Tea Hedges), and the 3D national biome terrain
+    /// look realistic and lush across the entire Republic of Kenya.
     /// </summary>
     public static class KenyaSculptedMeshFactory
     {
@@ -23,6 +25,14 @@ namespace KenyaStreetSim.Editor
         public static Mesh TreeFoliageMesh { get; private set; }
         public static Mesh PalmTrunkMesh { get; private set; }
         public static Mesh PalmCrownMesh { get; private set; }
+        public static Mesh ConiferTrunkMesh { get; private set; }
+        public static Mesh ConiferCrownMesh { get; private set; }
+        public static Mesh RainforestTrunkMesh { get; private set; }
+        public static Mesh RainforestCrownMesh { get; private set; }
+        public static Mesh BaobabTrunkMesh { get; private set; }
+        public static Mesh BaobabCrownMesh { get; private set; }
+        public static Mesh SugarcaneClusterMesh { get; private set; }
+        public static Mesh TeaHedgeSegmentMesh { get; private set; }
         public static Mesh RiftValleyTerrainMesh { get; private set; }
 
         public static void BuildAllMeshes()
@@ -35,7 +45,6 @@ namespace KenyaStreetSim.Editor
             EnaCoachUpperMesh = SaveMesh("M_EnaCoachUpper", BuildLoftedBoxProfile(
                 new[]
                 {
-                    // (z, halfWidth, bottomY, topY, roofInset) — solid aerodynamic rear-to-A-pillar coach body!
                     (-5.82f, 1.24f, 1.56f, 3.30f, 0.14f),
                     (-5.55f, 1.27f, 1.56f, 3.44f, 0.11f),
                     ( 4.25f, 1.27f, 1.56f, 3.44f, 0.11f),
@@ -52,7 +61,6 @@ namespace KenyaStreetSim.Editor
                     ( 5.95f, 1.08f, 0.68f, 1.52f, 0.06f)
                 }));
 
-            // Sleek aerodynamic sloped front roof cap above the windshield (keeps windshield completely clear for RHD Cockpit!)
             EnaCoachWindshieldMesh = SaveMesh("M_EnaCoachRoofBrow", BuildLoftedBoxProfile(
                 new[]
                 {
@@ -96,6 +104,14 @@ namespace KenyaStreetSim.Editor
             TreeFoliageMesh = SaveMesh("M_AcaciaTreeFoliage", BuildLeafyFoliageCardsMesh());
             PalmTrunkMesh = SaveMesh("M_KenyaPalmTrunk", BuildPalmTrunkMesh());
             PalmCrownMesh = SaveMesh("M_KenyaPalmCrown", BuildPalmCrownMesh());
+            ConiferTrunkMesh = SaveMesh("M_KenyaConiferTrunk", BuildConiferTrunkMesh());
+            ConiferCrownMesh = SaveMesh("M_KenyaConiferCrown", BuildConiferCrownMesh());
+            RainforestTrunkMesh = SaveMesh("M_KenyaRainforestTrunk", BuildRainforestTrunkMesh());
+            RainforestCrownMesh = SaveMesh("M_KenyaRainforestCrown", BuildRainforestCrownMesh());
+            BaobabTrunkMesh = SaveMesh("M_KenyaBaobabTrunk", BuildBaobabTrunkMesh());
+            BaobabCrownMesh = SaveMesh("M_KenyaBaobabCrown", BuildBaobabCrownMesh());
+            SugarcaneClusterMesh = SaveMesh("M_KenyaSugarcaneCluster", BuildSugarcaneClusterMesh());
+            TeaHedgeSegmentMesh = SaveMesh("M_KenyaTeaHedgeSegment", BuildTeaHedgeSegmentMesh());
             RiftValleyTerrainMesh = SaveMesh("M_KenyanRiftValleyTerrain", BuildFullKenyaTerrain());
 
             AssetDatabase.SaveAssets();
@@ -124,16 +140,13 @@ namespace KenyaStreetSim.Editor
             return mesh;
         }
 
-        /// <summary>
-        /// Lofts a clean, bevel-crowned 8-vertex cross-section along Z slices to produce smooth automotive silhouettes.
-        /// </summary>
         private static Mesh BuildLoftedBoxProfile((float z, float hw, float botY, float topY, float inset)[] slices)
         {
             var verts = new List<Vector3>();
             var uvs = new List<Vector2>();
             var tris = new List<int>();
 
-            const int ringVerts = 8; // chamfered octagon ring
+            const int ringVerts = 8;
             for (int s = 0; s < slices.Length; s++)
             {
                 var (z, hw, by, ty, inset) = slices[s];
@@ -141,7 +154,6 @@ namespace KenyaStreetSim.Editor
                 float botChamfY = by + Mathf.Min(0.14f, (ty - by) * 0.15f);
                 float botInset = Mathf.Min(0.08f, hw * 0.08f);
 
-                // Clockwise looking down +Z
                 Vector3[] ring =
                 {
                     new Vector3(-hw + botInset, by, z),
@@ -162,7 +174,6 @@ namespace KenyaStreetSim.Editor
                 }
             }
 
-            // Connect consecutive rings with verified OUTWARD-facing left-handed Unity winding!
             for (int s = 0; s < slices.Length - 1; s++)
             {
                 int a0 = s * ringVerts;
@@ -180,7 +191,6 @@ namespace KenyaStreetSim.Editor
                 }
             }
 
-            // Dedicated flat-normal Rear Cap (-Z) so rear bus wall renders crisp, bright, and solid!
             int rearCenter = verts.Count;
             var first = slices[0];
             verts.Add(new Vector3(0f, (first.botY + first.topY) * 0.5f, first.z));
@@ -199,7 +209,6 @@ namespace KenyaStreetSim.Editor
                 tris.Add(rearRingStart + rn);
             }
 
-            // Dedicated flat-normal Front Cap (+Z)
             int frontCenter = verts.Count;
             int lastStart = (slices.Length - 1) * ringVerts;
             var last = slices[slices.Length - 1];
@@ -219,14 +228,7 @@ namespace KenyaStreetSim.Editor
                 tris.Add(frontRingStart + r);
             }
 
-            var mesh = new Mesh();
-            mesh.SetVertices(verts);
-            mesh.SetUVs(0, uvs);
-            mesh.SetTriangles(tris, 0);
-            mesh.RecalculateNormals();
-            mesh.RecalculateTangents();
-            mesh.RecalculateBounds();
-            return mesh;
+            return BuildSimpleMesh(verts, uvs, tris);
         }
 
         private static Mesh BuildBranchingTrunkMesh()
@@ -235,10 +237,8 @@ namespace KenyaStreetSim.Editor
             var uvs = new List<Vector2>();
             var tris = new List<int>();
 
-            // Main slightly curved tapered trunk
             AddTaperedTube(verts, uvs, tris, new Vector3(0f, 0f, 0f), new Vector3(0.08f, 2.75f, 0.04f), 0.24f, 0.14f, 7);
 
-            // 5 forked Kenyan acacia/shade upper boughs
             Vector3 fork = new Vector3(0.06f, 2.35f, 0.03f);
             Vector3[] tips =
             {
@@ -254,14 +254,7 @@ namespace KenyaStreetSim.Editor
                 AddTaperedTube(verts, uvs, tris, fork, tips[i], 0.11f, 0.04f, 6);
             }
 
-            var mesh = new Mesh();
-            mesh.SetVertices(verts);
-            mesh.SetUVs(0, uvs);
-            mesh.SetTriangles(tris, 0);
-            mesh.RecalculateNormals();
-            mesh.RecalculateTangents();
-            mesh.RecalculateBounds();
-            return mesh;
+            return BuildSimpleMesh(verts, uvs, tris);
         }
 
         private static Mesh BuildLeafyFoliageCardsMesh()
@@ -270,7 +263,6 @@ namespace KenyaStreetSim.Editor
             var uvs = new List<Vector2>();
             var tris = new List<int>();
 
-            // 34 overlapping alpha-clipped organic leaf-cluster cards forming a realistic broad Kenyan acacia crown
             var rng = new System.Random(88421);
             Vector3[] centers =
             {
@@ -289,7 +281,6 @@ namespace KenyaStreetSim.Editor
 
             foreach (var c in centers)
             {
-                // 3 intersecting angled quads per branch cluster for full 3D depth from every camera angle
                 for (int q = 0; q < 3; q++)
                 {
                     float yaw = q * 60f + (float)(rng.NextDouble() * 35.0);
@@ -302,14 +293,7 @@ namespace KenyaStreetSim.Editor
                 }
             }
 
-            var mesh = new Mesh();
-            mesh.SetVertices(verts);
-            mesh.SetUVs(0, uvs);
-            mesh.SetTriangles(tris, 0);
-            mesh.RecalculateNormals();
-            mesh.RecalculateTangents();
-            mesh.RecalculateBounds();
-            return mesh;
+            return BuildSimpleMesh(verts, uvs, tris);
         }
 
         private static Mesh BuildPalmTrunkMesh()
@@ -317,7 +301,6 @@ namespace KenyaStreetSim.Editor
             var verts = new List<Vector3>();
             var uvs = new List<Vector2>();
             var tris = new List<int>();
-            // Gently curving coastal Mombasa / Lake Victoria palm trunk (8.2m tall)
             Vector3[] spine =
             {
                 new Vector3(0.00f, 0.0f, 0.00f),
@@ -331,14 +314,7 @@ namespace KenyaStreetSim.Editor
             {
                 AddTaperedTube(verts, uvs, tris, spine[i], spine[i + 1], radii[i], radii[i + 1], 7);
             }
-            var mesh = new Mesh();
-            mesh.SetVertices(verts);
-            mesh.SetUVs(0, uvs);
-            mesh.SetTriangles(tris, 0);
-            mesh.RecalculateNormals();
-            mesh.RecalculateTangents();
-            mesh.RecalculateBounds();
-            return mesh;
+            return BuildSimpleMesh(verts, uvs, tris);
         }
 
         private static Mesh BuildPalmCrownMesh()
@@ -347,7 +323,6 @@ namespace KenyaStreetSim.Editor
             var uvs = new List<Vector2>();
             var tris = new List<int>();
             Vector3 top = new Vector3(0.45f, 8.15f, 0.14f);
-            // 10 gracefully arching tropical palm fronds
             for (int i = 0; i < 10; i++)
             {
                 float yaw = i * 36f + (i % 2) * 12f;
@@ -356,6 +331,194 @@ namespace KenyaStreetSim.Editor
                 Vector3 frondMid = top + rot * new Vector3(0f, 0.45f, 1.85f);
                 AddQuad(verts, uvs, tris, frondMid, rot * Quaternion.Euler(85f, 0f, 0f), 1.35f, 3.6f);
             }
+            return BuildSimpleMesh(verts, uvs, tris);
+        }
+
+        // Towering Mau / Timboroa / Karura Highland Pine, Cypress & Cedar Montane Conifer Trunk (14.5m tall!)
+        private static Mesh BuildConiferTrunkMesh()
+        {
+            var verts = new List<Vector3>();
+            var uvs = new List<Vector2>();
+            var tris = new List<int>();
+            AddTaperedTube(verts, uvs, tris, new Vector3(0f, 0f, 0f), new Vector3(0.05f, 7.2f, 0.03f), 0.34f, 0.18f, 6);
+            AddTaperedTube(verts, uvs, tris, new Vector3(0.05f, 7.0f, 0.03f), new Vector3(0.02f, 13.8f, 0f), 0.18f, 0.04f, 6);
+            return BuildSimpleMesh(verts, uvs, tris);
+        }
+
+        // Tiered evergreen Montane Conifer boughs (4 overlapping dark-emerald pine/cypress skirts!)
+        private static Mesh BuildConiferCrownMesh()
+        {
+            var verts = new List<Vector3>();
+            var uvs = new List<Vector2>();
+            var tris = new List<int>();
+            (float botY, float topY, float rad)[] tiers =
+            {
+                ( 3.6f,  8.2f, 3.35f),
+                ( 6.3f, 10.7f, 2.80f),
+                ( 8.7f, 12.9f, 2.15f),
+                (10.9f, 14.9f, 1.38f)
+            };
+            const int sides = 8;
+            for (int t = 0; t < tiers.Length; t++)
+            {
+                var (by, ty, r) = tiers[t];
+                float yawOff = t * 0.42f;
+                int baseIdx = verts.Count;
+                verts.Add(new Vector3(0f, ty, 0f));
+                uvs.Add(new Vector2(0.5f, 1f));
+                for (int s = 0; s <= sides; s++)
+                {
+                    float a = yawOff + ((float)s / sides) * Mathf.PI * 2f;
+                    verts.Add(new Vector3(Mathf.Cos(a) * r, by, Mathf.Sin(a) * r));
+                    uvs.Add(new Vector2((float)s / sides, 0f));
+                }
+                for (int s = 0; s < sides; s++)
+                {
+                    tris.Add(baseIdx);
+                    tris.Add(baseIdx + 1 + s + 1);
+                    tris.Add(baseIdx + 1 + s);
+                }
+            }
+            return BuildSimpleMesh(verts, uvs, tris);
+        }
+
+        // Towering Kakamega Tropical Rainforest Broadleaf Buttressed Giant (17m tall!)
+        private static Mesh BuildRainforestTrunkMesh()
+        {
+            var verts = new List<Vector3>();
+            var uvs = new List<Vector2>();
+            var tris = new List<int>();
+            AddTaperedTube(verts, uvs, tris, new Vector3(0f, 0f, 0f), new Vector3(0.12f, 9.5f, 0.08f), 0.56f, 0.30f, 7);
+            Vector3 fork = new Vector3(0.12f, 8.8f, 0.08f);
+            Vector3[] limbs =
+            {
+                new Vector3( 3.2f, 12.8f,  1.4f),
+                new Vector3(-3.0f, 13.0f,  1.8f),
+                new Vector3( 1.2f, 13.4f, -3.1f),
+                new Vector3(-2.4f, 12.6f, -2.2f),
+                new Vector3( 0.2f, 14.5f,  0.4f)
+            };
+            for (int i = 0; i < limbs.Length; i++)
+                AddTaperedTube(verts, uvs, tris, fork, limbs[i], 0.22f, 0.08f, 6);
+            return BuildSimpleMesh(verts, uvs, tris);
+        }
+
+        private static Mesh BuildRainforestCrownMesh()
+        {
+            var verts = new List<Vector3>();
+            var uvs = new List<Vector2>();
+            var tris = new List<int>();
+            var rng = new System.Random(55109);
+            Vector3[] clusters =
+            {
+                new Vector3( 0.0f, 14.6f,  0.0f),
+                new Vector3( 3.1f, 12.8f,  1.4f),
+                new Vector3(-3.0f, 13.0f,  1.7f),
+                new Vector3( 1.3f, 13.2f, -3.0f),
+                new Vector3(-2.5f, 12.6f, -2.1f),
+                new Vector3( 2.2f, 11.4f, -1.5f),
+                new Vector3(-1.8f, 11.6f,  2.4f),
+                new Vector3( 0.4f, 16.0f,  0.3f)
+            };
+            foreach (var c in clusters)
+            {
+                for (int q = 0; q < 3; q++)
+                {
+                    float yaw = q * 60f + (float)(rng.NextDouble() * 35.0);
+                    float pitch = (float)(rng.NextDouble() * 44.0 - 22.0);
+                    Quaternion rot = Quaternion.Euler(pitch, yaw, 0f);
+                    float sz = 3.3f + (float)rng.NextDouble() * 1.1f;
+                    AddQuad(verts, uvs, tris, c, rot, sz, sz);
+                }
+            }
+            return BuildSimpleMesh(verts, uvs, tris);
+        }
+
+        // Iconic Bulbous Kenyan Tsavo / Coastal Baobab Tree!
+        private static Mesh BuildBaobabTrunkMesh()
+        {
+            var verts = new List<Vector3>();
+            var uvs = new List<Vector2>();
+            var tris = new List<int>();
+            AddTaperedTube(verts, uvs, tris, new Vector3(0f, 0f, 0f), new Vector3(0.06f, 2.8f, 0f), 1.42f, 1.16f, 8);
+            AddTaperedTube(verts, uvs, tris, new Vector3(0.06f, 2.6f, 0f), new Vector3(0.08f, 6.2f, 0.04f), 1.16f, 0.74f, 8);
+            Vector3 crownBase = new Vector3(0.08f, 5.9f, 0.04f);
+            Vector3[] arms =
+            {
+                new Vector3( 3.6f, 8.6f,  1.2f),
+                new Vector3(-3.4f, 8.8f,  1.6f),
+                new Vector3( 0.9f, 9.1f, -3.5f),
+                new Vector3(-2.6f, 8.4f, -2.3f),
+                new Vector3( 2.1f, 9.2f, -1.8f),
+                new Vector3(-0.3f, 9.6f,  2.8f)
+            };
+            for (int i = 0; i < arms.Length; i++)
+                AddTaperedTube(verts, uvs, tris, crownBase, arms[i], 0.36f, 0.09f, 6);
+            return BuildSimpleMesh(verts, uvs, tris);
+        }
+
+        private static Mesh BuildBaobabCrownMesh()
+        {
+            var verts = new List<Vector3>();
+            var uvs = new List<Vector2>();
+            var tris = new List<int>();
+            var rng = new System.Random(90817);
+            Vector3[] tips =
+            {
+                new Vector3( 3.6f, 8.8f,  1.2f),
+                new Vector3(-3.4f, 9.0f,  1.6f),
+                new Vector3( 0.9f, 9.3f, -3.5f),
+                new Vector3(-2.6f, 8.6f, -2.3f),
+                new Vector3( 2.1f, 9.4f, -1.8f),
+                new Vector3(-0.3f, 9.8f,  2.8f),
+                new Vector3( 0.0f, 10.2f, 0.0f)
+            };
+            foreach (var c in tips)
+            {
+                for (int q = 0; q < 2; q++)
+                {
+                    Quaternion rot = Quaternion.Euler((float)(rng.NextDouble() * 34.0 - 17.0), q * 85f + (float)(rng.NextDouble() * 40.0), 0f);
+                    float sz = 2.4f + (float)rng.NextDouble() * 0.7f;
+                    AddQuad(verts, uvs, tris, c, rot, sz, sz * 0.85f);
+                }
+            }
+            return BuildSimpleMesh(verts, uvs, tris);
+        }
+
+        // Tall Dense Awendo / Muhoroni / Mumias Kenyan Sugarcane Stalk Clump (3.2m tall!)
+        private static Mesh BuildSugarcaneClusterMesh()
+        {
+            var verts = new List<Vector3>();
+            var uvs = new List<Vector2>();
+            var tris = new List<int>();
+            var rng = new System.Random(31415);
+            for (int i = 0; i < 6; i++)
+            {
+                float ox = (float)(rng.NextDouble() * 3.8 - 1.9);
+                float oz = (float)(rng.NextDouble() * 3.8 - 1.9);
+                float yaw = (float)(rng.NextDouble() * 180.0);
+                float h = 2.75f + (float)rng.NextDouble() * 0.85f;
+                AddQuad(verts, uvs, tris, new Vector3(ox, h * 0.5f, oz), Quaternion.Euler(0f, yaw, 0f), 3.0f, h);
+                AddQuad(verts, uvs, tris, new Vector3(ox, h * 0.5f, oz), Quaternion.Euler(0f, yaw + 90f, 0f), 3.0f, h);
+            }
+            return BuildSimpleMesh(verts, uvs, tris);
+        }
+
+        // Sculpted Rounded Flat-Topped Plucked Kericho / Chebilat Tea Hedge Row Segment (10.4m x 3.9m x 1.3m!)
+        private static Mesh BuildTeaHedgeSegmentMesh()
+        {
+            return BuildLoftedBoxProfile(new[]
+            {
+                (-5.2f, 1.50f, -0.55f, 0.92f, 0.44f),
+                (-4.0f, 1.96f, -0.55f, 1.25f, 0.48f),
+                ( 0.0f, 2.02f, -0.55f, 1.32f, 0.52f),
+                ( 4.0f, 1.96f, -0.55f, 1.25f, 0.48f),
+                ( 5.2f, 1.50f, -0.55f, 0.92f, 0.44f)
+            });
+        }
+
+        private static Mesh BuildSimpleMesh(List<Vector3> verts, List<Vector2> uvs, List<int> tris)
+        {
             var mesh = new Mesh();
             mesh.SetVertices(verts);
             mesh.SetUVs(0, uvs);
@@ -368,8 +531,6 @@ namespace KenyaStreetSim.Editor
 
         private static Mesh BuildFullKenyaTerrain()
         {
-            // Expanded National Republic of Kenya 3D Topography Grid:
-            // Covers Sori/Migori/Homa Bay/Kisumu/Malaba/Kitale (West/North) -> Rift/Kericho/Nairobi -> Mombasa/Kilifi/Malindi (East)!
             const int resX = 188;
             const int resZ = 132;
             const float minX = -2280f;
@@ -377,7 +538,6 @@ namespace KenyaStreetSim.Editor
             const float minZ = -660f;
             const float maxZ = 1800f;
 
-            // Pre-sample all 15 highway splines into coarse 2D polyline segments for blazing-fast clearance checks
             var roadSegs = new List<(Vector2 a, Vector2 b, float hw)>();
             for (int h = 0; h < KenyaNetworkData.Highways.Length; h++)
             {
@@ -396,6 +556,14 @@ namespace KenyaStreetSim.Editor
             var uvs = new Vector2[verts.Length];
             var tris = new int[resX * resZ * 6];
 
+            Vector2[] airportSites =
+            {
+                new Vector2(  135f,  -45f),
+                new Vector2(-1615f,  915f),
+                new Vector2(-1075f, 1085f),
+                new Vector2(  840f, -455f),
+            };
+
             for (int iz = 0; iz <= resZ; iz++)
             {
                 float vz = (float)iz / resZ;
@@ -407,10 +575,8 @@ namespace KenyaStreetSim.Editor
                     float wx = Mathf.Lerp(minX, maxX, ux);
                     Vector2 p = new Vector2(wx, wz);
 
-                    // Authoritative smooth 3D Kenyan elevation Y (flat plains vs steep Rift/Mau/Kericho/Kisii slopes!)
                     float baseY = KenyaNetworkData.GetElevationAt(p);
 
-                    // Compute shortest distance to ANY Kenyan highway edge, roundabout, or town center!
                     float minDist = float.MaxValue;
                     for (int s = 0; s < roadSegs.Count; s++)
                     {
@@ -432,21 +598,12 @@ namespace KenyaStreetSim.Editor
                         float dRbt = Vector2.Distance(p, KenyaNetworkData.Roundabouts[r].center) - (KenyaNetworkData.Roundabouts[r].outerRadius + 16f);
                         if (dRbt < minDist) minDist = Mathf.Max(0f, dRbt);
                     }
-                    // Keep all 4 International Airport plateaus (JKIA Nairobi, Kisumu, Eldoret, Moi Mombasa) dead-flat for runways & terminals!
-                    Vector2[] airportSites =
-                    {
-                        new Vector2(  135f,  -45f),
-                        new Vector2(-1615f,  915f),
-                        new Vector2(-1075f, 1085f),
-                        new Vector2(  840f, -455f),
-                    };
                     for (int a = 0; a < airportSites.Length; a++)
                     {
                         float dAir = Vector2.Distance(p, airportSites[a]) - 78f;
                         if (dAir < minDist) minDist = Mathf.Max(0f, dAir);
                     }
 
-                    // Keep dry around Sori/Homa Bay/Kendu Bay/Kisumu & Mombasa/Kilifi/Malindi; dip smoothly under Lake Victoria & Indian Ocean!
                     bool inLakeVictoria = ((wx < -1895f && wz > 120f && wz < 980f) || (wx < -2045f && wz > -260f && wz < 980f) || (wx < -1600f && wz > 560f && wz < 790f && minDist > 42f));
                     bool inIndianOcean  = ((wx > 1075f && wz < -395f) || (wx > 1245f && wz < -180f) || (wx > 1345f && wz < 240f));
 
@@ -457,9 +614,7 @@ namespace KenyaStreetSim.Editor
                     }
                     else
                     {
-                        // Smooth scenic mountains & escarpment walls strictly outside road/town footprints!
                         float hillMask = SmoothRange(36f, 150f, minDist);
-                        // Keep Coast, Lake Basin & Narok Savanna gentle/flat, while Rift Escarpment, Mau, Kericho & Kisii tower dramatically!
                         bool isFlatPlain = (wx > 760f && wz < 120f) || (wx < -1720f && wz < 680f) || (wx > -760f && wx < -320f && wz < 260f);
                         float regionScale = isFlatPlain ? 0.30f : ((wx < -180f && wz > 120f) ? 1.35f : 0.95f);
 
@@ -472,7 +627,8 @@ namespace KenyaStreetSim.Editor
 
                     int idx = iz * (resX + 1) + ix;
                     verts[idx] = new Vector3(wx, y, wz);
-                    uvs[idx] = new Vector2(wx * 0.045f, wz * 0.045f);
+                    // Exact 0..1 national biome UV matching KenyaBiomeMap.png!
+                    uvs[idx] = new Vector2(ux, vz);
                 }
             }
 

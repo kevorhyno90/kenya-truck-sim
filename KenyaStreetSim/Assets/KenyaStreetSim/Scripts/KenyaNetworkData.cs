@@ -655,6 +655,135 @@ namespace KenyaStreetSim
         }
 
         /// <summary>
+        /// Returns signed horizontal distance from xz to the outer tarmac edge of the nearest roundabout.
+        /// Negative = inside roundabout tarmac/island; Positive = meters outside outer roundabout edge.
+        /// </summary>
+        public static float DistanceToNearestRoundaboutEdge(Vector2 xz)
+        {
+            float minClear = float.MaxValue;
+            for (int r = 0; r < Roundabouts.Length; r++)
+            {
+                var rb = Roundabouts[r];
+                float clear = Vector2.Distance(xz, rb.center) - rb.outerRadius;
+                if (clear < minClear) minClear = clear;
+            }
+            return minClear;
+        }
+
+        public static bool IsClearOfAllRoundabouts(Vector2 xz, float minBufferFromOuterEdge = 24f)
+        {
+            return DistanceToNearestRoundaboutEdge(xz) >= minBufferFromOuterEdge;
+        }
+
+        /// <summary>
+        /// Guarantees a 100% roundabout-clear highway point for any town's Coach Bus Stage Terminal.
+        /// Searches all highways touching hubXZ in BOTH directions along the curve until the bay & shelter
+        /// sit strictly >= minRoundaboutBuffer outside EVERY roundabout!
+        /// </summary>
+        public static bool FindRoundaboutClearStageSite(
+            Vector2 hubXZ, float approxYawDeg, float minRoundaboutBuffer,
+            out Vector3 roadPoint, out Vector3 roadForward, out float approxArcFromHub)
+        {
+            EnsureCachedSamples();
+            Vector3 approxFwd = Quaternion.Euler(0f, approxYawDeg, 0f) * Vector3.forward;
+
+            // Gather all nearby highway anchor points within 95m of hubXZ sorted by closeness
+            var anchors = new List<(int h, int idx, float dist)>();
+            for (int h = 0; h < cachedDenseSamples.Length; h++)
+            {
+                var pts = cachedDenseSamples[h];
+                int bestI = -1;
+                float bestD = float.MaxValue;
+                for (int i = 0; i < pts.Count; i++)
+                {
+                    float d = Vector2.Distance(hubXZ, new Vector2(pts[i].x, pts[i].z));
+                    if (d < bestD) { bestD = d; bestI = i; }
+                }
+                if (bestI >= 0 && bestD < 95f) anchors.Add((h, bestI, bestD));
+            }
+            anchors.Sort((a, b) => a.dist.CompareTo(b.dist));
+
+            // Walk outward from each anchor in steps of ~8m along both curve directions
+            int[] stepCounts = { 0, 8, -8, 11, -11, 14, -14, 18, -18, 22, -22, 6, -6 };
+            for (int a = 0; a < anchors.Count; a++)
+            {
+                var (h, startI, _) = anchors[a];
+                var pts = cachedDenseSamples[h];
+                for (int s = 0; s < stepCounts.Length; s++)
+                {
+                    int idx = startI + stepCounts[s];
+                    if (idx < 1 || idx >= pts.Count - 1) continue;
+
+                    Vector3 pt = pts[idx];
+                    Vector3 fwd = pts[Mathf.Min(pts.Count - 1, idx + 1)] - pts[Mathf.Max(0, idx - 1)];
+                    fwd.y = 0f;
+                    if (fwd.sqrMagnitude < 0.001f) continue;
+                    fwd.Normalize();
+                    if (Vector3.Dot(fwd, approxFwd) < 0f) fwd = -fwd;
+
+                    Vector3 right = Vector3.Cross(Vector3.up, fwd).normalized;
+                    float hw = IsInsideMajorCityCorridor(new Vector2(pt.x, pt.z)) ? 10.6f : 7.4f;
+                    Vector3 bayPos = pt - right * (hw - 2.6f);
+                    Vector3 shelterPos = bayPos - right * 5.8f;
+                    float yaw = Mathf.Atan2(fwd.x, fwd.z) * Mathf.Rad2Deg;
+
+                    if (IsClearOfAllRoundabouts(new Vector2(pt.x, pt.z), minRoundaboutBuffer) &&
+                        IsClearOfAllRoundabouts(new Vector2(bayPos.x, bayPos.z), minRoundaboutBuffer) &&
+                        IsClearOfAllRoundabouts(new Vector2(shelterPos.x, shelterPos.z), minRoundaboutBuffer) &&
+                        IsFootprintClearOfAllRoads(shelterPos, 2.0f, 4.8f, yaw, 1.4f))
+                    {
+                        pt.y = GetElevationAt(pt.x, pt.z);
+                        roadPoint = pt;
+                        roadForward = fwd;
+                        approxArcFromHub = Vector3.Dot(pt - new Vector3(hubXZ.x, pt.y, hubXZ.y), fwd);
+                        return true;
+                    }
+                }
+            }
+
+            // Relaxed fallback (still strictly outside all roundabouts!)
+            for (int a = 0; a < anchors.Count; a++)
+            {
+                var (h, startI, _) = anchors[a];
+                var pts = cachedDenseSamples[h];
+                for (int delta = 6; delta < 40; delta += 2)
+                {
+                    int[] idxs = { startI + delta, startI - delta };
+                    for (int k = 0; k < 2; k++)
+                    {
+                        int idx = idxs[k];
+                        if (idx < 1 || idx >= pts.Count - 1) continue;
+                        Vector3 pt = pts[idx];
+                        if (!IsClearOfAllRoundabouts(new Vector2(pt.x, pt.z), minRoundaboutBuffer)) continue;
+                        Vector3 fwd = pts[idx + 1] - pts[idx - 1]; fwd.y = 0f; fwd.Normalize();
+                        if (Vector3.Dot(fwd, approxFwd) < 0f) fwd = -fwd;
+                        pt.y = GetElevationAt(pt.x, pt.z);
+                        roadPoint = pt;
+                        roadForward = fwd;
+                        approxArcFromHub = Vector3.Dot(pt - new Vector3(hubXZ.x, pt.y, hubXZ.y), fwd);
+                        return true;
+                    }
+                }
+            }
+
+            SampleRoadAlongTown(hubXZ, approxYawDeg, 0f, out roadPoint, out roadForward);
+            approxArcFromHub = 0f;
+            return false;
+        }
+
+        public static int FindRoundaboutNear(Vector2 xz, float extraRadius = 26f)
+        {
+            for (int r = 0; r < Roundabouts.Length; r++)
+            {
+                if (Vector2.Distance(xz, Roundabouts[r].center) <= Roundabouts[r].outerRadius + extraRadius)
+                {
+                    return r;
+                }
+            }
+            return -1;
+        }
+
+        /// <summary>
         /// Computes minimum horizontal distance from a 2D point to the edge of ANY road tarmac or roundabout surface,
         /// accounting for wider 4-6 lane city boulevards & 3-lane climbing lanes so ZERO houses ever touch roads!
         /// </summary>
