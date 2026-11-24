@@ -87,10 +87,92 @@ namespace KenyaStreetSim
         public bool HazardsOn { get; private set; }
         public bool BlinkPhaseOn { get; private set; }
 
+        // ETS2-Class Cruise Control ([X], [-]/[=]) & Exhaust Retarder / Jake Brake ([N])!
+        public bool CruiseControlOn { get; private set; }
+        public float CruiseTargetKmh { get; private set; } = 80f;
+        public int RetarderStage { get; private set; } // 0 = OFF, 1 = STAGE 1, 2 = STAGE 2
+
+        private float baseMotorTorque;
+        private float baseBrakeTorque;
+        private float baseFuelBurnPerKm;
+        private bool savedBaseSpecs;
+
         [Header("Diesel Fuel System")]
         [Range(0f, 1f)] public float fuelNormalized = 0.88f;
         public float fuelBurnPerKm = 0.045f; // Real highway burn across long Kenyan corridors -> refuel at Petrol Stations!
         public float FuelPercent => Mathf.Round(Mathf.Clamp01(fuelNormalized) * 100f);
+        public float EstimatedRangeKm => Mathf.Round(Mathf.Clamp01(fuelNormalized) / Mathf.Max(0.005f, fuelBurnPerKm) * 16f);
+
+        public void ApplyPerformanceUpgrades(bool turboEngine, bool heavyBrakes, bool longRangeTank)
+        {
+            if (!savedBaseSpecs)
+            {
+                baseMotorTorque = motorTorque;
+                baseBrakeTorque = brakeTorque;
+                baseFuelBurnPerKm = fuelBurnPerKm;
+                savedBaseSpecs = true;
+            }
+            motorTorque = baseMotorTorque * (turboEngine ? 1.24f : 1.0f);
+            brakeTorque = baseBrakeTorque * (heavyBrakes ? 1.26f : 1.0f);
+            fuelBurnPerKm = baseFuelBurnPerKm * (longRangeTank ? 0.62f : 1.0f);
+        }
+
+        public void ApplySaccoPaintLivery(Color primaryPaint)
+        {
+            var mpb = new MaterialPropertyBlock();
+            int baseColorId = Shader.PropertyToID("_BaseColor");
+            foreach (var r in GetComponentsInChildren<Renderer>(true))
+            {
+                if (r == null || r.sharedMaterial == null) continue;
+                string mn = r.sharedMaterial.name.ToLowerInvariant();
+                string on = r.gameObject.name.ToLowerInvariant();
+                // Repaint main body skirt / cab paint panels without overwriting glass, chrome, lights, plates or tires!
+                if (mn.Contains("red") || mn.Contains("skirt") || mn.Contains("body") || mn.Contains("paint") ||
+                    mn.Contains("blue") || on.Contains("skirt") || on.Contains("cab") || on.Contains("stripe"))
+                {
+                    if (mn.Contains("glass") || mn.Contains("tire") || mn.Contains("chrome") || mn.Contains("tail") ||
+                        mn.Contains("head") || mn.Contains("plate") || mn.Contains("led") || on.Contains("glass") ||
+                        on.Contains("mirror") || on.Contains("wheel") || on.Contains("tail") || on.Contains("ind"))
+                        continue;
+                    r.GetPropertyBlock(mpb);
+                    mpb.SetColor(baseColorId, primaryPaint);
+                    r.SetPropertyBlock(mpb);
+                }
+            }
+        }
+
+        public void ToggleCruiseControl()
+        {
+            if (CruiseControlOn)
+            {
+                CruiseControlOn = false;
+                StreetGameLoop.Instance?.hud?.ShowToast("CRUISE CONTROL: OFF");
+            }
+            else
+            {
+                CruiseTargetKmh = Mathf.Clamp(Mathf.Round(Mathf.Max(40f, SpeedKmh) / 5f) * 5f, 40f, Mathf.Min(100f, maxSpeedKmh));
+                CruiseControlOn = true;
+                StreetGameLoop.Instance?.hud?.ShowToast($"ETS2 CRUISE CONTROL: {CruiseTargetKmh:0} KM/H  ([-] / [=] ADJUST)");
+            }
+            KenyaStreetAudio.Instance?.PlayUiClick();
+        }
+
+        public void AdjustCruiseSpeed(float deltaKmh)
+        {
+            CruiseTargetKmh = Mathf.Clamp(CruiseTargetKmh + deltaKmh, 30f, Mathf.Min(105f, maxSpeedKmh));
+            if (CruiseControlOn)
+            {
+                StreetGameLoop.Instance?.hud?.ShowToast($"CRUISE TARGET: {CruiseTargetKmh:0} KM/H");
+            }
+        }
+
+        public void CycleRetarderStage()
+        {
+            RetarderStage = (RetarderStage + 1) % 3;
+            string lbl = RetarderStage == 0 ? "OFF" : (RetarderStage == 1 ? "STAGE 1 (GENTLE HILL HOLD)" : "STAGE 2 (MAX ESCARPMENT BRAKE)");
+            StreetGameLoop.Instance?.hud?.ShowToast($"EXHAUST RETARDER: {lbl}");
+            KenyaStreetAudio.Instance?.PlayAirBrakeHiss();
+        }
 
         public void RefuelStep(float amount01)
         {
@@ -256,7 +338,23 @@ namespace KenyaStreetSim
             ReadInputs(
                 out float accel, out float steer, out bool handbrake,
                 out bool hornPressed, out bool resetPressed,
-                out bool leftSig, out bool rightSig, out bool hazardSig, out bool lightToggle);
+                out bool leftSig, out bool rightSig, out bool hazardSig, out bool lightToggle,
+                out bool cruiseToggle, out float cruiseDelta, out bool retarderCycle);
+
+            if (cruiseToggle) ToggleCruiseControl();
+            if (Mathf.Abs(cruiseDelta) > 0.1f) AdjustCruiseSpeed(cruiseDelta);
+            if (retarderCycle) CycleRetarderStage();
+
+            // Tapping brake or handbrake cancels Cruise Control cleanly just like ETS2!
+            if (CruiseControlOn && (accel < -0.1f || handbrake))
+            {
+                CruiseControlOn = false;
+            }
+            if (CruiseControlOn && accel < 0.05f)
+            {
+                float err = CruiseTargetKmh - SpeedKmh;
+                accel = Mathf.Clamp(err * 0.12f, -0.18f, 0.88f);
+            }
 
             ThrottleInput = accel;
             SteerInput = steer;
@@ -411,7 +509,9 @@ namespace KenyaStreetSim
             }
             else
             {
-                appliedBrake = SpeedKmh < 2.5f ? brakeTorque * 0.45f : 120f;
+                float retarderTorque = (RetarderStage == 2 && SpeedKmh > 12f) ? 1850f
+                                     : (RetarderStage == 1 && SpeedKmh > 12f) ? 880f : 0f;
+                appliedBrake = SpeedKmh < 2.5f ? brakeTorque * 0.45f : (120f + retarderTorque);
             }
 
             for (int i = 0; i < wheels.Length; i++)
@@ -541,7 +641,8 @@ namespace KenyaStreetSim
         private static void ReadInputs(
             out float accel, out float steer, out bool handbrake,
             out bool horn, out bool reset,
-            out bool leftSig, out bool rightSig, out bool hazardSig, out bool lightToggle)
+            out bool leftSig, out bool rightSig, out bool hazardSig, out bool lightToggle,
+            out bool cruiseToggle, out float cruiseDelta, out bool retarderCycle)
         {
             accel = 0f;
             steer = 0f;
@@ -552,6 +653,9 @@ namespace KenyaStreetSim
             rightSig = false;
             hazardSig = false;
             lightToggle = false;
+            cruiseToggle = false;
+            cruiseDelta = 0f;
+            retarderCycle = false;
 
 #if ENABLE_INPUT_SYSTEM
             var kb = Keyboard.current;
@@ -568,6 +672,10 @@ namespace KenyaStreetSim
                 rightSig = kb.eKey.wasPressedThisFrame;
                 hazardSig = kb.zKey.wasPressedThisFrame;
                 lightToggle = kb.lKey.wasPressedThisFrame;
+                cruiseToggle = kb.xKey.wasPressedThisFrame;
+                if (kb.equalsKey.wasPressedThisFrame || kb.pageUpKey.wasPressedThisFrame) cruiseDelta = 5f;
+                if (kb.minusKey.wasPressedThisFrame || kb.pageDownKey.wasPressedThisFrame) cruiseDelta = -5f;
+                retarderCycle = kb.nKey.wasPressedThisFrame;
             }
 #else
             accel = Input.GetAxis("Vertical");
@@ -579,6 +687,10 @@ namespace KenyaStreetSim
             rightSig = Input.GetKeyDown(KeyCode.E);
             hazardSig = Input.GetKeyDown(KeyCode.Z);
             lightToggle = Input.GetKeyDown(KeyCode.L);
+            cruiseToggle = Input.GetKeyDown(KeyCode.X);
+            if (Input.GetKeyDown(KeyCode.Equals) || Input.GetKeyDown(KeyCode.PageUp)) cruiseDelta = 5f;
+            if (Input.GetKeyDown(KeyCode.Minus) || Input.GetKeyDown(KeyCode.PageDown)) cruiseDelta = -5f;
+            retarderCycle = Input.GetKeyDown(KeyCode.N);
 #endif
         }
     }

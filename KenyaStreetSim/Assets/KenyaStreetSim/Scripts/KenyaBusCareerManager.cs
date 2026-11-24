@@ -140,6 +140,10 @@ namespace KenyaStreetSim
         public int StoryChapter { get; private set; } = 1;
         public int SaccoNameIndex { get; private set; }
         public bool HasConductor { get; private set; }
+        public bool HasTurboEngine { get; private set; }
+        public bool HasHeavyBrakes { get; private set; }
+        public bool HasLongRangeTank { get; private set; }
+        public int ActiveLiveryIndex { get; private set; }
         public float BusCondition { get; private set; } = 1.0f; // 1.0 = 100% healthy tires/brakes
         public float ReputationStars { get; private set; } = 3.2f;
         public int StagesCompletedCareer { get; private set; }
@@ -166,8 +170,19 @@ namespace KenyaStreetSim
         private TextMeshProUGUI[] offerBtnLabels;
         private TextMeshProUGUI conductorBtnLabel;
         private TextMeshProUGUI serviceBtnLabel;
+        private TextMeshProUGUI paintBtnLabel;
+        private TextMeshProUGUI turboBtnLabel;
         private TextMeshProUGUI[] driverBtnLabels;
         private TextMeshProUGUI[] contractBtnLabels;
+
+        private static readonly (string name, Color col)[] SaccoLiveries =
+        {
+            ("SAVANNA CRIMSON",   new Color(0.76f, 0.11f, 0.12f)),
+            ("COASTLINE OCEAN",   new Color(0.08f, 0.34f, 0.68f)),
+            ("HIGHLAND EMERALD",  new Color(0.08f, 0.48f, 0.24f)),
+            ("RIFT SUNSET GOLD",  new Color(0.86f, 0.56f, 0.08f)),
+            ("MIDNIGHT VIP BLK",  new Color(0.11f, 0.12f, 0.15f))
+        };
 
         private float passiveIncomeTimer;
         private float wearDistanceAccum;
@@ -197,6 +212,7 @@ namespace KenyaStreetSim
             if (StreetGameLoop.Instance != null)
             {
                 StreetGameLoop.Instance.OnStageBoarded += HandleStageBoarded;
+                ApplyUpgradesToAllFleet();
             }
             RefreshOfficeUI();
         }
@@ -574,6 +590,61 @@ namespace KenyaStreetSim
             RefreshOfficeUI();
         }
 
+        public void AwardVipComfortTip(int tipKes)
+        {
+            if (tipKes <= 0) return;
+            BankKes += tipKes;
+            LifetimeEarnedKes += tipKes;
+            SaveCareer();
+            StreetGameLoop.Instance?.hud?.ShowToast($"VIP PASSENGER COMFORT TIP: +KES {tipKes:N0} (SMOOTH DRIVING!)");
+        }
+
+        private void OnClickCyclePaintLivery()
+        {
+            ActiveLiveryIndex = (ActiveLiveryIndex + 1) % SaccoLiveries.Length;
+            var liv = SaccoLiveries[ActiveLiveryIndex];
+            StreetGameLoop.Instance?.ActiveVehicle?.ApplySaccoPaintLivery(liv.col);
+            SaveCareer();
+            KenyaStreetAudio.Instance?.PlayUiClick();
+            StreetGameLoop.Instance?.hud?.ShowToast($"BUS REPAINTED: {liv.name}!");
+            RefreshOfficeUI();
+        }
+
+        private void OnClickBuyTurboUpgrades()
+        {
+            if (HasTurboEngine && HasHeavyBrakes && HasLongRangeTank)
+            {
+                StreetGameLoop.Instance?.hud?.ShowToast("ETS2 GARAGE: ALL PERFORMANCE UPGRADES ALREADY INSTALLED!");
+                return;
+            }
+            const int cost = 8500;
+            if (BankKes < cost)
+            {
+                StreetGameLoop.Instance?.hud?.ShowToast($"Need KES {cost:N0} for ETS2 Turbo Engine + Retarder + 600L Tank Pack!");
+                return;
+            }
+            BankKes -= cost;
+            HasTurboEngine = true;
+            HasHeavyBrakes = true;
+            HasLongRangeTank = true;
+            ApplyUpgradesToAllFleet();
+            SaveCareer();
+            KenyaStreetAudio.Instance?.PlayPickupBlip();
+            StreetGameLoop.Instance?.hud?.ShowToast("INSTALLED: +24% TURBO TORQUE, +26% RETARDER BRAKES & 600L TANK!");
+            RefreshOfficeUI();
+        }
+
+        private void ApplyUpgradesToAllFleet()
+        {
+            var loop = StreetGameLoop.Instance;
+            if (loop == null || loop.fleet == null) return;
+            for (int i = 0; i < loop.fleet.Length; i++)
+            {
+                if (loop.fleet[i] == null) continue;
+                loop.fleet[i].ApplyPerformanceUpgrades(HasTurboEngine, HasHeavyBrakes, HasLongRangeTank);
+            }
+        }
+
         private void OnClickCycleSaccoName()
         {
             SaccoNameIndex = (SaccoNameIndex + 1) % SaccoPresets.Length;
@@ -636,6 +707,10 @@ namespace KenyaStreetSim
             PlayerPrefs.SetInt("KSS_Chapter", StoryChapter);
             PlayerPrefs.SetInt("KSS_SaccoIdx", SaccoNameIndex);
             PlayerPrefs.SetInt("KSS_Conductor", HasConductor ? 1 : 0);
+            PlayerPrefs.SetInt("KSS_Turbo", HasTurboEngine ? 1 : 0);
+            PlayerPrefs.SetInt("KSS_Brakes", HasHeavyBrakes ? 1 : 0);
+            PlayerPrefs.SetInt("KSS_Tank", HasLongRangeTank ? 1 : 0);
+            PlayerPrefs.SetInt("KSS_LiveryIdx", ActiveLiveryIndex);
             PlayerPrefs.SetFloat("KSS_BusCond", BusCondition);
             PlayerPrefs.SetFloat("KSS_Rep", ReputationStars);
             PlayerPrefs.SetInt("KSS_Stages", StagesCompletedCareer);
@@ -651,6 +726,10 @@ namespace KenyaStreetSim
             StoryChapter = Mathf.Clamp(PlayerPrefs.GetInt("KSS_Chapter", 1), 1, 4);
             SaccoNameIndex = PlayerPrefs.GetInt("KSS_SaccoIdx", 0);
             HasConductor = PlayerPrefs.GetInt("KSS_Conductor", 0) == 1;
+            HasTurboEngine = PlayerPrefs.GetInt("KSS_Turbo", 0) == 1;
+            HasHeavyBrakes = PlayerPrefs.GetInt("KSS_Brakes", 0) == 1;
+            HasLongRangeTank = PlayerPrefs.GetInt("KSS_Tank", 0) == 1;
+            ActiveLiveryIndex = PlayerPrefs.GetInt("KSS_LiveryIdx", 0);
             BusCondition = Mathf.Clamp01(PlayerPrefs.GetFloat("KSS_BusCond", 1.0f));
             ReputationStars = Mathf.Clamp(PlayerPrefs.GetFloat("KSS_Rep", 3.2f), 1f, 5f);
             StagesCompletedCareer = PlayerPrefs.GetInt("KSS_Stages", 0);
@@ -721,22 +800,24 @@ namespace KenyaStreetSim
             var opsBox = MakePanel(card, "OperationsBox", new Vector2(0.53f, 0.20f), new Vector2(0.98f, 0.65f), new Color(0.09f, 0.12f, 0.19f, 1f));
             MakeText(opsBox, "OpsHdr", "SACCO CREW, GARAGE & AI ROUTE DRIVERS", new Vector2(0.03f, 0.88f), new Vector2(0.97f, 0.98f), 15, FontStyles.Bold, Palette.UiAccentAmber, TextAlignmentOptions.MidlineLeft);
 
-            // Top row inside right column: Makanga Conductor + Garage Service
-            conductorBtnLabel = MakeButton(opsBox, "ConductorBtn", "HIRE MAKANGA (KES 4,500)", new Vector2(0.03f, 0.72f), new Vector2(0.49f, 0.86f), new Color(0.16f, 0.42f, 0.68f, 1f), OnClickHireConductor);
-            serviceBtnLabel   = MakeButton(opsBox, "ServiceBtn",   "GARAGE SERVICE (KES 1,600)", new Vector2(0.51f, 0.72f), new Vector2(0.97f, 0.86f), new Color(0.68f, 0.44f, 0.10f, 1f), OnClickServiceBus);
+            // Top rows inside right column: Makanga + Garage Service + Paint Shop + Turbo Upgrades!
+            conductorBtnLabel = MakeButton(opsBox, "ConductorBtn", "HIRE MAKANGA (KES 4,500)", new Vector2(0.03f, 0.74f), new Vector2(0.49f, 0.86f), new Color(0.16f, 0.42f, 0.68f, 1f), OnClickHireConductor);
+            serviceBtnLabel   = MakeButton(opsBox, "ServiceBtn",   "SERVICE (KES 1,600)",      new Vector2(0.51f, 0.74f), new Vector2(0.97f, 0.86f), new Color(0.68f, 0.44f, 0.10f, 1f), OnClickServiceBus);
+            paintBtnLabel     = MakeButton(opsBox, "PaintBtn",     "PAINT: SAVANNA CRIMSON",   new Vector2(0.03f, 0.60f), new Vector2(0.49f, 0.72f), new Color(0.54f, 0.16f, 0.34f, 1f), OnClickCyclePaintLivery);
+            turboBtnLabel     = MakeButton(opsBox, "TurboBtn",     "TURBO+600L PACK (8,500)",  new Vector2(0.51f, 0.60f), new Vector2(0.97f, 0.72f), new Color(0.18f, 0.46f, 0.24f, 1f), OnClickBuyTurboUpgrades);
 
             // 4 AI Route Driver corridors
             driverBtnLabels = new TextMeshProUGUI[Corridors.Length];
             for (int i = 0; i < Corridors.Length; i++)
             {
                 int idx = i;
-                float yTop = 0.68f - i * 0.145f;
-                float yBot = yTop - 0.125f;
+                float yTop = 0.56f - i * 0.115f;
+                float yBot = yTop - 0.100f;
                 var row = MakePanel(opsBox, $"DrvRow_{i}", new Vector2(0.03f, yBot), new Vector2(0.97f, yTop), new Color(0.12f, 0.16f, 0.25f, 1f));
-                MakeText(row, "DrvName", $"{Corridors[i].name}  •  {Corridors[i].routeLabel}", new Vector2(0.03f, 0.10f), new Vector2(0.62f, 0.90f), 12f, FontStyles.Bold, Color.white, TextAlignmentOptions.MidlineLeft);
-                driverBtnLabels[i] = MakeButton(row, $"DrvBtn_{i}", "HIRE", new Vector2(0.64f, 0.14f), new Vector2(0.97f, 0.86f), new Color(0.10f, 0.48f, 0.34f, 1f), () => OnClickHireDriver(idx));
+                MakeText(row, "DrvName", $"{Corridors[i].name}  •  {Corridors[i].routeLabel}", new Vector2(0.03f, 0.08f), new Vector2(0.62f, 0.92f), 11.5f, FontStyles.Bold, Color.white, TextAlignmentOptions.MidlineLeft);
+                driverBtnLabels[i] = MakeButton(row, $"DrvBtn_{i}", "HIRE", new Vector2(0.64f, 0.12f), new Vector2(0.97f, 0.88f), new Color(0.10f, 0.48f, 0.34f, 1f), () => OnClickHireDriver(idx));
             }
-            MakeButton(opsBox, "ResetBtn", "RESET CAREER", new Vector2(0.72f, 0.02f), new Vector2(0.97f, 0.09f), new Color(0.45f, 0.14f, 0.16f, 1f), OnClickResetCareer);
+            MakeButton(opsBox, "ResetBtn", "RESET CAREER", new Vector2(0.72f, 0.02f), new Vector2(0.97f, 0.08f), new Color(0.45f, 0.14f, 0.16f, 1f), OnClickResetCareer);
 
             // BOTTOM STRIP: CROSS-BORDER & INTER-CITY URGENT EXPRESS PARCEL CONTRACTS!
             var contractBox = MakePanel(card, "ContractsStrip", new Vector2(0.02f, 0.03f), new Vector2(0.98f, 0.185f), new Color(0.08f, 0.14f, 0.22f, 1f));
@@ -800,6 +881,8 @@ namespace KenyaStreetSim
 
             conductorBtnLabel.text = HasConductor ? "MAKANGA HIRED (+35%)" : "HIRE MAKANGA (KES 4,500)";
             serviceBtnLabel.text = $"SERVICE {Mathf.RoundToInt(BusCondition * 100f)}% (KES 1,600)";
+            if (paintBtnLabel != null) paintBtnLabel.text = $"PAINT: {SaccoLiveries[ActiveLiveryIndex % SaccoLiveries.Length].name}";
+            if (turboBtnLabel != null) turboBtnLabel.text = HasTurboEngine ? "TURBO + 600L INSTALLED" : "TURBO+600L PACK (8,500)";
 
             for (int i = 0; i < Corridors.Length; i++)
             {

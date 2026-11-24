@@ -295,6 +295,7 @@ namespace KenyaStreetSim.Editor
             var hud = sysRoot.AddComponent<KenyaStreetHUD>();
             var routeMap = sysRoot.AddComponent<KenyaRouteMapUI>();
             sysRoot.AddComponent<KenyaBusCareerManager>();
+            sysRoot.AddComponent<KenyaEts2RouteAdvisor>();
             var loop = sysRoot.AddComponent<StreetGameLoop>();
             loop.fleet = fleetList.ToArray();
             loop.stages = stages;
@@ -438,8 +439,8 @@ namespace KenyaStreetSim.Editor
             string tf = KenyaPbrTextureGenerator.TexFolder;
             string cc0 = $"{tf}/CC0_PBR";
 
-            // Prefer real photographed CC0 Poly Haven + AmbientCG PBR maps when present, with clean procedural fallback!
-            texTarmacAlb = LoadFirstTex($"{cc0}/CC0_Asphalt_Albedo.jpg", $"{cc0}/ACG_KenyaHighwayTarmac_Albedo.jpg", $"{tf}/Tarmac_Albedo.png");
+            // Prefer ETS2 weathered Kenyan tarmac (dual tire tracks + red murram edges), falling back cleanly to Poly Haven / AmbientCG!
+            texTarmacAlb = LoadFirstTex($"{cc0}/ETS2_KenyaTarmac_Albedo.jpg", $"{cc0}/CC0_Asphalt_Albedo.jpg", $"{cc0}/ACG_KenyaHighwayTarmac_Albedo.jpg", $"{tf}/Tarmac_Albedo.png");
             texTarmacNrm = LoadFirstTex($"{cc0}/CC0_Asphalt_Normal.jpg", $"{cc0}/ACG_KenyaHighwayTarmac_Normal.jpg", $"{tf}/Tarmac_Normal.png");
             texMurramAlb = LoadFirstTex($"{cc0}/CC0_KenyaRedMurram_Albedo.jpg", $"{tf}/Murram_Albedo.png");
             texMurramNrm = LoadFirstTex($"{cc0}/CC0_KenyaRedMurram_Normal.jpg", $"{tf}/Murram_Normal.png");
