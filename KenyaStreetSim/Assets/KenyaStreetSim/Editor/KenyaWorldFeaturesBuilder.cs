@@ -70,6 +70,9 @@ namespace KenyaStreetSim.Editor
             BuildNarokAndTsavoWildlife(root, matZebraW, matZebraB, matGiraffeY, matGiraffeS, matGazelle, matElephant, matIvory, matWarnYellow, matSteel);
             BuildClimbingLaneSigns(root, matSignBlue, matWarnYellow, matSteel);
             BuildEscarpmentGuardrails(root);
+            BuildKenyanBodaBodaStages(root);
+            BuildKenhaRiverBridges(root);
+            BuildRiftValleyRockyCliffs(root);
         }
 
         // =========================================================================
@@ -522,6 +525,18 @@ namespace KenyaStreetSim.Editor
             go.transform.rotation = Quaternion.Euler(0f, phase * 180f, 0f);
             var t = go.transform;
 
+            var zebraPrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/KenyaStreetSim/ImportedModels/KenyaRealismPack/Kenya_Zebra_Sculpted.glb");
+            if (zebraPrefab != null)
+            {
+                var inst = (GameObject)PrefabUtility.InstantiatePrefab(zebraPrefab);
+                inst.name = "BlenderZebraMesh";
+                inst.transform.SetParent(t, false);
+                inst.transform.localPosition = Vector3.zero;
+                var aiB = go.AddComponent<KenyaWildlifeAI>();
+                aiB.startPoint = a; aiB.endPoint = b; aiB.isGrazerOnly = isGrazer; aiB.phaseOffset = phase; aiB.walkSpeed = 1.85f;
+                return;
+            }
+
             Box("Body", t, new Vector3(0f, 1.18f, 0f), new Vector3(0.62f, 0.66f, 1.72f), matW);
             for (int s = -3; s <= 3; s++)
             {
@@ -548,6 +563,18 @@ namespace KenyaStreetSim.Editor
             go.transform.position = a;
             go.transform.rotation = Quaternion.Euler(0f, phase * 140f, 0f);
             var t = go.transform;
+
+            var giraffePrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/KenyaStreetSim/ImportedModels/KenyaRealismPack/Kenya_Giraffe_Sculpted.glb");
+            if (giraffePrefab != null)
+            {
+                var inst = (GameObject)PrefabUtility.InstantiatePrefab(giraffePrefab);
+                inst.name = "BlenderGiraffeMesh";
+                inst.transform.SetParent(t, false);
+                inst.transform.localPosition = Vector3.zero;
+                var aiG = go.AddComponent<KenyaWildlifeAI>();
+                aiG.startPoint = a; aiG.endPoint = b; aiG.isGrazerOnly = isGrazer; aiG.phaseOffset = phase; aiG.walkSpeed = 1.4f;
+                return;
+            }
 
             Box("Body", t, new Vector3(0f, 2.25f, 0f), new Vector3(0.82f, 0.92f, 1.95f), matY, Quaternion.Euler(-12f, 0f, 0f));
             for (int s = 0; s < 5; s++)
@@ -605,6 +632,18 @@ namespace KenyaStreetSim.Editor
             go.transform.position = a;
             go.transform.localScale = Vector3.one * scale;
             var t = go.transform;
+
+            var elephantPrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/KenyaStreetSim/ImportedModels/KenyaRealismPack/Kenya_Elephant_Sculpted.glb");
+            if (elephantPrefab != null)
+            {
+                var inst = (GameObject)PrefabUtility.InstantiatePrefab(elephantPrefab);
+                inst.name = "BlenderElephantMesh";
+                inst.transform.SetParent(t, false);
+                inst.transform.localPosition = Vector3.zero;
+                var aiE = go.AddComponent<KenyaWildlifeAI>();
+                aiE.startPoint = a; aiE.endPoint = b; aiE.isGrazerOnly = isGrazer; aiE.phaseOffset = phase; aiE.walkSpeed = 1.35f;
+                return;
+            }
 
             Box("Body", t, new Vector3(0f, 2.05f, 0f), new Vector3(1.85f, 1.75f, 3.25f), matEl);
             var headPivot = new GameObject("HeadPivot").transform;
@@ -766,6 +805,154 @@ namespace KenyaStreetSim.Editor
                         inst.transform.SetParent(grRoot, false);
                         inst.transform.SetPositionAndRotation(gp, rot);
                     }
+                }
+            }
+        }
+
+        // =========================================================================
+        // 7. ICONIC KENYAN BODA-BODA STAGES AT 16 MAJOR TOWNS & ROADSIDE MARKETS!
+        // =========================================================================
+        private static void BuildKenyanBodaBodaStages(Transform parent)
+        {
+            var bodaPrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/KenyaStreetSim/ImportedModels/KenyaRealismPack/Kenya_BodaBoda_Rider.glb");
+            if (bodaPrefab == null) return;
+
+            var bodaRoot = new GameObject("Kenya_BodaBoda_Stages").transform;
+            bodaRoot.SetParent(parent, false);
+
+            int[] townHubs = { 0, 3, 4, 9, 11, 12, 13, 17, 19, 20, 22, 23, 25, 29, 32, 34, 35, 38 };
+            for (int t = 0; t < townHubs.Length; t++)
+            {
+                int hubIdx = townHubs[t];
+                if (hubIdx < 0 || hubIdx >= KenyaNetworkData.Hubs.Length) continue;
+                var hub = KenyaNetworkData.Hubs[hubIdx];
+                if (!KenyaNetworkData.FindRoundaboutClearStageSite(hub.xz, hub.roadYawDeg, 36f, out Vector3 rPt, out Vector3 rFwd, out _)) continue;
+
+                Vector3 right = Vector3.Cross(Vector3.up, rFwd).normalized;
+                float side = (t % 2 == 0) ? 1f : -1f;
+                float lat = KenyaNetworkData.IsInsideMajorCityCorridor(new Vector2(rPt.x, rPt.z)) ? 13.8f : 10.6f;
+
+                for (int b = 0; b < 3; b++)
+                {
+                    Vector3 bp = rPt + rFwd * (-3.2f + b * 2.4f) + right * (side * lat);
+                    Vector2 bpXZ = new Vector2(bp.x, bp.z);
+                    if (KenyaNetworkData.DistanceToAnyTarmacEdge(bpXZ) < 1.6f ||
+                        !KenyaNetworkData.IsClearOfAllRoundabouts(bpXZ, 24f)) continue;
+
+                    bp.y = KenyaNetworkData.GetElevationAt(bp.x, bp.z);
+                    float yaw = Mathf.Atan2(rFwd.x, rFwd.z) * Mathf.Rad2Deg + (side > 0 ? -55f : 55f) + (b - 1) * 14f;
+                    var inst = (GameObject)PrefabUtility.InstantiatePrefab(bodaPrefab);
+                    inst.name = $"BodaBoda_{hub.name}_{b}";
+                    inst.transform.SetParent(bodaRoot, false);
+                    inst.transform.SetPositionAndRotation(bp, Quaternion.Euler(0f, yaw, 0f));
+                }
+            }
+        }
+
+        // =========================================================================
+        // 8. KENHA STONE & STEEL HIGHWAY RIVER BRIDGES (5 ICONIC KENYAN RIVERS!)
+        // =========================================================================
+        private static void BuildKenhaRiverBridges(Transform parent)
+        {
+            var bridgePrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/KenyaStreetSim/ImportedModels/KenyaRealismPack/Kenya_Stone_Bridge_Culvert.glb");
+            if (bridgePrefab == null) return;
+
+            var brRoot = new GameObject("Kenya_KeNHA_River_Bridges").transform;
+            brRoot.SetParent(parent, false);
+
+            // 5 Iconic Kenyan River Crossings cleanly clear of roundabouts & towns:
+            // Sondu Miriu River (H4), Narok/Mara River (H7), Nzoia River near Webuye (H13), Tsavo/Athi River (H14), Kilifi Creek (H14)
+            (int hIdx, float prog, string name)[] bridges =
+            {
+                ( 4, 0.44f, "SonduMiriu_Bridge"),
+                ( 7, 0.50f, "NarokRiver_Bridge"),
+                (13, 0.72f, "NzoiaRiver_Bridge"),
+                (14, 0.45f, "TsavoRiver_Bridge"),
+                (14, 0.86f, "KilifiCreek_Bridge"),
+            };
+
+            for (int i = 0; i < bridges.Length; i++)
+            {
+                var br = bridges[i];
+                if (br.hIdx < 0 || br.hIdx >= KenyaNetworkData.Highways.Length) continue;
+                var hDef = KenyaNetworkData.Highways[br.hIdx];
+                var samples = KenyaNetworkData.SampleHighway(hDef, 8f);
+                if (samples == null || samples.Count < 8) continue;
+
+                int idx = Mathf.Clamp(Mathf.RoundToInt(br.prog * (samples.Count - 1)), 3, samples.Count - 4);
+                Vector3 pt = samples[idx];
+                Vector2 ptXZ = new Vector2(pt.x, pt.z);
+                if (!KenyaNetworkData.IsClearOfAllRoundabouts(ptXZ, 55f)) continue;
+
+                Vector3 fwd = samples[idx + 1] - samples[idx - 1];
+                if (fwd.sqrMagnitude < 0.01f) continue;
+                fwd.Normalize();
+                Vector3 flatFwd = new Vector3(fwd.x, 0f, fwd.z).normalized;
+                Vector3 right = Vector3.Cross(Vector3.up, flatFwd).normalized;
+
+                float localHw = KenyaNetworkData.GetRoadHalfWidthAt(hDef, ptXZ);
+                // Scale width slightly if highway is wider than standard 2-lane so parapets NEVER touch tarmac!
+                float widthScale = Mathf.Max(1.0f, (localHw + 1.6f) / 9.2f);
+                Vector2 pL = new Vector2((pt - right * (9.4f * widthScale)).x, (pt - right * (9.4f * widthScale)).z);
+                Vector2 pR = new Vector2((pt + right * (9.4f * widthScale)).x, (pt + right * (9.4f * widthScale)).z);
+                if (KenyaNetworkData.DistanceToAnyTarmacEdge(pL) < 0.8f || KenyaNetworkData.DistanceToAnyTarmacEdge(pR) < 0.8f) continue;
+
+                pt.y = KenyaNetworkData.GetElevationAt(pt.x, pt.z);
+                var inst = (GameObject)PrefabUtility.InstantiatePrefab(bridgePrefab);
+                inst.name = br.name;
+                inst.transform.SetParent(brRoot, false);
+                inst.transform.SetPositionAndRotation(pt, Quaternion.LookRotation(fwd, Vector3.up));
+                inst.transform.localScale = new Vector3(widthScale, 1f, 1f);
+            }
+        }
+
+        // =========================================================================
+        // 9. RIFT VALLEY VOLCANIC ROCKY CLIFFS & TSAVO KOPJE BOULDERS!
+        // =========================================================================
+        private static void BuildRiftValleyRockyCliffs(Transform parent)
+        {
+            var rockPrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/KenyaStreetSim/ImportedModels/KenyaRealismPack/Kenya_Rift_Boulder_Cliff.glb");
+            if (rockPrefab == null) return;
+
+            var rockRoot = new GameObject("Kenya_Rift_Volcanic_Cliffs").transform;
+            rockRoot.SetParent(parent, false);
+            var rng = new System.Random(254888);
+
+            // Dramatic Kenyan escarpment rocky walls: Mai Mahiu (H7), Salgaa-Total (H12), Timboroa (H13), Tsavo Red Kopjes (H14), Kisii Hills (H4)
+            int[] rockyHighways = { 7, 12, 13, 14, 4 };
+            for (int r = 0; r < rockyHighways.Length; r++)
+            {
+                int hIdx = rockyHighways[r];
+                var samples = KenyaNetworkData.SampleHighway(KenyaNetworkData.Highways[hIdx], 56f);
+                if (samples == null) continue;
+                for (int i = 2; i < samples.Count - 2; i++)
+                {
+                    if (rng.NextDouble() < 0.55) continue;
+                    Vector3 pt = samples[i];
+                    Vector3 fwd = samples[i + 1] - samples[i - 1]; fwd.y = 0f;
+                    if (fwd.sqrMagnitude < 0.01f) continue;
+                    fwd.Normalize();
+                    Vector3 right = Vector3.Cross(Vector3.up, fwd).normalized;
+
+                    float side = rng.NextDouble() < 0.5 ? -1f : 1f;
+                    float lat = 26f + (float)rng.NextDouble() * 34f;
+                    Vector3 rp = pt + right * (side * lat);
+                    Vector2 rpXZ = new Vector2(rp.x, rp.z);
+                    if (KenyaNetworkData.DistanceToAnyTarmacEdge(rpXZ) < 15f ||
+                        !KenyaNetworkData.IsClearOfAllRoundabouts(rpXZ, 48f)) continue;
+
+                    bool nearTown = false;
+                    for (int h = 0; h < KenyaNetworkData.Hubs.Length; h++)
+                        if (Vector2.Distance(rpXZ, KenyaNetworkData.Hubs[h].xz) < 58f) { nearTown = true; break; }
+                    if (nearTown) continue;
+
+                    rp.y = KenyaNetworkData.GetElevationAt(rp.x, rp.z) - 0.35f;
+                    float scl = 1.15f + (float)rng.NextDouble() * 1.45f;
+                    var inst = (GameObject)PrefabUtility.InstantiatePrefab(rockPrefab);
+                    inst.name = $"RiftCliff_{hIdx}_{i}";
+                    inst.transform.SetParent(rockRoot, false);
+                    inst.transform.SetPositionAndRotation(rp, Quaternion.Euler(0f, (float)(rng.NextDouble() * 360.0), 0f));
+                    inst.transform.localScale = new Vector3(scl, scl * 0.85f, scl);
                 }
             }
         }

@@ -99,6 +99,41 @@ namespace KenyaStreetSim
             new DriverCorridor { id = "coast",   name = "Driver Juma (Coast)",       routeLabel = "Nairobi – Mombasa – Malindi",  hireCostKes = 28000, payoutPerCycleKes = 4200 }
         };
 
+        [Serializable]
+        public struct ExpressContract
+        {
+            public string id;
+            public string title;
+            public int targetHubIndex;
+            public string targetTownName;
+            public int bonusKes;
+        }
+
+        public static readonly ExpressContract[] Contracts =
+        {
+            new ExpressContract { id = "sirare",  title = "MIGORI / SIRARE BORDER CUSTOMS", targetHubIndex = 13, targetTownName = "Migori / Sirare", bonusKes = 4500 },
+            new ExpressContract { id = "kericho", title = "KERICHO TEA FACTORY URGENT",     targetHubIndex = 34, targetTownName = "Kericho Town",    bonusKes = 3800 },
+            new ExpressContract { id = "malaba",  title = "MALABA UGANDA TRANSIT EXPRESS",  targetHubIndex = 30, targetTownName = "Malaba (Uganda)", bonusKes = 6200 },
+            new ExpressContract { id = "malindi", title = "MOMBASA – MALINDI VIP CHARTER",  targetHubIndex = 40, targetTownName = "Malindi Coast",   bonusKes = 7500 }
+        };
+
+        public static readonly string[] RivalSaccoNames =
+        {
+            "EASY RIFT EXPRESS",
+            "NYANZA STAR COACH",
+            "WESTERN HORIZON BUS",
+            "COASTAL CROWN VIP"
+        };
+
+        public static readonly string[] MakangaCalls =
+        {
+            "MAKANGA: 'Beba! Beba! Panda gari — safari ya moja kwa moja!'",
+            "MAKANGA: 'Viti viko! Mzigo weka boot, tunaondoka sasa hivi!'",
+            "MAKANGA: 'Karibu Savanna Line! Funga mkanda, dereva piga start!'",
+            "MAKANGA: 'Abiria wa Kisii, Kericho, Nakuru, Nairobi — ingia haraka!'",
+            "MAKANGA: 'M-Pesa na cash zinakubalika — hakuna kusimama njiani!'"
+        };
+
         // Persistent Career State
         public int BankKes { get; private set; } = 3500;
         public int LifetimeEarnedKes { get; private set; }
@@ -115,6 +150,11 @@ namespace KenyaStreetSim
         public string SaccoName => SaccoPresets[Mathf.Clamp(SaccoNameIndex, 0, SaccoPresets.Length - 1)];
         public bool IsOwnerOperator => OwnedOffers != null && (OwnedOffers[1] || OwnedOffers[2]);
 
+        public int ActiveContractIndex { get; private set; } = -1;
+        public string ActiveRivalName { get; private set; } = "EASY RIFT EXPRESS";
+        public float RivalTimeRemainingSec { get; private set; } = 95f;
+        public int RivalsBeatenCount { get; private set; }
+
         // UI Elements
         private Canvas officeCanvas;
         private GameObject officeRoot;
@@ -127,12 +167,16 @@ namespace KenyaStreetSim
         private TextMeshProUGUI conductorBtnLabel;
         private TextMeshProUGUI serviceBtnLabel;
         private TextMeshProUGUI[] driverBtnLabels;
+        private TextMeshProUGUI[] contractBtnLabels;
 
         private float passiveIncomeTimer;
         private float wearDistanceAccum;
         private Vector3 lastVehiclePos;
         private bool hasLastPos;
         private float fuelCostAccum;
+        private int lastTrackedStageIdx = -1;
+        private bool announcedBoardingCallForStage;
+        private int makangaCallCursor;
 
         private const float PassiveCycleSeconds = 25f;
 
@@ -178,7 +222,7 @@ namespace KenyaStreetSim
 
             if (loop.State != StreetGameLoop.RunState.Running) return;
 
-            // 1. Track driving wear on tires & brakes (heavier on steep Salgaa / Mai Mahiu slopes!)
+            // 1. Track driving wear on tires & brakes + Rival SACCO Race Timetable + Makanga Boarding Calls!
             if (loop.ActiveVehicle != null)
             {
                 Vector3 pos = loop.ActiveVehicle.transform.position;
@@ -198,6 +242,33 @@ namespace KenyaStreetSim
                 }
                 lastVehiclePos = pos;
                 hasLastPos = true;
+
+                // Rival SACCO Timetable Countdown per target stage
+                var activeStage = loop.ActiveStage;
+                if (activeStage != null)
+                {
+                    if (loop.CurrentStageIndex != lastTrackedStageIdx)
+                    {
+                        lastTrackedStageIdx = loop.CurrentStageIndex;
+                        announcedBoardingCallForStage = false;
+                        float legDist = Vector3.Distance(pos, activeStage.transform.position);
+                        RivalTimeRemainingSec = Mathf.Clamp(legDist / 11.5f + 22f, 35f, 240f);
+                        ActiveRivalName = RivalSaccoNames[Mathf.Abs(lastTrackedStageIdx) % RivalSaccoNames.Length];
+                    }
+                    else if (RivalTimeRemainingSec > 0f)
+                    {
+                        RivalTimeRemainingSec = Mathf.Max(0f, RivalTimeRemainingSec - Time.deltaTime);
+                    }
+
+                    // Live Authentic Kenyan Makanga Boarding Call when pulling into the stage!
+                    if (activeStage.PlayerInside && !announcedBoardingCallForStage)
+                    {
+                        announcedBoardingCallForStage = true;
+                        string call = MakangaCalls[makangaCallCursor++ % MakangaCalls.Length];
+                        KenyaStreetAudio.Instance?.PlayPickupBlip();
+                        loop.hud?.ShowToast(call);
+                    }
+                }
             }
 
             // 2. Passive income from hired Kenyan AI route drivers across your SACCO network!
@@ -268,8 +339,17 @@ namespace KenyaStreetSim
 
         public string GetCompactHudBadgeText()
         {
-            string roleTag = IsOwnerOperator ? SaccoName : "HIRED DRIVER (30% HESABU)";
-            return $"CH {StoryChapter}: {roleTag}  |  BANK: KES {BankKes:N0}  |  BUS: {Mathf.RoundToInt(BusCondition * 100f)}%  |  [B] OFFICE";
+            string roleTag = IsOwnerOperator ? SaccoName : "HIRED (30% HESABU)";
+            string extraTag = "";
+            if (ActiveContractIndex >= 0 && ActiveContractIndex < Contracts.Length)
+            {
+                extraTag = $"  |  CONTRACT: {Contracts[ActiveContractIndex].targetTownName.ToUpperInvariant()} (+{Contracts[ActiveContractIndex].bonusKes:N0})";
+            }
+            else if (RivalTimeRemainingSec > 0.5f)
+            {
+                extraTag = $"  |  VS {ActiveRivalName}: {Mathf.CeilToInt(RivalTimeRemainingSec)}s";
+            }
+            return $"CH {StoryChapter}: {roleTag}  |  BANK: KES {BankKes:N0}{extraTag}  |  [B] OFFICE";
         }
 
         public void StartChapter1MigoriStory()
@@ -305,21 +385,46 @@ namespace KenyaStreetSim
 
             int baseFare = Mathf.Max(1200, stage.rewardKes);
             int conductorBonus = HasConductor ? Mathf.RoundToInt(baseFare * 0.35f) : 0;
-            int gross = baseFare + conductorBonus;
+            int rivalBonus = (RivalTimeRemainingSec > 0.5f) ? 1200 : 0;
+            if (rivalBonus > 0)
+            {
+                RivalsBeatenCount++;
+                ReputationStars = Mathf.Clamp(ReputationStars + 0.15f, 1.0f, 5.0f);
+            }
+            int gross = baseFare + conductorBonus + rivalBonus;
             int hesabuCut = IsOwnerOperator ? 0 : Mathf.RoundToInt(gross * 0.30f);
             int netProfit = Mathf.Max(500, gross - hesabuCut);
 
-            BankKes += netProfit;
-            LifetimeEarnedKes += netProfit;
-            ReputationStars = Mathf.Clamp(ReputationStars + 0.12f, 1.0f, 5.0f);
+            // Check Cross-Border / Express Parcel Contract Delivery!
+            int contractPayout = 0;
+            string completedContractTitle = null;
+            if (ActiveContractIndex >= 0 && ActiveContractIndex < Contracts.Length &&
+                stage.stageIndex == Contracts[ActiveContractIndex].targetHubIndex)
+            {
+                contractPayout = Contracts[ActiveContractIndex].bonusKes;
+                completedContractTitle = Contracts[ActiveContractIndex].title;
+                ActiveContractIndex = -1;
+                ReputationStars = Mathf.Clamp(ReputationStars + 0.35f, 1.0f, 5.0f);
+            }
 
-            string breakdown = hesabuCut > 0
-                ? $"FARES +KES {gross:N0}  (-KES {hesabuCut:N0} HESABU)  ->  BANK +KES {netProfit:N0}"
-                : (conductorBonus > 0
-                    ? $"{SaccoName}: +KES {netProfit:N0} (INCL. +KES {conductorBonus:N0} MAKANGA PARCELS!)"
-                    : $"{SaccoName}: +KES {netProfit:N0} NET PROFIT!");
+            BankKes += netProfit + contractPayout;
+            LifetimeEarnedKes += netProfit + contractPayout;
+            ReputationStars = Mathf.Clamp(ReputationStars + 0.10f, 1.0f, 5.0f);
 
-            StreetGameLoop.Instance?.hud?.ShowToast(breakdown);
+            if (!string.IsNullOrEmpty(completedContractTitle))
+            {
+                StreetGameLoop.Instance?.hud?.ShowMilestoneBanner(
+                    $"CONTRACT DELIVERED! +KES {contractPayout:N0}",
+                    $"{completedContractTitle} completed for {SaccoName}!");
+            }
+            else
+            {
+                string rivalStr = rivalBonus > 0 ? $" • BEAT {ActiveRivalName} (+1,200)!" : "";
+                string breakdown = hesabuCut > 0
+                    ? $"FARES +KES {gross:N0} (-{hesabuCut:N0} HESABU) -> +KES {netProfit:N0}{rivalStr}"
+                    : $"{SaccoName}: +KES {netProfit:N0} NET PROFIT{rivalStr}";
+                StreetGameLoop.Instance?.hud?.ShowToast(breakdown);
+            }
             CheckChapterProgression();
             SaveCareer();
             if (IsOfficeOpen) RefreshOfficeUI();
@@ -452,6 +557,23 @@ namespace KenyaStreetSim
             RefreshOfficeUI();
         }
 
+        private void OnClickAcceptContract(int idx)
+        {
+            if (idx < 0 || idx >= Contracts.Length) return;
+            ActiveContractIndex = idx;
+            var c = Contracts[idx];
+            var loop = StreetGameLoop.Instance;
+            if (loop != null)
+            {
+                if (loop.State == StreetGameLoop.RunState.Ready) loop.StartRun();
+                loop.SetActiveStageByIndex(c.targetHubIndex);
+                loop.hud?.ShowToast($"CONTRACT ACCEPTED: {c.title} -> DELIVER TO {c.targetTownName.ToUpperInvariant()} FOR +KES {c.bonusKes:N0}!");
+            }
+            KenyaStreetAudio.Instance?.PlayPickupBlip();
+            CloseOffice();
+            RefreshOfficeUI();
+        }
+
         private void OnClickCycleSaccoName()
         {
             SaccoNameIndex = (SaccoNameIndex + 1) % SaccoPresets.Length;
@@ -581,8 +703,8 @@ namespace KenyaStreetSim
             statsSummaryText = MakeText(storyBox, "StatsSummary", "", new Vector2(0.67f, 0.08f), new Vector2(0.98f, 0.92f), 15, FontStyles.Bold, Palette.UiAccentGreen, TextAlignmentOptions.MidlineRight);
 
             // LEFT COLUMN: FLEET YARD (Buy & Drive Matatu -> Parcel Lorry -> 51-Seater Coach -> VIP Escort)
-            var fleetBox = MakePanel(card, "FleetYard", new Vector2(0.02f, 0.03f), new Vector2(0.51f, 0.65f), new Color(0.09f, 0.12f, 0.19f, 1f));
-            MakeText(fleetBox, "FleetHdr", "KENYA BUS YARD — BUY & DRIVE FLEET", new Vector2(0.03f, 0.88f), new Vector2(0.97f, 0.98f), 16, FontStyles.Bold, Palette.UiAccentAmber, TextAlignmentOptions.MidlineLeft);
+            var fleetBox = MakePanel(card, "FleetYard", new Vector2(0.02f, 0.20f), new Vector2(0.51f, 0.65f), new Color(0.09f, 0.12f, 0.19f, 1f));
+            MakeText(fleetBox, "FleetHdr", "KENYA BUS YARD — BUY & DRIVE FLEET", new Vector2(0.03f, 0.88f), new Vector2(0.97f, 0.98f), 15, FontStyles.Bold, Palette.UiAccentAmber, TextAlignmentOptions.MidlineLeft);
             offerBtnLabels = new TextMeshProUGUI[Offers.Length];
             for (int i = 0; i < Offers.Length; i++)
             {
@@ -590,14 +712,14 @@ namespace KenyaStreetSim
                 float yTop = 0.85f - i * 0.21f;
                 float yBot = yTop - 0.185f;
                 var row = MakePanel(fleetBox, $"OfferRow_{i}", new Vector2(0.03f, yBot), new Vector2(0.97f, yTop), new Color(0.12f, 0.16f, 0.25f, 1f));
-                MakeText(row, "Title", Offers[i].title, new Vector2(0.03f, 0.52f), new Vector2(0.66f, 0.94f), 15, FontStyles.Bold, Color.white, TextAlignmentOptions.MidlineLeft);
-                MakeText(row, "Sub",   Offers[i].subtitle, new Vector2(0.03f, 0.06f), new Vector2(0.66f, 0.50f), 11.5f, FontStyles.Normal, new Color(0.75f, 0.82f, 0.90f), TextAlignmentOptions.MidlineLeft);
-                offerBtnLabels[i] = MakeButton(row, $"BuyBtn_{i}", "BUY", new Vector2(0.68f, 0.18f), new Vector2(0.97f, 0.82f), new Color(0.12f, 0.50f, 0.28f, 1f), () => OnClickBuyOrDriveOffer(idx));
+                MakeText(row, "Title", Offers[i].title, new Vector2(0.03f, 0.50f), new Vector2(0.66f, 0.94f), 14, FontStyles.Bold, Color.white, TextAlignmentOptions.MidlineLeft);
+                MakeText(row, "Sub",   Offers[i].subtitle, new Vector2(0.03f, 0.05f), new Vector2(0.66f, 0.49f), 10.5f, FontStyles.Normal, new Color(0.75f, 0.82f, 0.90f), TextAlignmentOptions.MidlineLeft);
+                offerBtnLabels[i] = MakeButton(row, $"BuyBtn_{i}", "BUY", new Vector2(0.68f, 0.16f), new Vector2(0.97f, 0.84f), new Color(0.12f, 0.50f, 0.28f, 1f), () => OnClickBuyOrDriveOffer(idx));
             }
 
             // RIGHT COLUMN: STAFF, GARAGE & AI ROUTE DRIVERS
-            var opsBox = MakePanel(card, "OperationsBox", new Vector2(0.53f, 0.03f), new Vector2(0.98f, 0.65f), new Color(0.09f, 0.12f, 0.19f, 1f));
-            MakeText(opsBox, "OpsHdr", "SACCO CREW, GARAGE & AI ROUTE DRIVERS", new Vector2(0.03f, 0.88f), new Vector2(0.97f, 0.98f), 16, FontStyles.Bold, Palette.UiAccentAmber, TextAlignmentOptions.MidlineLeft);
+            var opsBox = MakePanel(card, "OperationsBox", new Vector2(0.53f, 0.20f), new Vector2(0.98f, 0.65f), new Color(0.09f, 0.12f, 0.19f, 1f));
+            MakeText(opsBox, "OpsHdr", "SACCO CREW, GARAGE & AI ROUTE DRIVERS", new Vector2(0.03f, 0.88f), new Vector2(0.97f, 0.98f), 15, FontStyles.Bold, Palette.UiAccentAmber, TextAlignmentOptions.MidlineLeft);
 
             // Top row inside right column: Makanga Conductor + Garage Service
             conductorBtnLabel = MakeButton(opsBox, "ConductorBtn", "HIRE MAKANGA (KES 4,500)", new Vector2(0.03f, 0.72f), new Vector2(0.49f, 0.86f), new Color(0.16f, 0.42f, 0.68f, 1f), OnClickHireConductor);
@@ -611,11 +733,27 @@ namespace KenyaStreetSim
                 float yTop = 0.68f - i * 0.145f;
                 float yBot = yTop - 0.125f;
                 var row = MakePanel(opsBox, $"DrvRow_{i}", new Vector2(0.03f, yBot), new Vector2(0.97f, yTop), new Color(0.12f, 0.16f, 0.25f, 1f));
-                MakeText(row, "DrvName", $"{Corridors[i].name}  •  {Corridors[i].routeLabel}", new Vector2(0.03f, 0.10f), new Vector2(0.62f, 0.90f), 12.5f, FontStyles.Bold, Color.white, TextAlignmentOptions.MidlineLeft);
-                driverBtnLabels[i] = MakeButton(row, $"DrvBtn_{i}", "HIRE", new Vector2(0.64f, 0.16f), new Vector2(0.97f, 0.84f), new Color(0.10f, 0.48f, 0.34f, 1f), () => OnClickHireDriver(idx));
+                MakeText(row, "DrvName", $"{Corridors[i].name}  •  {Corridors[i].routeLabel}", new Vector2(0.03f, 0.10f), new Vector2(0.62f, 0.90f), 12f, FontStyles.Bold, Color.white, TextAlignmentOptions.MidlineLeft);
+                driverBtnLabels[i] = MakeButton(row, $"DrvBtn_{i}", "HIRE", new Vector2(0.64f, 0.14f), new Vector2(0.97f, 0.86f), new Color(0.10f, 0.48f, 0.34f, 1f), () => OnClickHireDriver(idx));
+            }
+            MakeButton(opsBox, "ResetBtn", "RESET CAREER", new Vector2(0.72f, 0.02f), new Vector2(0.97f, 0.09f), new Color(0.45f, 0.14f, 0.16f, 1f), OnClickResetCareer);
+
+            // BOTTOM STRIP: CROSS-BORDER & INTER-CITY URGENT EXPRESS PARCEL CONTRACTS!
+            var contractBox = MakePanel(card, "ContractsStrip", new Vector2(0.02f, 0.03f), new Vector2(0.98f, 0.185f), new Color(0.08f, 0.14f, 0.22f, 1f));
+            MakeText(contractBox, "ContractHdr", "HIGH-PAYING CROSS-BORDER & URGENT PARCEL CONTRACTS  (CLICK TO SET GPS & DELIVER)", new Vector2(0.02f, 0.66f), new Vector2(0.98f, 0.96f), 13.5f, FontStyles.Bold, Palette.Hex("#14E8FF"), TextAlignmentOptions.MidlineLeft);
+            contractBtnLabels = new TextMeshProUGUI[Contracts.Length];
+            for (int i = 0; i < Contracts.Length; i++)
+            {
+                int idx = i;
+                float x0 = 0.015f + i * 0.244f;
+                float x1 = x0 + 0.234f;
+                contractBtnLabels[i] = MakeButton(contractBox, $"ContractBtn_{i}",
+                    $"{Contracts[i].title}\n+KES {Contracts[i].bonusKes:N0}",
+                    new Vector2(x0, 0.10f), new Vector2(x1, 0.62f),
+                    new Color(0.12f, 0.34f, 0.56f, 1f), () => OnClickAcceptContract(idx));
+                contractBtnLabels[i].fontSize = 11f;
             }
 
-            MakeButton(opsBox, "ResetBtn", "RESET STORY CAREER", new Vector2(0.64f, 0.02f), new Vector2(0.97f, 0.09f), new Color(0.45f, 0.14f, 0.16f, 1f), OnClickResetCareer);
             officeRoot.SetActive(false);
         }
 
@@ -652,7 +790,7 @@ namespace KenyaStreetSim
             for (int i = 0; i < Corridors.Length; i++) if (HiredDrivers[i]) passiveSum += Corridors[i].payoutPerCycleKes;
             statsSummaryText.text =
                 $"BANK: KES {BankKes:N0}\n" +
-                $"LIFETIME: KES {LifetimeEarnedKes:N0}  |  {ReputationStars:0.0} ★\n" +
+                $"LIFETIME: KES {LifetimeEarnedKes:N0}  |  REP: {ReputationStars:0.0}/5.0\n" +
                 $"BUS HEALTH: {Mathf.RoundToInt(BusCondition * 100f)}%  |  FLEET: +{passiveSum:N0}/25s";
 
             for (int i = 0; i < Offers.Length; i++)
@@ -668,6 +806,15 @@ namespace KenyaStreetSim
                 driverBtnLabels[i].text = HiredDrivers[i]
                     ? $"ACTIVE (+{Corridors[i].payoutPerCycleKes:N0})"
                     : $"HIRE KES {Corridors[i].hireCostKes:N0}";
+            }
+            if (contractBtnLabels != null)
+            {
+                for (int i = 0; i < Contracts.Length; i++)
+                {
+                    contractBtnLabels[i].text = (ActiveContractIndex == i)
+                        ? $"ACTIVE: {Contracts[i].targetTownName.ToUpperInvariant()}\nDELIVER FOR +KES {Contracts[i].bonusKes:N0}"
+                        : $"{Contracts[i].title}\n+KES {Contracts[i].bonusKes:N0}";
+                }
             }
         }
 

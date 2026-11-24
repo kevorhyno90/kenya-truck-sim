@@ -109,6 +109,28 @@ namespace KenyaStreetSim.Editor
             }
         }
 
+        [MenuItem("Kenya Street Sim/Debug/Verify Cockpit View In PlayMode")]
+        public static void VerifyCockpitInPlayMode()
+        {
+            if (!Application.isPlaying) return;
+            StreetGameLoop.Instance?.StartRun();
+            KenyaBusCareerManager.Instance?.CloseOffice();
+            var cam = Object.FindAnyObjectByType<KenyaStreetCamera>();
+            cam?.SetMode(KenyaStreetCamera.CameraMode.CockpitRHD);
+            cam?.SnapToTarget();
+        }
+
+        [MenuItem("Kenya Street Sim/Debug/Verify Business Office In PlayMode")]
+        public static void VerifyOfficeInPlayMode()
+        {
+            if (!Application.isPlaying) return;
+            StreetGameLoop.Instance?.StartRun();
+            if (KenyaBusCareerManager.Instance != null && !KenyaBusCareerManager.Instance.IsOfficeOpen)
+            {
+                KenyaBusCareerManager.Instance.ToggleOffice();
+            }
+        }
+
         private static Vector3 AtGround(float x, float z, float yAbove)
         {
             return new Vector3(x, KenyaNetworkData.GetElevationAt(x, z) + yAbove, z);

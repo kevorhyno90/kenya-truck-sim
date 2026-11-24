@@ -250,6 +250,44 @@ namespace KenyaStreetSim.Editor
                 Box("DriverSunVisor", cockpitHost, new Vector3(driverX, 0.88f, -0.08f), new Vector3(0.56f, 0.11f, 0.025f), matLeather);
             }
 
+            // 4b. Sculpted Blender 5.3 ETS2 Kenyan Cockpit Accessories Pack (Hanging Kenyan Flag Pennant & Wooden Beads with
+            //     real cornering/braking pendulum physics, plus Chai Thermos Flask & Coin Tray tucked cleanly on the far-left dash!)
+            var accPrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/KenyaStreetSim/ImportedModels/KenyaRealismPack/Kenya_Cockpit_Accessories_Pack.glb");
+            if (accPrefab != null)
+            {
+                var accInst = (GameObject)PrefabUtility.InstantiatePrefab(accPrefab);
+                accInst.name = "BlenderKenyaCockpitAccessories";
+                accInst.transform.SetParent(cockpitHost, false);
+                accInst.transform.localPosition = Vector3.zero;
+                accInst.transform.localRotation = Quaternion.identity;
+                accInst.transform.localScale = Vector3.one;
+
+                // Keep only non-duplicate props and frame them cleanly around the driver's sightline & gauges!
+                foreach (Transform ch in accInst.transform)
+                {
+                    string n = ch.name;
+                    if (n == "PhysicsPendantPivot")
+                    {
+                        // Center-right upper windshield mirror mount (clearly visible below HUD, zero gauge/road obstruction!)
+                        ch.localPosition = new Vector3(driverX - 0.14f, 0.72f, 0.12f);
+                        ch.localScale = Vector3.one * 0.78f;
+                        var sway = ch.gameObject.AddComponent<KenyaCockpitPhysicsSway>();
+                        sway.vehicle = vehicleRoot.GetComponent<KenyaStreetVehicle>();
+                    }
+                    else if (n == "DashMatPad" || n == "ChaiThermos" || n == "ThermosCap" || n == "CoinTray" || n.StartsWith("ShillingCoin_"))
+                    {
+                        // Shift Chai Thermos & Coin Tray cleanly onto the far-left dash shelf away from Speedo/RPM gauges!
+                        ch.localPosition += new Vector3(-0.78f, 0.34f, 0.08f);
+                        ch.localScale *= 0.85f;
+                    }
+                    else
+                    {
+                        // Hide duplicate grab handles/gearstick/visor already built neatly into cockpitHost
+                        ch.gameObject.SetActive(false);
+                    }
+                }
+            }
+
             // 5. Textured Analog Speedo & RPM Cluster + Sweeping 3D Wipers + Animated Curb Passenger Door!
             Transform wiperHost = externalWiperParent != null ? externalWiperParent : cockpitHost;
             Vector3 wiperPos = externalWiperParent != null ? externalWiperPos : new Vector3(0.04f, 0.02f, 0.44f);

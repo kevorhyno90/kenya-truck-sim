@@ -48,6 +48,11 @@ namespace KenyaStreetSim.Editor
             if (coniferTrunkMesh == null) coniferTrunkMesh = KenyaSculptedMeshFactory.ConiferTrunkMesh;
             if (coniferCrownMesh == null) coniferCrownMesh = KenyaSculptedMeshFactory.ConiferCrownMesh;
 
+            // Load sculpted Blender 5.3 3D roadside wild grass & savanna bush cluster mesh!
+            Mesh grassTuftMesh = ExtractSingleBlenderMesh("Assets/KenyaStreetSim/ImportedModels/KenyaRealismPack/Kenya_Grass_Tuft_Cluster.glb", "BlenderKenyaGrassTuft");
+            Material matRoadGrass = MakeMat("Veg_RoadsideGrass3D", urpLit, new Color(0.26f, 0.46f, 0.16f), 0.14f, 0f, null, texTeaNrm, new Vector2(2f, 2f), false);
+            Material matSavannaGrass = MakeMat("Veg_SavannaGrass3D", urpLit, new Color(0.48f, 0.45f, 0.21f), 0.12f, 0f, null, texTeaNrm, new Vector2(2f, 2f), false);
+
             // Authentic Kenyan ecological flora materials
             Material matAcaciaBark  = MakeMat("Veg_AcaciaBark",     urpLit, new Color(0.85f, 0.80f, 0.72f), 0.10f, 0f, texBark, texBarkNrm, new Vector2(1f, 3f), false);
             Material matConiferBark = MakeMat("Veg_ConiferBark",    urpLit, new Color(0.54f, 0.40f, 0.30f), 0.10f, 0f, texBark, texBarkNrm, new Vector2(1f, 4f), false);
@@ -396,6 +401,27 @@ namespace KenyaStreetSim.Editor
                             totalInstances++;
                         }
                     }
+
+                    // Lush 3D Roadside Wild Grass & Savanna Bush Tufts just off the red murram shoulder!
+                    if (grassTuftMesh != null)
+                    {
+                        float localHw = KenyaNetworkData.GetRoadHalfWidthAt(KenyaNetworkData.Highways[h], new Vector2(p.x, p.z));
+                        for (int side = -1; side <= 1; side += 2)
+                        {
+                            if (rng.NextDouble() < 0.35) continue;
+                            float latG = localHw + 3.8f + (float)rng.NextDouble() * 8.5f;
+                            Vector3 gp = p + right * (side * latG);
+                            Vector2 gXZ = new Vector2(gp.x, gp.z);
+                            if (KenyaNetworkData.DistanceToAnyTarmacEdge(gXZ) < 2.6f ||
+                                !KenyaNetworkData.IsClearOfAllRoundabouts(gXZ, 26f)) continue;
+
+                            float gyG = SampleGroundY(gXZ.x, gXZ.y);
+                            float gScl = 0.85f + (float)rng.NextDouble() * 0.85f;
+                            Matrix4x4 mg = Matrix4x4.TRS(new Vector3(gXZ.x, gyG - 0.05f, gXZ.y), Quaternion.Euler(0f, (float)(rng.NextDouble() * 360.0), 0f), Vector3.one * gScl);
+                            AddInst(grassTuftMesh, (isTsavo || (p.x > -720f && p.x < -210f && p.z < 520f)) ? matSavannaGrass : matRoadGrass, mg);
+                            totalInstances++;
+                        }
+                    }
                 }
             }
 
@@ -516,6 +542,26 @@ namespace KenyaStreetSim.Editor
                 crownCombined.CombineMeshes(crownList.ToArray(), true, true);
                 crownCombined.RecalculateBounds();
             }
+        }
+
+        private static Mesh ExtractSingleBlenderMesh(string assetPath, string meshName)
+        {
+            var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(assetPath);
+            if (prefab == null) return null;
+            var inst = Object.Instantiate(prefab);
+            inst.transform.SetPositionAndRotation(Vector3.zero, Quaternion.identity);
+            var list = new List<CombineInstance>();
+            foreach (var mf in inst.GetComponentsInChildren<MeshFilter>(true))
+            {
+                if (mf.sharedMesh == null || !mf.sharedMesh.isReadable) continue;
+                list.Add(new CombineInstance { mesh = mf.sharedMesh, transform = mf.transform.localToWorldMatrix });
+            }
+            Object.DestroyImmediate(inst);
+            if (list.Count == 0) return null;
+            var combined = new Mesh { name = meshName };
+            combined.CombineMeshes(list.ToArray(), true, true);
+            combined.RecalculateBounds();
+            return combined;
         }
 
         private static void BuildReserveSign(Transform parent, Vector3 pos, float yawDeg, string text, Material matBoard, Material matSteel)
