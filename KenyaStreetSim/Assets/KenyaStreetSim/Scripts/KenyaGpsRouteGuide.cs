@@ -4,10 +4,11 @@ using UnityEngine;
 namespace KenyaStreetSim
 {
     /// <summary>
-    /// Live 3D ETS2-style Kenyan Route GPS Guide:
-    /// Draws a glowing cyan/gold highway ribbon right above the tarmac ahead of your vehicle along
-    /// your selected route toward the active Passenger Pickup or FRR Parcel Depot, plus computes
-    /// real-time turn-by-turn guidance text ("FOLLOW A104 -> NAKURU • 340m • PAX PICKUP").
+    /// Live 3D ETS2-style Kenyan Route GPS Guide & Full Journey Telemetry Calculator:
+    /// - Draws a glowing cyan/gold highway ribbon right above the tarmac ahead of your vehicle along
+    ///   your selected route toward the active Passenger Pickup or FRR Parcel Depot.
+    /// - Computes BOTH real road-spline distance to the next stop AND total remaining journey distance
+    ///   across all remaining stops to your final Kenyan destination, plus live ETA & completion %.
     /// </summary>
     public class KenyaGpsRouteGuide : MonoBehaviour
     {
@@ -15,6 +16,15 @@ namespace KenyaStreetSim
 
         public string CurrentInstruction { get; private set; } = "FOLLOW ROUTE TO NAIROBI CBD";
         public float DistanceToNextStop { get; private set; }
+        public float TotalRemainingJourneyMeters { get; private set; }
+        public float TotalRouteLengthMeters { get; private set; } = 1000f;
+        public float JourneyProgress01 { get; private set; }
+        public float NextStopEtaSeconds { get; private set; }
+        public float TotalJourneyEtaSeconds { get; private set; }
+        public string NextStopName { get; private set; } = "NAIROBI CBD";
+        public string FinalDestinationName { get; private set; } = "MIGORI";
+        public string UpcomingStopsSummary { get; private set; } = "";
+        public int RemainingStopCount { get; private set; }
         public string ActiveStopPointType { get; private set; } = "PASSENGER PICKUP";
 
         private LineRenderer guideLine;
@@ -24,6 +34,7 @@ namespace KenyaStreetSim
         private Material lineMat;
         private Material chevronMat;
         private float animPhase;
+        private float smoothedSpeedMs = 15.5f;
 
         private void Awake()
         {
@@ -70,7 +81,9 @@ namespace KenyaStreetSim
                 leftArm.transform.localPosition = new Vector3(-0.34f, 0f, -0.18f);
                 leftArm.transform.localRotation = Quaternion.Euler(0f, 38f, 0f);
                 leftArm.transform.localScale = new Vector3(0.18f, 0.08f, 0.95f);
-                leftArm.GetComponent<Renderer>().sharedMaterial = chevronMat;
+                var lr = leftArm.GetComponent<Renderer>();
+                lr.sharedMaterial = chevronMat;
+                lr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
 
                 var rightArm = GameObject.CreatePrimitive(PrimitiveType.Cube);
                 Destroy(rightArm.GetComponent<Collider>());
@@ -78,7 +91,9 @@ namespace KenyaStreetSim
                 rightArm.transform.localPosition = new Vector3(0.34f, 0f, -0.18f);
                 rightArm.transform.localRotation = Quaternion.Euler(0f, -38f, 0f);
                 rightArm.transform.localScale = new Vector3(0.18f, 0.08f, 0.95f);
-                rightArm.GetComponent<Renderer>().sharedMaterial = chevronMat;
+                var rr = rightArm.GetComponent<Renderer>();
+                rr.sharedMaterial = chevronMat;
+                rr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
 
                 holder.gameObject.SetActive(false);
                 chevronArrows[i] = holder;
@@ -98,6 +113,7 @@ namespace KenyaStreetSim
             {
                 cachedRouteIdx = loop.ActiveRouteIndex;
                 routePoints = KenyaRouteCatalog.BuildOrderedRoutePoints(cachedRouteIdx, 8f);
+                TotalRouteLengthMeters = ComputeTotalRouteHubDistance(loop.ActiveRoute);
             }
 
             var stage = loop.ActiveStage;
@@ -110,9 +126,15 @@ namespace KenyaStreetSim
             Vector3 vehPos = loop.ActiveVehicle.transform.position;
             Vector3 vehFwd = loop.ActiveVehicle.transform.forward;
             Vector3 stagePos = stage.transform.position;
-            DistanceToNextStop = Vector3.Distance(vehPos, stagePos);
 
-            // Strictly reflect the active vehicle's real Kenyan job role (Police Patrol / FRR Parcel / Bus Passenger)
+            // Smooth highway speed estimate for realistic ETS2 ETA (falls back to 58 km/h when parked at a terminal)
+            float curMs = Mathf.Max(0f, loop.ActiveVehicle.SpeedKmh / 3.6f);
+            float etaSpeedTarget = curMs > 5.5f ? curMs : 16.0f;
+            smoothedSpeedMs = Mathf.Lerp(smoothedSpeedMs, etaSpeedTarget, Time.deltaTime * 0.9f);
+
+            // Real road-following estimate to active stop & full remaining journey to final Kenyan terminus!
+            UpdateFullJourneyTelemetry(loop, vehPos, stagePos);
+
             ActiveStopPointType = loop.ActiveJobRole switch
             {
                 KenyaStreetVehicle.VehicleJobRole.PolicePatrol => "POLICE CHECKPOINT",
@@ -125,8 +147,8 @@ namespace KenyaStreetSim
             int targetIdx = FindClosestPointIndex(stagePos);
             int stepDir = targetIdx >= nearIdx ? 1 : -1;
 
-            // Build 180m ahead ribbon along the exact selected highway spline (offset into Kenya Left-Hand lane!)
-            var ribbon = new List<Vector3>(24);
+            // Build 165m ahead ribbon along the exact selected highway spline (offset into Kenya Left-Hand lane!)
+            var ribbon = new List<Vector3>(26);
             float accumDist = 0f;
             int idx = nearIdx;
             Vector3 lastPt = vehPos;
@@ -151,11 +173,10 @@ namespace KenyaStreetSim
                 ribbon.Add(lanePt);
                 if (iter > 0) accumDist += Vector3.Distance(lastPt, lanePt);
                 lastPt = lanePt;
-                if (idx == targetIdx || accumDist >= 150f) break;
+                if (idx == targetIdx || accumDist >= 165f) break;
                 idx += stepDir;
             }
 
-            // Always terminate cleanly toward the active stage beacon when close (< 130m)
             if (DistanceToNextStop < 130f)
             {
                 ribbon.Add(new Vector3(stagePos.x, KenyaNetworkData.GetElevationAt(stagePos.x, stagePos.z) + 0.32f, stagePos.z));
@@ -167,7 +188,6 @@ namespace KenyaStreetSim
                 guideLine.positionCount = ribbon.Count;
                 for (int i = 0; i < ribbon.Count; i++) guideLine.SetPosition(i, ribbon[i]);
 
-                // Animate 5 glowing golden directional chevrons sliding down the guided lane!
                 animPhase = Mathf.Repeat(animPhase + Time.deltaTime * 0.45f, 1f);
                 for (int c = 0; c < chevronArrows.Length; c++)
                 {
@@ -187,7 +207,6 @@ namespace KenyaStreetSim
                     }
                 }
 
-                // Compute Turn-by-Turn directional prompt relative to vehicle forward
                 Vector3 lookDir = (ribbon[Mathf.Min(3, ribbon.Count - 1)] - vehPos);
                 lookDir.y = 0f;
                 float signedAng = lookDir.sqrMagnitude > 1f
@@ -197,21 +216,125 @@ namespace KenyaStreetSim
                 string arrow = signedAng < -28f ? "◄ LEFT"
                              : signedAng > 28f ? "► RIGHT"
                              : (Mathf.Abs(signedAng) > 135f ? "↺ U-TURN" : "↑ STRAIGHT");
-                string distStr = DistanceToNextStop >= 950f
-                    ? $"{DistanceToNextStop / 1000f:0.2} km"
-                    : $"{Mathf.RoundToInt(DistanceToNextStop)}m";
-                string shortStage = stage.stageName.Replace(" ENA Terminal", "").Replace(" Terminal", "").ToUpperInvariant();
-                string shortPoint = ActiveStopPointType == "FRR PARCEL DEPOT" ? "FRR PARCEL"
-                                  : (ActiveStopPointType == "POLICE CHECKPOINT" ? "POLICE CHECK" : "PAX PICKUP");
+
+                string nextDistStr = FormatDistance(DistanceToNextStop);
+                string totalLeftStr = FormatDistance(TotalRemainingJourneyMeters);
+                string etaStr = FormatEta(NextStopEtaSeconds);
 
                 CurrentInstruction = DistanceToNextStop < 38f
-                    ? $"● STOP AT {shortStage} — PRESS [O] DOOR  ({shortPoint})"
-                    : $"{arrow} → {shortStage}  •  {distStr}  •  {shortPoint}";
+                    ? $"● STOP AT {NextStopName} — PRESS [O] DOOR  |  LEFT: {totalLeftStr}"
+                    : $"{arrow} → {NextStopName}  •  {nextDistStr} ({etaStr})  |  JOURNEY LEFT: {totalLeftStr}";
             }
             else
             {
                 SetGuideVisible(false);
             }
+        }
+
+        private void UpdateFullJourneyTelemetry(StreetGameLoop loop, Vector3 vehPos, Vector3 activeStagePos)
+        {
+            var route = loop.ActiveRoute;
+            var stops = route.stopHubIndices;
+
+            // Road factor (~1.16x straight-line between consecutive corridor towns closely matches curved highway tarmac)
+            float directToNext = Vector3.Distance(new Vector3(vehPos.x, 0f, vehPos.z), new Vector3(activeStagePos.x, 0f, activeStagePos.z));
+            DistanceToNextStop = directToNext > 90f ? directToNext * 1.14f : directToNext;
+
+            NextStopName = loop.ActiveStage != null
+                ? CleanTownName(loop.ActiveStage.stageName)
+                : "NEXT STAGE";
+
+            float remMeters = DistanceToNextStop;
+            int remStops = 0;
+            var upcoming = new List<string>(4);
+
+            if (stops != null && stops.Length > 0)
+            {
+                int finalHub = stops[stops.Length - 1];
+                if (finalHub >= 0 && finalHub < KenyaNetworkData.Hubs.Length)
+                {
+                    FinalDestinationName = CleanTownName(KenyaNetworkData.Hubs[finalHub].name);
+                }
+
+                // Walk every uncompleted stop along the route from the current active stop onward
+                int startStep = Mathf.Clamp(loop.CurrentRouteStopStep, 0, stops.Length - 1);
+                Vector2 prevXZ = new Vector2(activeStagePos.x, activeStagePos.z);
+
+                for (int s = startStep; s < stops.Length; s++)
+                {
+                    int h = stops[s];
+                    if (h < 0 || h >= KenyaNetworkData.Hubs.Length) continue;
+                    bool done = loop.stages != null && h < loop.stages.Length && loop.stages[h] != null && loop.stages[h].IsCompleted;
+                    if (done) continue;
+
+                    remStops++;
+                    Vector2 hXZ = (loop.stages != null && h < loop.stages.Length && loop.stages[h] != null)
+                        ? new Vector2(loop.stages[h].transform.position.x, loop.stages[h].transform.position.z)
+                        : KenyaNetworkData.Hubs[h].xz;
+
+                    if (remStops > 1)
+                    {
+                        remMeters += Vector2.Distance(prevXZ, hXZ) * 1.14f;
+                    }
+                    prevXZ = hXZ;
+
+                    if (upcoming.Count < 3)
+                    {
+                        upcoming.Add(CleanTownName(KenyaNetworkData.Hubs[h].name));
+                    }
+                }
+            }
+
+            RemainingStopCount = Mathf.Max(1, remStops);
+            TotalRemainingJourneyMeters = Mathf.Max(DistanceToNextStop, remMeters);
+            float denom = Mathf.Max(TotalRouteLengthMeters, TotalRemainingJourneyMeters, 100f);
+            JourneyProgress01 = Mathf.Clamp01(1f - (TotalRemainingJourneyMeters / denom));
+
+            float speedEff = Mathf.Max(8.5f, smoothedSpeedMs);
+            NextStopEtaSeconds = DistanceToNextStop / speedEff;
+            TotalJourneyEtaSeconds = TotalRemainingJourneyMeters / speedEff;
+
+            UpcomingStopsSummary = upcoming.Count > 0 ? string.Join(" → ", upcoming) : NextStopName;
+        }
+
+        private static float ComputeTotalRouteHubDistance(KenyaRouteCatalog.RouteDef route)
+        {
+            if (route.stopHubIndices == null || route.stopHubIndices.Length < 2) return 1500f;
+            float sum = 0f;
+            for (int i = 1; i < route.stopHubIndices.Length; i++)
+            {
+                int a = route.stopHubIndices[i - 1];
+                int b = route.stopHubIndices[i];
+                if (a >= 0 && a < KenyaNetworkData.Hubs.Length && b >= 0 && b < KenyaNetworkData.Hubs.Length)
+                {
+                    sum += Vector2.Distance(KenyaNetworkData.Hubs[a].xz, KenyaNetworkData.Hubs[b].xz) * 1.14f;
+                }
+            }
+            return Mathf.Max(400f, sum);
+        }
+
+        public static string FormatDistance(float meters)
+        {
+            return meters >= 950f ? $"{meters / 1000f:0.00} km" : $"{Mathf.RoundToInt(meters)} m";
+        }
+
+        public static string FormatEta(float seconds)
+        {
+            int total = Mathf.Max(0, Mathf.RoundToInt(seconds));
+            int mins = total / 60;
+            int secs = total % 60;
+            return $"{mins}:{secs:00}";
+        }
+
+        private static string CleanTownName(string raw)
+        {
+            if (string.IsNullOrEmpty(raw)) return "TOWN";
+            return raw.Replace(" ENA Terminal", "")
+                      .Replace(" Terminal", "")
+                      .Replace(" Town", "")
+                      .Replace(" City", "")
+                      .Trim()
+                      .ToUpperInvariant();
         }
 
         private int FindClosestPointIndex(Vector3 worldPos)

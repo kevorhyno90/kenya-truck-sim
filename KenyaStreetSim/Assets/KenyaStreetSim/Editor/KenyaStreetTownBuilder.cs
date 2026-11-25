@@ -256,6 +256,18 @@ namespace KenyaStreetSim.Editor
                 }
             }
 
+            // Attach visible 3D seated passenger cabins to all passenger Coaches & Matatus!
+            for (int fi = 0; fi < fleetList.Count; fi++)
+            {
+                if (fleetList[fi] != null && fleetList[fi].jobRole == KenyaStreetVehicle.VehicleJobRole.BusPassenger)
+                {
+                    if (fleetList[fi].GetComponent<KenyaBusPassengerCabin>() == null)
+                    {
+                        fleetList[fi].gameObject.AddComponent<KenyaBusPassengerCabin>();
+                    }
+                }
+            }
+
             for (int fi = 1; fi < fleetList.Count; fi++)
             {
                 fleetList[fi].gameObject.SetActive(false);
@@ -296,6 +308,7 @@ namespace KenyaStreetSim.Editor
             var routeMap = sysRoot.AddComponent<KenyaRouteMapUI>();
             sysRoot.AddComponent<KenyaBusCareerManager>();
             sysRoot.AddComponent<KenyaEts2RouteAdvisor>();
+            sysRoot.AddComponent<KenyaWorldPerformanceManager>();
             var loop = sysRoot.AddComponent<StreetGameLoop>();
             loop.fleet = fleetList.ToArray();
             loop.stages = stages;

@@ -116,6 +116,24 @@ namespace KenyaStreetSim
                 routeMap = FindAnyObjectByType<KenyaRouteMapUI>();
             }
 
+            // Ensure runtime world streaming optimizer and visible 3D bus passenger cabins are always active!
+            if (KenyaWorldPerformanceManager.Instance == null && GetComponent<KenyaWorldPerformanceManager>() == null)
+            {
+                gameObject.AddComponent<KenyaWorldPerformanceManager>();
+            }
+            if (fleet != null)
+            {
+                for (int i = 0; i < fleet.Length; i++)
+                {
+                    if (fleet[i] != null &&
+                        fleet[i].jobRole == KenyaStreetVehicle.VehicleJobRole.BusPassenger &&
+                        fleet[i].GetComponent<KenyaBusPassengerCabin>() == null)
+                    {
+                        fleet[i].gameObject.AddComponent<KenyaBusPassengerCabin>();
+                    }
+                }
+            }
+
             // Initialize fleet: ENA Coach active at start position, Isuzu FRR standby
             ActivateVehicle(0, resetPose: true);
             ResetStagesForNewRun();

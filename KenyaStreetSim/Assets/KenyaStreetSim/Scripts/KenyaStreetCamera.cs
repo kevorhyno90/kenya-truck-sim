@@ -34,6 +34,9 @@ namespace KenyaStreetSim
         private KenyaStreetVehicle targetVehicle;
         private float orbitYawOffset;
         private float orbitPitchOffset = 5f;
+        private float smoothedChaseYaw;
+        private float chaseYawVel;
+        private bool hasChaseYaw;
         private float titleAnglePhase;
         private float shakeMagnitude;
         private float shakeTimer;
@@ -107,9 +110,13 @@ namespace KenyaStreetSim
             {
                 case CameraMode.ChaseOrbit:
                     Transform t = targetVehicle.transform;
-                    Quaternion orbitRot = Quaternion.Euler(orbitPitchOffset, t.eulerAngles.y, 0f);
+                    smoothedChaseYaw = t.eulerAngles.y;
+                    chaseYawVel = 0f;
+                    hasChaseYaw = true;
+                    Quaternion orbitRot = Quaternion.Euler(orbitPitchOffset, smoothedChaseYaw, 0f);
                     Vector3 desiredPos = t.position + Vector3.up * chaseHeight - (orbitRot * Vector3.forward) * chaseDistance;
-                    desiredPos.y = Mathf.Max(1.4f, desiredPos.y);
+                    float groundH = KenyaNetworkData.GetElevationAt(desiredPos.x, desiredPos.z);
+                    desiredPos.y = Mathf.Max(groundH + 1.4f, desiredPos.y);
                     transform.position = desiredPos;
                     Vector3 lookTarget = t.position + Vector3.up * chaseLookHeight + t.forward * 5.0f;
                     transform.rotation = Quaternion.LookRotation(lookTarget - transform.position, Vector3.up);
@@ -235,21 +242,42 @@ namespace KenyaStreetSim
         private void UpdateChaseCamera()
         {
             Transform t = targetVehicle.transform;
-            float baseYaw = t.eulerAngles.y + orbitYawOffset;
+            Vector3 flatFwd = new Vector3(t.forward.x, 0f, t.forward.z);
+            float targetYaw = flatFwd.sqrMagnitude > 0.001f
+                ? Mathf.Atan2(flatFwd.x, flatFwd.z) * Mathf.Rad2Deg
+                : t.eulerAngles.y;
+
+            if (!hasChaseYaw)
+            {
+                smoothedChaseYaw = targetYaw;
+                chaseYawVel = 0f;
+                hasChaseYaw = true;
+            }
+            else
+            {
+                // Smooth ETS2-style angular chase damping so turns & roundabouts swing fluidly without snap
+                float smoothTime = Mathf.Lerp(0.28f, 0.16f, Mathf.Clamp01(targetVehicle.SpeedKmh / 75f));
+                smoothedChaseYaw = Mathf.SmoothDampAngle(smoothedChaseYaw, targetYaw, ref chaseYawVel, smoothTime);
+            }
+
+            float baseYaw = smoothedChaseYaw + orbitYawOffset;
             Quaternion orbitRot = Quaternion.Euler(orbitPitchOffset, baseYaw, 0f);
             Vector3 desiredPos = t.position + Vector3.up * chaseHeight - (orbitRot * Vector3.forward) * chaseDistance;
-            desiredPos.y = Mathf.Max(1.4f, desiredPos.y);
+            float groundH = KenyaNetworkData.GetElevationAt(desiredPos.x, desiredPos.z);
+            desiredPos.y = Mathf.Max(groundH + 1.4f, desiredPos.y);
 
-            transform.position = Vector3.Lerp(transform.position, desiredPos, 1f - Mathf.Exp(-positionSmooth * Time.deltaTime));
+            float posAlpha = 1f - Mathf.Exp(-Mathf.Max(9.5f, positionSmooth) * Time.deltaTime);
+            transform.position = Vector3.Lerp(transform.position, desiredPos, posAlpha);
 
-            Vector3 lookTarget = t.position + Vector3.up * chaseLookHeight + t.forward * 5.0f;
+            Vector3 lookTarget = t.position + Vector3.up * chaseLookHeight + t.forward * 5.5f;
             Quaternion desiredLook = Quaternion.LookRotation(lookTarget - transform.position, Vector3.up);
-            transform.rotation = Quaternion.Slerp(transform.rotation, desiredLook, 1f - Mathf.Exp(-rotationSmooth * Time.deltaTime));
+            float rotAlpha = 1f - Mathf.Exp(-Mathf.Max(10.5f, rotationSmooth) * Time.deltaTime);
+            transform.rotation = Quaternion.Slerp(transform.rotation, desiredLook, rotAlpha);
 
             if (cam != null)
             {
                 float targetFov = Mathf.Lerp(54f, 64f, Mathf.Clamp01(targetVehicle.SpeedKmh / 78f));
-                cam.fieldOfView = Mathf.Lerp(cam.fieldOfView, targetFov, Time.deltaTime * 5f);
+                cam.fieldOfView = Mathf.Lerp(cam.fieldOfView, targetFov, Time.deltaTime * 4.5f);
             }
         }
 

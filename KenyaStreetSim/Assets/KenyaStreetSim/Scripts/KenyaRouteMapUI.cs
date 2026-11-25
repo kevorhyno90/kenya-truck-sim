@@ -21,12 +21,15 @@ namespace KenyaStreetSim
         private Sprite solidSprite;
         private Sprite circleSprite;
 
-        // Live corner GPS minimap
+        // Live corner GPS minimap (ETS2 Zoomed Tracking GPS + [F2] Overview Toggle)
         private GameObject miniMapRoot;
+        private RectTransform miniMapContent;
         private RectTransform miniPlayerArrow;
         private RectTransform miniTargetRing;
         private TextMeshProUGUI miniLocationText;
-        private Vector2 miniMapSize = new Vector2(268f, 152f);
+        private Vector2 miniMapSize = new Vector2(288f, 168f);
+        private bool miniMapZoomed = true;
+        private const float MiniZoomScale = 3.35f;
 
         // Full-screen interactive [M] Kenya ENA Coach Map
         private GameObject fullMapOverlay;
@@ -78,6 +81,12 @@ namespace KenyaStreetSim
                 if (WasMapKeyPressed())
                 {
                     ToggleFullMap();
+                }
+                else if (playing && !IsFullMapOpen && WasF2Pressed())
+                {
+                    miniMapZoomed = !miniMapZoomed;
+                    KenyaStreetAudio.Instance?.PlayUiClick();
+                    loop.hud?.ShowToast(miniMapZoomed ? "GPS MINIMAP: ETS2 ZOOMED TRACKING [F2]" : "GPS MINIMAP: FULL KENYA OVERVIEW [F2]");
                 }
                 else if (IsFullMapOpen && WasEscPressed())
                 {
@@ -257,10 +266,25 @@ namespace KenyaStreetSim
             Vector2 vehXZ = new Vector2(veh.transform.position.x, veh.transform.position.z);
             float yaw = veh.transform.eulerAngles.y;
 
+            Vector2 miniPlayerPos = WorldToMapPos(vehXZ, miniMapSize);
             if (miniPlayerArrow != null)
             {
-                miniPlayerArrow.anchoredPosition = WorldToMapPos(vehXZ, miniMapSize);
+                miniPlayerArrow.anchoredPosition = miniPlayerPos;
                 miniPlayerArrow.localRotation = Quaternion.Euler(0f, 0f, -yaw);
+            }
+            if (miniMapContent != null)
+            {
+                // ETS2-style live zoomed GPS tracking smoothly centers the map viewport on the player's bus!
+                float targetScale = miniMapZoomed ? MiniZoomScale : 1f;
+                Vector2 targetOffset = miniMapZoomed ? (-miniPlayerPos * MiniZoomScale) : Vector2.zero;
+                float smooth = 1f - Mathf.Exp(-10f * Time.unscaledDeltaTime);
+                float curScale = Mathf.Lerp(miniMapContent.localScale.x, targetScale, smooth);
+                miniMapContent.localScale = new Vector3(curScale, curScale, 1f);
+                miniMapContent.anchoredPosition = Vector2.Lerp(miniMapContent.anchoredPosition, targetOffset, smooth);
+
+                float invMarker = 1f / Mathf.Lerp(1f, curScale, 0.72f);
+                if (miniPlayerArrow != null) miniPlayerArrow.localScale = new Vector3(invMarker, invMarker, 1f);
+                if (miniTargetRing != null) miniTargetRing.localScale = new Vector3(invMarker, invMarker, 1f);
             }
             if (fullPlayerArrow != null)
             {
@@ -282,8 +306,17 @@ namespace KenyaStreetSim
 
             if (miniLocationText != null)
             {
-                string nearestTown = FindNearestHubName(vehXZ);
-                miniLocationText.text = $"{nearestTown.ToUpperInvariant()}  •  [M] MAP";
+                var gps = KenyaGpsRouteGuide.Instance;
+                if (gps != null)
+                {
+                    string rem = KenyaGpsRouteGuide.FormatDistance(gps.TotalRemainingJourneyMeters);
+                    miniLocationText.text = $"{gps.NextStopName}  •  {rem} LEFT  [M]";
+                }
+                else
+                {
+                    string nearestTown = FindNearestHubName(vehXZ);
+                    miniLocationText.text = $"{nearestTown.ToUpperInvariant()}  •  [M] MAP";
+                }
             }
         }
 
@@ -334,26 +367,36 @@ namespace KenyaStreetSim
 
         private void BuildCornerMiniMap(RectTransform root)
         {
-            // Bottom-left ETS2 Route Advisor GPS Minimap cleanly above the bottom controls pill
-            var outer = CreateBorderedCorner("KenyaMiniMap", root, new Vector2(0f, 0f), new Vector2(0f, 0f), new Vector2(28f, 82f), new Vector2(280f, 192f), Palette.Hex("#141B25"), Palette.UiAccentAmber, 2f);
+            // Bottom-left ETS2 Route Advisor GPS Minimap (clipped zoomed viewport tracking your bus live!)
+            var outer = CreateBorderedCorner("KenyaMiniMap", root, new Vector2(0f, 0f), new Vector2(0f, 0f), new Vector2(28f, 82f), new Vector2(304f, 208f), Palette.Hex("#141B25"), Palette.UiAccentAmber, 2f);
             miniMapRoot = outer.gameObject;
 
-            miniLocationText = CreateText("MiniHeader", outer, "NAIROBI CBD  •  [M] MAP", 13.5f, FontStyles.Bold, Palette.UiAccentAmber, TextAlignmentOptions.Center);
+            miniLocationText = CreateText("MiniHeader", outer, "NAIROBI CBD  •  [M] MAP", 13.0f, FontStyles.Bold, Palette.UiAccentAmber, TextAlignmentOptions.Center);
             miniLocationText.textWrappingMode = TextWrappingModes.NoWrap;
             miniLocationText.overflowMode = TextOverflowModes.Truncate;
-            SetBox(miniLocationText.rectTransform, 0f, -6f, 264f, 22f, new Vector2(0.5f, 1f));
+            SetBox(miniLocationText.rectTransform, 0f, -6f, 290f, 22f, new Vector2(0.5f, 1f));
 
-            var plotGo = new GameObject("MiniPlot", typeof(RectTransform), typeof(Image));
-            plotGo.transform.SetParent(outer, false);
-            var plotRt = plotGo.GetComponent<RectTransform>();
-            plotRt.anchorMin = new Vector2(0.5f, 0f);
-            plotRt.anchorMax = new Vector2(0.5f, 0f);
-            plotRt.pivot = new Vector2(0.5f, 0f);
-            plotRt.anchoredPosition = new Vector2(0f, 8f);
+            var viewportGo = new GameObject("MiniPlotViewport", typeof(RectTransform), typeof(Image), typeof(RectMask2D));
+            viewportGo.transform.SetParent(outer, false);
+            var vpRt = viewportGo.GetComponent<RectTransform>();
+            vpRt.anchorMin = new Vector2(0.5f, 0f);
+            vpRt.anchorMax = new Vector2(0.5f, 0f);
+            vpRt.pivot = new Vector2(0.5f, 0f);
+            vpRt.anchoredPosition = new Vector2(0f, 8f);
+            vpRt.sizeDelta = miniMapSize;
+            var vpImg = viewportGo.GetComponent<Image>();
+            vpImg.sprite = solidSprite;
+            vpImg.color = Palette.Hex("#0E151E");
+
+            var contentGo = new GameObject("MiniPlotContent", typeof(RectTransform));
+            contentGo.transform.SetParent(viewportGo.transform, false);
+            var plotRt = contentGo.GetComponent<RectTransform>();
+            plotRt.anchorMin = new Vector2(0.5f, 0.5f);
+            plotRt.anchorMax = new Vector2(0.5f, 0.5f);
+            plotRt.pivot = new Vector2(0.5f, 0.5f);
+            plotRt.anchoredPosition = Vector2.zero;
             plotRt.sizeDelta = miniMapSize;
-            var plotImg = plotGo.GetComponent<Image>();
-            plotImg.sprite = solidSprite;
-            plotImg.color = Palette.Hex("#0E151E");
+            miniMapContent = plotRt;
 
             // Draw stylized water landmarks for Lake Victoria (far west: Sori -> Homa Bay -> Kisumu) & Indian Ocean (Mombasa -> Kilifi -> Malindi)
             DrawMapWaterBlob(plotRt, new Vector2(-2020f, 440f), 60f, Palette.Hex("#173B5E"), miniMapSize);
@@ -364,11 +407,19 @@ namespace KenyaStreetSim
             // Draw all 15 connected Kenyan highways (tracked for live route highlighting!)
             DrawAllHighways(plotRt, miniMapSize, thickness: 2.5f, miniHighwaySegImages);
 
+            // Draw roundabout rings so upcoming roundabouts stand out clearly on the zoomed GPS!
+            for (int r = 0; r < KenyaNetworkData.Roundabouts.Length; r++)
+            {
+                var rb = KenyaNetworkData.Roundabouts[r];
+                var rDot = CreateCircleMarker($"MiniRbt_{r}", plotRt, WorldToMapPos(rb.center, miniMapSize), 6.5f, Palette.Hex("#F59E0B"));
+                rDot.raycastTarget = false;
+            }
+
             // Draw town hub dots
             for (int i = 0; i < KenyaNetworkData.Hubs.Length; i++)
             {
                 var h = KenyaNetworkData.Hubs[i];
-                var dot = CreateCircleMarker($"MiniHub_{i}", plotRt, WorldToMapPos(h.xz, miniMapSize), 7f, Palette.EnaBodyWhite);
+                var dot = CreateCircleMarker($"MiniHub_{i}", plotRt, WorldToMapPos(h.xz, miniMapSize), 4.5f, Palette.EnaBodyWhite);
                 dot.raycastTarget = false;
             }
 
@@ -823,6 +874,15 @@ namespace KenyaStreetSim
             return Keyboard.current != null && Keyboard.current.mKey.wasPressedThisFrame;
 #else
             return Input.GetKeyDown(KeyCode.M);
+#endif
+        }
+
+        private static bool WasF2Pressed()
+        {
+#if ENABLE_INPUT_SYSTEM
+            return Keyboard.current != null && Keyboard.current.f2Key.wasPressedThisFrame;
+#else
+            return Input.GetKeyDown(KeyCode.F2);
 #endif
         }
 

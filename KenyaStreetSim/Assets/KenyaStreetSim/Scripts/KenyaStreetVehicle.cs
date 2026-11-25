@@ -185,6 +185,8 @@ namespace KenyaStreetSim
         }
 
         private float currentSteerAngle;
+        private float smoothedSteerInput;
+        private float smoothedThrottleInput;
         private float lastCollisionTime = -10f;
         private float blinkTimer;
         private float prevSpeedKmh;
@@ -264,6 +266,8 @@ namespace KenyaStreetSim
             }
 
             currentSteerAngle = 0f;
+            smoothedSteerInput = 0f;
+            smoothedThrottleInput = 0f;
             ThrottleInput = 0f;
             SteerInput = 0f;
             prevSpeedKmh = 0f;
@@ -356,8 +360,29 @@ namespace KenyaStreetSim
                 accel = Mathf.Clamp(err * 0.12f, -0.18f, 0.88f);
             }
 
-            ThrottleInput = accel;
-            SteerInput = steer;
+            // Progressive ETS2 non-linear steering & weighty pedal response (zero jerky keyboard snapping!)
+            float dt = Time.deltaTime;
+            float steerSpeedFactor = Mathf.Clamp01(SpeedKmh / Mathf.Max(30f, maxSpeedKmh));
+            float steerTurnRate = Mathf.Lerp(2.9f, 1.55f, steerSpeedFactor);
+            float steerReturnRate = Mathf.Lerp(3.2f, 5.2f, steerSpeedFactor);
+            if (Mathf.Abs(steer) > 0.05f)
+            {
+                // Counter-steering responds faster than initial turn-in so roundabouts feel super controlled
+                bool reversingSteer = (steer * smoothedSteerInput) < -0.02f;
+                float rate = reversingSteer ? steerTurnRate * 2.1f : steerTurnRate;
+                smoothedSteerInput = Mathf.MoveTowards(smoothedSteerInput, steer, rate * dt);
+            }
+            else
+            {
+                smoothedSteerInput = Mathf.MoveTowards(smoothedSteerInput, 0f, steerReturnRate * dt);
+            }
+            float curvedSteer = Mathf.Sign(smoothedSteerInput) * Mathf.Pow(Mathf.Abs(smoothedSteerInput), 1.35f);
+
+            float pedalRate = Mathf.Abs(accel) > Mathf.Abs(smoothedThrottleInput) ? 3.8f : 5.5f;
+            smoothedThrottleInput = Mathf.MoveTowards(smoothedThrottleInput, accel, pedalRate * dt);
+
+            ThrottleInput = smoothedThrottleInput;
+            SteerInput = curvedSteer;
 
             if (hornPressed) KenyaStreetAudio.Instance?.PlayHorn(isCoach);
             if (leftSig) ToggleLeftSignal();
@@ -402,6 +427,21 @@ namespace KenyaStreetSim
             UpdateSteeringWheelVisual();
             UpdateBrakeLights();
             UpdateRpmAndAudio();
+            SyncWheelVisuals();
+        }
+
+        private void SyncWheelVisuals()
+        {
+            if (wheels == null) return;
+            for (int i = 0; i < wheels.Length; i++)
+            {
+                var w = wheels[i];
+                if (w != null && w.collider != null && w.visualMesh != null)
+                {
+                    w.collider.GetWorldPose(out Vector3 pos, out Quaternion rot);
+                    w.visualMesh.SetPositionAndRotation(pos, rot);
+                }
+            }
         }
 
         private void UpdateBlinkers()
@@ -465,7 +505,7 @@ namespace KenyaStreetSim
             float speedFactor = Mathf.Clamp01(SpeedKmh / maxSpeedKmh);
             float allowedSteer = Mathf.Lerp(maxSteerAngle, highSpeedSteerAngle, speedFactor);
             float targetSteer = canDrive ? SteerInput * allowedSteer : 0f;
-            currentSteerAngle = Mathf.MoveTowards(currentSteerAngle, targetSteer, 130f * Time.fixedDeltaTime);
+            currentSteerAngle = Mathf.Lerp(currentSteerAngle, targetSteer, 1f - Mathf.Exp(-14f * Time.fixedDeltaTime));
 
             int driveCount = 0;
             for (int i = 0; i < wheels.Length; i++)

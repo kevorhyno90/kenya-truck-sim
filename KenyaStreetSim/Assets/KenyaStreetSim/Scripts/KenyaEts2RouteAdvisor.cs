@@ -8,11 +8,12 @@ using UnityEngine.InputSystem;
 namespace KenyaStreetSim
 {
     /// <summary>
-    /// Classic ETS2-Class Route Advisor & Driver Simulation Manager:
-    ///  - Live ETS2 Route Advisor HUD widget (toggled with [F1]): Cruise Control [X], Exhaust Retarder [N],
-    ///    Driver Rest/Fatigue % ([F] Sleep at Petrol Stations or Bus Terminals!), Passenger Comfort %,
-    ///    Diesel Range (km), and NTSA 80 KPH Speed-Governor Monitor!
-    ///  - Rewards smooth driving with VIP Passenger Comfort Tips (+KES 900) at every town stage.
+    /// ETS2-Class Route Advisor & Driver Simulation Manager:
+    ///  - Live Journey Ahead tracker (Next Stop km + ETA, Total Remaining Journey km + ETA, visual progress bar,
+    ///    and Upcoming Towns itinerary so you ALWAYS know how much journey is in front of you!).
+    ///  - Visible Onboard Seated Passenger count (e.g. 32 / 44 SEATS) synced with KenyaBusPassengerCabin.
+    ///  - Cruise Control [X], Exhaust Retarder [N], Driver Rest/Fatigue % ([F] Sleep at Petrol Stations/Terminals),
+    ///    Passenger Comfort %, Diesel Range (km), and NTSA 80 KPH Speed-Governor Monitor!
     /// </summary>
     public class KenyaEts2RouteAdvisor : MonoBehaviour
     {
@@ -24,10 +25,14 @@ namespace KenyaStreetSim
 
         private Canvas advisorCanvas;
         private GameObject advisorCard;
-        private TextMeshProUGUI lineCruiseRet;
+        private TextMeshProUGUI lineRouteHeader;
+        private TextMeshProUGUI lineJourneyAhead;
+        private TextMeshProUGUI lineUpcomingStops;
+        private TextMeshProUGUI linePaxCruise;
         private TextMeshProUGUI lineComfortRest;
         private TextMeshProUGUI lineFuelRange;
         private TextMeshProUGUI linePrompt;
+        private Image journeyBarFill;
         private Image restBarFill;
         private Image comfortBarFill;
 
@@ -91,7 +96,7 @@ namespace KenyaStreetSim
                 DriverRest01 = Mathf.Clamp01(DriverRest01 - dt * 0.0014f);
             }
 
-            // 2. NTSA 80 KPH PSV Speed-Governor Monitor & Harsh Braking Comfort Check!
+            // 2. NTSA 80 KPH PSV Speed-Governor Monitor & Harsh Braking Comfort Check
             float speedLimit = veh.isCoach ? 85f : 92f;
             if (veh.SpeedKmh > speedLimit)
             {
@@ -113,7 +118,6 @@ namespace KenyaStreetSim
                 }
             }
 
-            // Harsh emergency slam-braking check
             float decel = (prevSpeedKmh - veh.SpeedKmh) / Mathf.Max(0.01f, dt);
             if (decel > 52f && veh.SpeedKmh > 5f)
             {
@@ -121,7 +125,7 @@ namespace KenyaStreetSim
             }
             prevSpeedKmh = veh.SpeedKmh;
 
-            // 3. Check if parked near any Petrol Station or Major Town Bus Stage to allow [F] Driver Rest/Sleep!
+            // 3. Petrol Station / Terminal Driver Rest check
             bool canSleepHere = IsNearRestPoint(veh.transform.position) && veh.SpeedKmh < 8f;
             if (DriverRest01 < 0.28f && Time.time - lastRestHintTime > 25f)
             {
@@ -133,13 +137,45 @@ namespace KenyaStreetSim
                 PerformDriverRest(loop);
             }
 
-            // 4. Refresh sleek ETS2 Route Advisor UI
+            // 4. Refresh ETS2 Route Advisor UI (Journey Ahead + Passengers + Systems!)
             if (IsAdvisorVisible && advisorCard != null)
             {
+                var gps = KenyaGpsRouteGuide.Instance;
+                int pct = gps != null ? Mathf.RoundToInt(gps.JourneyProgress01 * 100f) : 0;
+                int stopDone = loop.CompletedStageCount;
+                int stopTotal = loop.RouteTotalStops;
+
+                if (lineRouteHeader != null)
+                {
+                    string dest = gps != null ? gps.FinalDestinationName : "KENYA";
+                    lineRouteHeader.text = $"TO {dest}  •  STOP {Mathf.Min(stopDone + 1, stopTotal)}/{stopTotal}  ({pct}%)";
+                }
+                if (journeyBarFill != null && gps != null)
+                {
+                    journeyBarFill.fillAmount = Mathf.Clamp01(gps.JourneyProgress01);
+                }
+                if (lineJourneyAhead != null && gps != null)
+                {
+                    string nextD = KenyaGpsRouteGuide.FormatDistance(gps.DistanceToNextStop);
+                    string nextEta = KenyaGpsRouteGuide.FormatEta(gps.NextStopEtaSeconds);
+                    string remD = KenyaGpsRouteGuide.FormatDistance(gps.TotalRemainingJourneyMeters);
+                    string remEta = KenyaGpsRouteGuide.FormatEta(gps.TotalJourneyEtaSeconds);
+                    lineJourneyAhead.text = $"NEXT {nextD} ({nextEta})  •  LEFT {remD} ({remEta})";
+                }
+                if (lineUpcomingStops != null && gps != null)
+                {
+                    lineUpcomingStops.text = $"AHEAD: {gps.UpcomingStopsSummary}";
+                }
+
                 string ccStr = veh.CruiseControlOn ? $"CC {veh.CruiseTargetKmh:0}" : "CC OFF [X]";
-                string retStr = veh.RetarderStage == 0 ? "RET OFF [N]" : $"RET STG {veh.RetarderStage}";
-                lineCruiseRet.text = $"{ccStr}   |   {retStr}";
-                lineCruiseRet.color = (veh.CruiseControlOn || veh.RetarderStage > 0) ? Palette.UiAccentGreen : Palette.UiTextPrimary;
+                string retStr = veh.RetarderStage == 0 ? "RET OFF [N]" : $"RET {veh.RetarderStage}";
+                var cabin = veh.GetComponent<KenyaBusPassengerCabin>();
+                string loadStr = cabin != null && cabin.MaxSeatCapacity > 0
+                    ? $"PAX {cabin.CurrentOnboardCount}/{cabin.MaxSeatCapacity}"
+                    : (loop.ActiveJobRole == KenyaStreetVehicle.VehicleJobRole.CargoParcel ? $"PARCELS {loop.PassengersBoarded}" : "PATROL");
+
+                linePaxCruise.text = $"{loadStr}  |  {ccStr}  |  {retStr}";
+                linePaxCruise.color = (veh.CruiseControlOn || veh.RetarderStage > 0) ? Palette.UiAccentGreen : Palette.UiTextPrimary;
 
                 lineComfortRest.text = $"COMFORT {Mathf.RoundToInt(PassengerComfort01 * 100f)}%   •   REST {Mathf.RoundToInt(DriverRest01 * 100f)}%";
                 if (comfortBarFill != null) comfortBarFill.fillAmount = PassengerComfort01;
@@ -151,7 +187,7 @@ namespace KenyaStreetSim
 
                 linePrompt.text = canSleepHere
                     ? "PRESS [F] TO REST 6 HRS (+100% ENERGY)"
-                    : "ETS2 ADVISOR [F1] • [X] CRUISE • [N] RETARDER";
+                    : "[F1] ADVISOR • [F2] GPS ZOOM • [O] DOOR • [M] MAP";
                 linePrompt.color = canSleepHere ? Palette.UiAccentGreen : Palette.UiTextMuted;
             }
         }
@@ -160,7 +196,6 @@ namespace KenyaStreetSim
         {
             DriverRest01 = 1.0f;
             PassengerComfort01 = Mathf.Clamp01(PassengerComfort01 + 0.15f);
-            // Advance Kenya Time of Day cleanly (rest 6 hours!)
             KenyaTimeOfDay.Instance?.CyclePreset();
             KenyaStreetAudio.Instance?.PlayPickupBlip();
             loop.hud?.ShowMilestoneBanner("DRIVER RESTED — 6 HOURS", "Energy restored to 100%! Fresh Kenyan shift ready on the highway.");
@@ -168,7 +203,6 @@ namespace KenyaStreetSim
 
         private void HandleStageBoarded(BusStageZone stage)
         {
-            // Reward VIP Passenger Comfort Bonus when keeping passengers happy (>= 88% comfort!)
             if (PassengerComfort01 >= 0.88f && KenyaBusCareerManager.Instance != null)
             {
                 KenyaBusCareerManager.Instance.AwardVipComfortTip(900);
@@ -215,8 +249,8 @@ namespace KenyaStreetSim
             brt.anchorMin = new Vector2(1f, 0f);
             brt.anchorMax = new Vector2(1f, 0f);
             brt.pivot = new Vector2(1f, 0f);
-            brt.anchoredPosition = new Vector2(-28f, 190f);
-            brt.sizeDelta = new Vector2(310f, 128f);
+            brt.anchoredPosition = new Vector2(-28f, 188f);
+            brt.sizeDelta = new Vector2(368f, 206f);
             var bImg = border.GetComponent<Image>();
             bImg.sprite = sp;
             bImg.color = Palette.Hex("#14E8FF");
@@ -230,12 +264,16 @@ namespace KenyaStreetSim
             iImg.sprite = sp;
             iImg.color = Palette.Hex("#141B26");
 
-            lineCruiseRet   = MakeLine(irt, "CruiseRet",   "CC OFF [X]   |   RET OFF [N]", 15f, FontStyles.Bold, Palette.UiTextPrimary, -10f);
-            lineComfortRest = MakeLine(irt, "ComfortRest", "COMFORT 96%   •   REST 100%",  13.5f, FontStyles.Bold, Palette.UiAccentGreen, -34f);
-            comfortBarFill  = MakeBar(irt, sp, "ComfortBar", 12f, -56f, 134f, 7f, Palette.UiAccentGreen);
-            restBarFill     = MakeBar(irt, sp, "RestBar",   160f, -56f, 134f, 7f, Palette.Hex("#38BDF8"));
-            lineFuelRange   = MakeLine(irt, "FuelRange",   "DIESEL 88% (~320 KM)",         14f, FontStyles.Bold, Palette.UiAccentAmber, -72f);
-            linePrompt      = MakeLine(irt, "Prompt",      "ETS2 ADVISOR [F1] • [X] CRUISE • [N] RETARDER", 11.5f, FontStyles.Normal, Palette.UiTextMuted, -98f);
+            lineRouteHeader   = MakeLine(irt, "RouteHeader",   "TO MIGORI  •  STOP 1/13  (0%)",                 14.5f, FontStyles.Bold,   Palette.Hex("#14E8FF"), -8f);
+            journeyBarFill    = MakeBar(irt, sp, "JourneyBar", 12f, -31f, 340f, 8f, Palette.Hex("#14E8FF"));
+            lineJourneyAhead  = MakeLine(irt, "JourneyAhead",  "NEXT 420 m (0:26)  •  LEFT 3.25 km (3:18)",    14.0f, FontStyles.Bold,   Palette.UiTextPrimary,  -45f);
+            lineUpcomingStops = MakeLine(irt, "UpcomingStops", "AHEAD: MAI MAHIU → NAROK → BOMET",             12.0f, FontStyles.Normal, Palette.Hex("#93C5FD"), -68f);
+            linePaxCruise     = MakeLine(irt, "PaxCruise",     "PAX 18/44  |  CC OFF [X]  |  RET OFF [N]",     13.5f, FontStyles.Bold,   Palette.UiTextPrimary,  -94f);
+            lineComfortRest   = MakeLine(irt, "ComfortRest",   "COMFORT 96%   •   REST 100%",                  12.5f, FontStyles.Bold,   Palette.UiAccentGreen,  -118f);
+            comfortBarFill    = MakeBar(irt, sp, "ComfortBar", 12f, -139f, 162f, 6f, Palette.UiAccentGreen);
+            restBarFill       = MakeBar(irt, sp, "RestBar",   190f, -139f, 162f, 6f, Palette.Hex("#38BDF8"));
+            lineFuelRange     = MakeLine(irt, "FuelRange",     "DIESEL 88% (~313 KM)",                         13.5f, FontStyles.Bold,   Palette.UiAccentAmber,  -152f);
+            linePrompt        = MakeLine(irt, "Prompt",        "[F1] ADVISOR • [F2] GPS ZOOM • [O] DOOR • [M] MAP", 11.0f, FontStyles.Normal, Palette.UiTextMuted, -176f);
 
             advisorCard = border;
             advisorCard.SetActive(false);

@@ -225,7 +225,15 @@ namespace KenyaStreetSim
             }
             if (passengerValueText != null)
             {
-                passengerValueText.text = $"{loop.PassengersBoarded} {loop.ModeCounterNoun}";
+                var cabin = veh != null ? veh.GetComponent<KenyaBusPassengerCabin>() : null;
+                if (cabin != null && cabin.MaxSeatCapacity > 0 && loop.ActiveJobRole == KenyaStreetVehicle.VehicleJobRole.BusPassenger)
+                {
+                    passengerValueText.text = $"{cabin.CurrentOnboardCount}/{cabin.MaxSeatCapacity} ONBOARD";
+                }
+                else
+                {
+                    passengerValueText.text = $"{loop.PassengersBoarded} {loop.ModeCounterNoun}";
+                }
             }
             if (safetyText != null)
             {
@@ -237,17 +245,19 @@ namespace KenyaStreetSim
             var activeStage = loop.ActiveStage;
             if (activeStage != null && veh != null)
             {
-                float dist = Vector3.Distance(veh.transform.position, activeStage.transform.position);
-                string distStr = dist >= 950f ? $"{dist / 1000f:0.2} km" : $"{Mathf.RoundToInt(dist)}m";
+                var gps = KenyaGpsRouteGuide.Instance;
+                float dist = gps != null ? gps.DistanceToNextStop : Vector3.Distance(veh.transform.position, activeStage.transform.position);
+                string distStr = KenyaGpsRouteGuide.FormatDistance(dist);
+                string remSuffix = gps != null ? $"  •  LEFT: {KenyaGpsRouteGuide.FormatDistance(gps.TotalRemainingJourneyMeters)} ({KenyaGpsRouteGuide.FormatEta(gps.TotalJourneyEtaSeconds)})" : "";
                 string prefix = loop.ActiveJobRole switch
                 {
-                    KenyaStreetVehicle.VehicleJobRole.PolicePatrol => "PATROL DISPATCH",
-                    KenyaStreetVehicle.VehicleJobRole.CargoParcel => "FRR PARCEL DEPOT",
-                    _ => "NEXT STAGE"
+                    KenyaStreetVehicle.VehicleJobRole.PolicePatrol => "PATROL",
+                    KenyaStreetVehicle.VehicleJobRole.CargoParcel => "PARCEL",
+                    _ => "NEXT"
                 };
                 if (nextStageDistText != null)
                 {
-                    nextStageDistText.text = $"{prefix}: {activeStage.stageName.ToUpperInvariant()}  ({distStr})";
+                    nextStageDistText.text = $"{prefix}: {activeStage.stageName.ToUpperInvariant()} ({distStr}){remSuffix}";
                 }
 
                 bool showBoarding = activeStage.PlayerInside || activeStage.BoardingProgress > 0.01f;
